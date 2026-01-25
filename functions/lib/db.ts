@@ -10,6 +10,9 @@ export interface Env {
 }
 
 export function getDb(env: Env): D1Database {
+  if (!env.DB) {
+    throw new Error('Database binding "DB" is not configured. Please configure D1 database binding in Cloudflare Dashboard > Pages > Settings > Bindings.');
+  }
   return env.DB;
 }
 
