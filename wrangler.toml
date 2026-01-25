@@ -1,6 +1,10 @@
 name = "golf-trip-exchange"
 compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"
 
+# Note: D1 database bindings for Pages must be configured in the Cloudflare Dashboard
+# under Pages > Your Project > Settings > Functions > D1 Database Bindings
+# This configuration is kept here for local development reference
 [[d1_databases]]
 binding = "DB"
 database_name = "golf-trip-db"
