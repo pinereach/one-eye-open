@@ -1,0 +1,23 @@
+name = "golf-trip-exchange"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "golf-trip-db"
+database_id = "8857fa06-78d4-493c-b56e-2b9469a35461"
+
+[env.production]
+name = "golf-trip-exchange"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "golf-trip-db"
+database_id = "8857fa06-78d4-493c-b56e-2b9469a35461"
+
+[env.development]
+name = "golf-trip-exchange-dev"
+
+[[env.development.d1_databases]]
+binding = "DB"
+database_name = "golf-trip-db"
+database_id = "8857fa06-78d4-493c-b56e-2b9469a35461"
