@@ -1,6 +1,6 @@
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbQuery, type Env } from '../../lib/db.ts';
-import { requireAuth, errorResponse } from '../../middleware.ts';
+import { getDb, dbQuery, type Env } from '../lib/db';
+import { requireAuth, errorResponse } from '../middleware';
 
 function arrayToCSV(data: any[]): string {
   if (data.length === 0) return '';

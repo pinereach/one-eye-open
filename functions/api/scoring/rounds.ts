@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbQuery, dbFirst, dbRun, type Env } from '../../../lib/db.ts';
-import { requireAuth, jsonResponse, errorResponse } from '../../middleware.ts';
+import { getDb, dbQuery, dbFirst, dbRun, type Env } from '../../lib/db';
+import { requireAuth, jsonResponse, errorResponse } from '../../middleware';
 
 export const onRequestGet: OnRequest<Env> = async (context) => {
   const { request, env } = context;

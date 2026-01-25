@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbFirst, type Env } from '../../lib/db.ts';
-import { verifyPassword, createSession, setSessionCookie } from '../../lib/auth.ts';
-import { jsonResponse, errorResponse } from '../../middleware.ts';
+import { getDb, dbFirst, type Env } from '../../lib/db';
+import { verifyPassword, createSession, setSessionCookie } from '../../lib/auth';
+import { jsonResponse, errorResponse } from '../../middleware';
 
 const loginSchema = z.object({
   email: z.string().email(),

@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbFirst, type Env } from '../../../../../lib/db.ts';
-import { requireAdmin, jsonResponse, errorResponse } from '../../../../middleware.ts';
+import { getDb, dbFirst, type Env } from '../../../../../lib/db';
+import { requireAdmin, jsonResponse, errorResponse } from '../../../../../middleware';
 import {
   settleMarket,
   aggregateTripBalances,
   generateLedger,
   createLedgerEntries,
-} from '../../../../../lib/settlement.ts';
+} from '../../../../../lib/settlement';
 
 const settleSchema = z.object({
   settle_value: z.number().int().refine((v) => v === 0 || v === 10000, {

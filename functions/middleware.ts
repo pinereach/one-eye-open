@@ -1,5 +1,5 @@
-import { getSessionByToken, getCookieValue, type User } from './lib/auth.ts';
-import { getDb, type Env } from './lib/db.ts';
+import { getSessionByToken, getCookieValue, type User } from './lib/auth';
+import { getDb, type Env } from './lib/db';
 
 export interface AuthenticatedRequest extends Request {
   user?: User;
