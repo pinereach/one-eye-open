@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
 import type { LedgerEntry } from '../../types';
-import { format } from 'date-fns';
 
 interface LedgerViewProps {
   tripId?: string;

@@ -19,7 +19,7 @@ export function ScoreEntry({ round, onUpdate }: ScoreEntryProps) {
 
   async function loadCurrentScore() {
     try {
-      const { round: roundData, scores } = await api.getRounds({ roundId: round.id });
+      const { scores } = await api.getRounds({ roundId: round.id });
       if (scores && scores.length > 0) {
         const myScore = scores.find((s: RoundScore) => s.user_id === (window as any).__user?.id);
         if (myScore) {

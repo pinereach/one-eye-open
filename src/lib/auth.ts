@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { dbFirst, dbQuery, dbRun, type D1Database } from './db';
+import { dbFirst, dbRun, type D1Database } from './db';
 
 export interface User {
   id: string;

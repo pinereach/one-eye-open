@@ -70,7 +70,7 @@ export function canMatch(bidPrice: number, askPrice: number): boolean {
 }
 
 export async function matchOrder(
-  db: D1Database,
+  _db: D1Database,
   takerOrder: Order,
   oppositeOrders: Order[]
 ): Promise<Fill[]> {
@@ -276,7 +276,7 @@ export async function updatePosition(
 export async function calculateExposure(
   db: D1Database,
   userId: string,
-  maxExposureCents: number
+  _maxExposureCents: number
 ): Promise<{ currentExposure: number; worstCaseLoss: number }> {
   // Get all positions
   const positions = await dbQuery<Position>(

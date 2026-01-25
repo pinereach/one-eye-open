@@ -163,7 +163,7 @@ function TripDashboard() {
 function ScoringPage() {
   const { user } = useAuth();
   const [activeRound, setActiveRound] = useState<Round | null>(null);
-  const [rounds, setRounds] = useState<Round[]>([]);
+  const [, setRounds] = useState<Round[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

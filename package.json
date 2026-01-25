@@ -19,6 +19,7 @@
     "date-fns": "^2.30.0"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240125.0",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@types/bcryptjs": "^2.4.6",

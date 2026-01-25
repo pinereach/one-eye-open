@@ -54,7 +54,7 @@ export function Scoreboard({ tripId, roundId }: ScoreboardProps) {
 
   async function loadScores(roundId: string) {
     try {
-      const { round, scores } = await api.getRounds({ roundId });
+      const { scores } = await api.getRounds({ roundId });
       if (scores) {
         setScores(scores);
       }

@@ -1,5 +1,5 @@
 import type { D1Database } from '@cloudflare/workers-types';
-import { dbQuery, dbFirst, dbRun } from './db';
+import { dbQuery, dbRun } from './db';
 import type { Position } from './matching';
 
 export interface PnLResult {
