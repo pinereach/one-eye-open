@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "sync-lib": "cp src/lib/db.ts functions/lib/ && cp src/lib/auth.ts functions/lib/ && cp src/lib/matching.ts functions/lib/ && cp src/lib/settlement.ts functions/lib/",
+    "prebuild": "npm run sync-lib",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",

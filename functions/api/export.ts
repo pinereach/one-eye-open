@@ -1,5 +1,5 @@
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbQuery, type Env } from '../../src/lib/db';
+import { getDb, dbQuery, type Env } from '../../lib/db';
 import { requireAuth, errorResponse } from '../middleware';
 
 function arrayToCSV(data: any[]): string {

@@ -1,5 +1,5 @@
-import { getSessionByToken, getCookieValue, type User } from '../src/lib/auth';
-import { getDb, type Env } from '../src/lib/db';
+import { getSessionByToken, getCookieValue, type User } from '../lib/auth';
+import { getDb, type Env } from '../lib/db';
 
 export interface AuthenticatedRequest extends Request {
   user?: User;
