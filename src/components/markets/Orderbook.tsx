@@ -6,7 +6,7 @@ interface OrderbookProps {
 }
 
 export function Orderbook({ bids, asks }: OrderbookProps) {
-  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const formatPrice = (price: number) => `$${(price / 100).toFixed(2)}`;
 
   return (
     <div className="grid grid-cols-2 gap-4">
@@ -23,9 +23,9 @@ export function Orderbook({ bids, asks }: OrderbookProps) {
                 key={bid.id}
                 className="flex justify-between text-sm p-2 bg-green-50 dark:bg-green-900/20 rounded"
               >
-                <span className="font-medium">{formatPrice(bid.price_cents)}</span>
+                <span className="font-medium">{formatPrice(bid.price)}</span>
                 <span className="text-gray-600 dark:text-gray-400">
-                  {bid.qty_remaining} / {bid.qty_contracts}
+                  {bid.contract_size || 0}
                 </span>
               </div>
             ))
@@ -46,9 +46,9 @@ export function Orderbook({ bids, asks }: OrderbookProps) {
                 key={ask.id}
                 className="flex justify-between text-sm p-2 bg-red-50 dark:bg-red-900/20 rounded"
               >
-                <span className="font-medium">{formatPrice(ask.price_cents)}</span>
+                <span className="font-medium">{formatPrice(ask.price)}</span>
                 <span className="text-gray-600 dark:text-gray-400">
-                  {ask.qty_remaining} / {ask.qty_contracts}
+                  {ask.contract_size || 0}
                 </span>
               </div>
             ))

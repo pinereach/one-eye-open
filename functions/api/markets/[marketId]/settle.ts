@@ -1,13 +1,8 @@
 import { z } from 'zod';
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbFirst, type Env } from '../../../../../lib/db';
-import { requireAdmin, jsonResponse, errorResponse } from '../../../../../middleware';
-import {
-  settleMarket,
-  aggregateTripBalances,
-  generateLedger,
-  createLedgerEntries,
-} from '../../../../../lib/settlement';
+import { getDb, dbFirst, type Env } from '../../../lib/db';
+import { requireAdmin, jsonResponse, errorResponse } from '../../../middleware';
+import { settleMarket } from '../../../lib/settlement';
 
 const settleSchema = z.object({
   settle_value: z.number().int().refine((v) => v === 0 || v === 10000, {
@@ -17,10 +12,10 @@ const settleSchema = z.object({
 
 export const onRequestPost: OnRequest<Env> = async (context) => {
   const { request, env, params } = context;
-  const tripId = params.tripId as string;
   const marketId = params.marketId as string;
 
-  const authResult = await requireAdmin(request, env);
+  // Require authentication (admin check removed since users no longer have roles)
+  const authResult = await requireAuth(request, env);
   if ('error' in authResult) {
     return authResult.error;
   }
@@ -31,35 +26,24 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const body = await request.json();
     const validated = settleSchema.parse(body);
 
-    // Verify market exists and belongs to trip
+    // Verify market exists (markets no longer have status field)
     const market = await dbFirst(
       db,
-      'SELECT * FROM markets WHERE id = ? AND trip_id = ? AND status IN (?, ?)',
-      [marketId, tripId, 'open', 'closed']
+      'SELECT * FROM markets WHERE market_id = ?',
+      [marketId]
     );
 
     if (!market) {
-      return errorResponse('Market not found or already settled', 404);
+      return errorResponse('Market not found', 404);
     }
 
     // Settle the market
     const pnlResults = await settleMarket(db, marketId, validated.settle_value);
 
-    // Aggregate trip balances
-    const balances = await aggregateTripBalances(db, tripId);
-
-    // Generate ledger entries
-    const ledgerEntries = generateLedger(tripId, balances);
-
-    // Create ledger entries
-    await createLedgerEntries(db, ledgerEntries);
-
     return jsonResponse({
       marketId,
       settleValue: validated.settle_value,
       pnlResults,
-      balances: Object.fromEntries(balances),
-      ledgerEntries,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

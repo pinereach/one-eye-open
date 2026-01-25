@@ -9,9 +9,12 @@ import {
 } from '../../../lib/matching';
 
 const orderSchema = z.object({
+  outcome_id: z.string(),
   side: z.enum(['bid', 'ask']),
-  price_cents: z.number().int().min(0).max(10000),
-  qty_contracts: z.number().int().positive(),
+  price: z.number().int().min(0).max(10000),
+  contract_size: z.number().int().positive(),
+  tif: z.string().optional().default('GTC'), // Time in force, default to Good Till Cancel
+  token: z.string().optional(),
 });
 
 export const onRequestPost: OnRequest<Env> = async (context) => {
@@ -23,22 +26,34 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     return authResult.error;
   }
 
-  const userId = authResult.user.id;
+  const userId = authResult.user.id; // user.id is now a number
   const db = getDb(env);
 
   try {
     const body = await request.json();
     const validated = orderSchema.parse(body);
 
-    // Verify market exists and is open
+    // Verify market exists (markets no longer have status field)
     const market = await dbFirst(
       db,
-      'SELECT * FROM markets WHERE id = ? AND status = ?',
-      [marketId, 'open']
+      'SELECT * FROM markets WHERE market_id = ?',
+      [marketId]
     );
 
     if (!market) {
-      return errorResponse('Market not found or not open', 404);
+      return errorResponse('Market not found', 404);
+    }
+
+    // Verify outcome exists and belongs to market
+    // Note: outcomes no longer have status field, so we check market status instead
+    const outcome = await dbFirst(
+      db,
+      'SELECT * FROM outcomes WHERE outcome_id = ? AND market_id = ?',
+      [validated.outcome_id, marketId]
+    );
+
+    if (!outcome) {
+      return errorResponse('Outcome not found', 404);
     }
 
     // Check exposure limit
@@ -46,10 +61,11 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const exposure = await calculateExposure(db, userId, maxExposureCents);
 
     // Calculate potential new exposure
+    const sideNum = validated.side === 'bid' ? 0 : 1;
     const potentialExposure =
-      validated.side === 'bid'
-        ? validated.qty_contracts * validated.price_cents
-        : validated.qty_contracts * (10000 - validated.price_cents);
+      sideNum === 0 // bid
+        ? validated.contract_size * validated.price
+        : validated.contract_size * (10000 - validated.price);
 
     if (exposure.currentExposure + potentialExposure > maxExposureCents) {
       return errorResponse(
@@ -58,36 +74,44 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       );
     }
 
-    // Create order
-    const orderId = crypto.randomUUID();
-    const order: Order = {
-      id: orderId,
-      market_id: marketId,
-      user_id: userId,
-      side: validated.side,
-      price_cents: validated.price_cents,
-      qty_contracts: validated.qty_contracts,
-      qty_remaining: validated.qty_contracts,
-      status: 'open',
-      created_at: Math.floor(Date.now() / 1000),
-    };
+    // Generate token if not provided
+    const token = validated.token || crypto.randomUUID();
 
-    await dbRun(
+    // Create order
+    const result = await dbRun(
       db,
-      `INSERT INTO orders (id, market_id, user_id, side, price_cents, qty_contracts, qty_remaining, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO orders (create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        order.id,
-        order.market_id,
-        order.user_id,
-        order.side,
-        order.price_cents,
-        order.qty_contracts,
-        order.qty_remaining,
-        order.status,
-        order.created_at,
+        Math.floor(Date.now() / 1000),
+        userId, // user.id is now a number
+        token,
+        -1, // order_id default
+        validated.outcome_id,
+        validated.price,
+        'open',
+        validated.tif || 'GTC',
+        sideNum,
+        validated.contract_size,
       ]
     );
+
+    // Get the inserted order ID
+    const orderId = result.meta.last_row_id;
+    if (!orderId) {
+      return errorResponse('Failed to create order', 500);
+    }
+
+    // Get the created order
+    const order = await dbFirst<Order>(
+      db,
+      'SELECT * FROM orders WHERE id = ?',
+      [orderId]
+    );
+
+    if (!order) {
+      return errorResponse('Failed to retrieve created order', 500);
+    }
 
     // Execute matching
     const { fills, trades } = await executeMatching(db, order);

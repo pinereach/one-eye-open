@@ -6,21 +6,20 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   try {
     const { env } = context;
     
-    // Check if database is available
     if (!env.DB) {
       return errorResponse('Database not configured. Please check D1 binding in Cloudflare Dashboard.', 500);
     }
 
     const db = getDb(env);
 
-    const trips = await dbQuery(
+    const participants = await dbQuery(
       db,
-      'SELECT * FROM trips ORDER BY start_date DESC'
+      'SELECT * FROM participants ORDER BY name ASC'
     );
 
-    return jsonResponse({ trips });
+    return jsonResponse({ participants });
   } catch (error: any) {
-    console.error('Trips endpoint error:', error);
+    console.error('Participants endpoint error:', error);
     return errorResponse(
       `Database error: ${error?.message || 'Unknown error'}. Check Cloudflare Dashboard > Pages > Settings > Bindings for D1 configuration.`,
       500

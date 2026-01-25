@@ -1,9 +1,8 @@
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, type Env } from '../../lib/db';
-import { getCookieValue, deleteSession, clearSessionCookie } from '../../lib/auth';
+import { clearSessionCookie } from '../../lib/auth';
 import { requireAuth, jsonResponse } from '../../middleware';
 
-export const onRequestPost: OnRequest<Env> = async (context) => {
+export const onRequestPost: OnRequest<any> = async (context) => {
   const { request, env } = context;
 
   const authResult = await requireAuth(request, env);
@@ -11,14 +10,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     return authResult.error;
   }
 
-  const db = getDb(env);
-  const cookieHeader = request.headers.get('Cookie');
-  const token = getCookieValue(cookieHeader, 'session');
-
-  if (token) {
-    await deleteSession(db, token);
-  }
-
+  // Stateless auth - just clear the cookie
   const response = jsonResponse({ message: 'Logged out successfully' });
   response.headers.set('Set-Cookie', clearSessionCookie());
 

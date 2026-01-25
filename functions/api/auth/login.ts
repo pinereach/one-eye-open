@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import type { OnRequest } from '@cloudflare/pages';
 import { getDb, dbFirst, type Env } from '../../lib/db';
-import { verifyPassword, createSession, setSessionCookie } from '../../lib/auth';
+import { verifyPassword, createToken, setSessionCookie } from '../../lib/auth';
 import { jsonResponse, errorResponse } from '../../middleware';
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  username: z.string().min(1),
   password: z.string().min(1),
 });
 
@@ -18,36 +18,36 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
     const db = getDb(env);
 
-    // Find user by email
+    // Find user by username
     const user = await dbFirst<{
-      id: string;
-      email: string;
-      password_hash: string;
-      display_name: string;
-      role: string;
-      created_at: number;
+      id: number;
+      username: string;
+      password: string;
     }>(
       db,
-      'SELECT id, email, password_hash, display_name, role, created_at FROM users WHERE email = ?',
-      [validated.email]
+      'SELECT id, username, password FROM users WHERE username = ?',
+      [validated.username]
     );
 
     if (!user) {
-      return errorResponse('Invalid email or password', 401);
+      return errorResponse('Invalid username or password', 401);
     }
 
     // Verify password
-    const isValid = await verifyPassword(validated.password, user.password_hash);
+    const isValid = await verifyPassword(validated.password, user.password);
     if (!isValid) {
-      return errorResponse('Invalid email or password', 401);
+      return errorResponse('Invalid username or password', 401);
     }
 
-    // Create session
-    const token = crypto.randomUUID();
-    await createSession(db, user.id, token);
+    // Create token
+    const userForToken = {
+      id: user.id,
+      username: user.username,
+    };
+    const token = await createToken(userForToken, env);
 
     // Return user (without password)
-    const { password_hash, ...userWithoutPassword } = user;
+    const { password, ...userWithoutPassword } = user;
 
     const response = jsonResponse({ user: userWithoutPassword });
     response.headers.set('Set-Cookie', setSessionCookie(token));

@@ -9,45 +9,60 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
 
   const db = getDb(env);
 
-  // Get market
-  const market = await dbFirst(db, 'SELECT * FROM markets WHERE id = ?', [marketId]);
+  // Get market by market_id (text)
+  const market = await dbFirst(db, 'SELECT * FROM markets WHERE market_id = ?', [marketId]);
   if (!market) {
     return errorResponse('Market not found', 404);
   }
 
-  // Get orderbook (bids and asks)
-  const bids = await dbQuery<Order>(
+  // Get outcomes for this market
+  const outcomes = await dbQuery(
     db,
-    `SELECT * FROM orders 
-     WHERE market_id = ? AND side = 'bid' AND status IN ('open', 'partial')
-     ORDER BY price_cents DESC, created_at ASC`,
-    [marketId]
+    'SELECT * FROM outcomes WHERE market_id = ? ORDER BY created_date ASC',
+    [market.market_id]
   );
 
-  const asks = await dbQuery<Order>(
-    db,
-    `SELECT * FROM orders 
-     WHERE market_id = ? AND side = 'ask' AND status IN ('open', 'partial')
-     ORDER BY price_cents ASC, created_at ASC`,
-    [marketId]
-  );
+  // Get orderbook grouped by outcome (bids and asks per outcome)
+  const orderbookByOutcome: Record<string, { bids: Order[]; asks: Order[] }> = {};
+  
+  for (const outcome of outcomes) {
+    // Use outcome_id (text) to match orders
+    const bids = await dbQuery<Order>(
+      db,
+      `SELECT * FROM orders 
+       WHERE outcome = ? AND side = 0 AND status IN ('open', 'partial')
+       ORDER BY price DESC, create_time ASC`,
+      [outcome.outcome_id]
+    );
 
-  // Get recent trades
+    const asks = await dbQuery<Order>(
+      db,
+      `SELECT * FROM orders 
+       WHERE outcome = ? AND side = 1 AND status IN ('open', 'partial')
+       ORDER BY price ASC, create_time ASC`,
+      [outcome.outcome_id]
+    );
+
+    orderbookByOutcome[outcome.outcome_id] = { bids, asks };
+  }
+
+  // Note: Trades no longer have direct market/order references
+  // For now, return all recent trades. To filter by market, you would need to:
+  // 1. Add market_id back to trades, or
+  // 2. Create a trades_orders junction table, or
+  // 3. Store market_id in the trade token somehow
   const trades = await dbQuery(
     db,
     `SELECT * FROM trades 
-     WHERE market_id = ?
-     ORDER BY created_at DESC
+     ORDER BY create_time DESC
      LIMIT 50`,
-    [marketId]
+    []
   );
 
   return jsonResponse({
     market,
-    orderbook: {
-      bids,
-      asks,
-    },
+    outcomes,
+    orderbook: orderbookByOutcome,
     recentTrades: trades,
   });
 };

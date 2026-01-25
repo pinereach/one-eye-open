@@ -2,61 +2,64 @@ import type { D1Database } from '@cloudflare/workers-types';
 import { dbQuery, dbFirst, dbRun } from './db';
 
 export interface Order {
-  id: string;
-  market_id: string;
-  user_id: string;
-  side: 'bid' | 'ask';
-  price_cents: number;
-  qty_contracts: number;
-  qty_remaining: number;
+  id: number;
+  create_time: number;
+  user_id: number | null;
+  token: string;
+  order_id: number;
+  outcome: string;
+  price: number;
   status: 'open' | 'partial' | 'filled' | 'canceled';
-  created_at: number;
+  tif: string;
+  side: number; // 0 = bid, 1 = ask
+  contract_size: number | null;
 }
 
 export interface Trade {
-  id: string;
-  market_id: string;
-  taker_order_id: string;
-  maker_order_id: string;
-  price_cents: number;
-  qty_contracts: number;
-  created_at: number;
+  id: number;
+  token: string;
+  price: number;
+  contracts: number;
+  create_time: number;
+  risk_off_contracts: number;
+  risk_off_price_diff: number;
 }
 
 export interface Position {
-  id: string;
-  market_id: string;
-  user_id: string;
-  qty_long: number;
-  qty_short: number;
-  avg_price_long_cents: number | null;
-  avg_price_short_cents: number | null;
-  updated_at: number;
+  id: number;
+  user_id: string | null;
+  outcome: string;
+  create_time: number;
+  closed_profit: number;
+  settled_profit: number;
+  net_position: number;
+  price_basis: number;
+  is_settled: number; // 0 = false, 1 = true
 }
 
 export interface Fill {
-  price_cents: number;
-  qty_contracts: number;
+  price: number;
+  contracts: number;
   maker_order_id: string;
 }
 
 export async function getOppositeOrders(
   db: D1Database,
-  marketId: string,
-  side: 'bid' | 'ask',
-  excludeUserId?: string
+  outcome: string,
+  side: number, // 0 = bid, 1 = ask
+  excludeUserId?: number
 ): Promise<Order[]> {
-  const oppositeSide = side === 'bid' ? 'ask' : 'bid';
+  const oppositeSide = side === 0 ? 1 : 0; // 0 = bid, so opposite is 1 = ask
   let sql = `
     SELECT * FROM orders
-    WHERE market_id = ? AND side = ? AND status IN ('open', 'partial')
+    WHERE outcome = ? AND side = ? AND status IN ('open', 'partial')
     ORDER BY 
-      CASE WHEN side = 'bid' THEN price_cents END DESC,
-      CASE WHEN side = 'ask' THEN price_cents END ASC,
-      created_at ASC
+      CASE WHEN side = 0 THEN price END DESC,
+      CASE WHEN side = 1 THEN price END ASC,
+      create_time ASC
   `;
 
-  const params: any[] = [marketId, oppositeSide];
+  const params: any[] = [outcome, oppositeSide];
   if (excludeUserId) {
     sql += ' AND user_id != ?';
     params.push(excludeUserId);
@@ -75,29 +78,30 @@ export async function matchOrder(
   oppositeOrders: Order[]
 ): Promise<Fill[]> {
   const fills: Fill[] = [];
-  let remainingQty = takerOrder.qty_remaining;
+  let remainingQty = takerOrder.contract_size || 0;
 
   for (const makerOrder of oppositeOrders) {
     if (remainingQty <= 0) break;
 
     // Check if orders can match
     const canMatchOrders =
-      takerOrder.side === 'bid'
-        ? canMatch(takerOrder.price_cents, makerOrder.price_cents)
-        : canMatch(makerOrder.price_cents, takerOrder.price_cents);
+      takerOrder.side === 0 // bid
+        ? canMatch(takerOrder.price, makerOrder.price)
+        : canMatch(makerOrder.price, takerOrder.price);
 
     if (!canMatchOrders) {
       continue;
     }
 
     // Match at maker's price (price-time priority)
-    const matchPrice = makerOrder.price_cents;
-    const matchQty = Math.min(remainingQty, makerOrder.qty_remaining);
+    const matchPrice = makerOrder.price;
+    const makerRemaining = makerOrder.contract_size || 0;
+    const matchQty = Math.min(remainingQty, makerRemaining);
 
     fills.push({
-      price_cents: matchPrice,
-      qty_contracts: matchQty,
-      maker_order_id: makerOrder.id,
+      price: matchPrice,
+      contracts: matchQty,
+      maker_order_id: makerOrder.id.toString(),
     });
 
     remainingQty -= matchQty;
@@ -108,71 +112,80 @@ export async function matchOrder(
 
 export async function updateOrderStatus(
   db: D1Database,
-  orderId: string,
+  orderId: number,
   qtyFilled: number
 ): Promise<void> {
   const order = await dbFirst<Order>(db, 'SELECT * FROM orders WHERE id = ?', [orderId]);
   if (!order) return;
 
-  const newRemaining = order.qty_remaining - qtyFilled;
+  const currentSize = order.contract_size || 0;
+  const newSize = currentSize - qtyFilled;
   let newStatus: Order['status'];
 
-  if (newRemaining === 0) {
+  if (newSize <= 0) {
     newStatus = 'filled';
-  } else if (newRemaining < order.qty_remaining) {
+    await dbRun(
+      db,
+      'UPDATE orders SET contract_size = 0, status = ? WHERE id = ?',
+      [newStatus, orderId]
+    );
+  } else if (newSize < currentSize) {
     newStatus = 'partial';
-  } else {
-    newStatus = order.status;
+    await dbRun(
+      db,
+      'UPDATE orders SET contract_size = ?, status = ? WHERE id = ?',
+      [newSize, newStatus, orderId]
+    );
   }
-
-  await dbRun(
-    db,
-    'UPDATE orders SET qty_remaining = ?, status = ? WHERE id = ?',
-    [newRemaining, newStatus, orderId]
-  );
 }
 
 export async function createTrade(
   db: D1Database,
-  marketId: string,
-  takerOrderId: string,
-  makerOrderId: string,
-  priceCents: number,
-  qtyContracts: number
-): Promise<string> {
-  const tradeId = crypto.randomUUID();
-  await dbRun(
+  token: string,
+  price: number,
+  contracts: number
+): Promise<number> {
+  const result = await dbRun(
     db,
-    `INSERT INTO trades (id, market_id, taker_order_id, maker_order_id, price_cents, qty_contracts, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [tradeId, marketId, takerOrderId, makerOrderId, priceCents, qtyContracts, Math.floor(Date.now() / 1000)]
+    `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [token, price, contracts, Math.floor(Date.now() / 1000), 0, 0]
   );
-  return tradeId;
+  
+  if (!result.meta.last_row_id) {
+    throw new Error('Failed to create trade');
+  }
+  
+  return result.meta.last_row_id;
 }
 
 export async function getOrCreatePosition(
   db: D1Database,
-  marketId: string,
+  outcome: string,
   userId: string
 ): Promise<Position> {
   let position = await dbFirst<Position>(
     db,
-    'SELECT * FROM positions WHERE market_id = ? AND user_id = ?',
-    [marketId, userId]
+    'SELECT * FROM positions WHERE outcome = ? AND user_id = ?',
+    [outcome, userId]
   );
 
   if (!position) {
-    const positionId = crypto.randomUUID();
-    await dbRun(
+    const result = await dbRun(
       db,
-      `INSERT INTO positions (id, market_id, user_id, qty_long, qty_short, avg_price_long_cents, avg_price_short_cents, updated_at)
-       VALUES (?, ?, ?, 0, 0, NULL, NULL, ?)`,
-      [positionId, marketId, userId, Math.floor(Date.now() / 1000)]
+      `INSERT INTO positions (user_id, outcome, create_time, closed_profit, settled_profit, net_position, price_basis, is_settled)
+       VALUES (?, ?, ?, 0, 0, 0, 0, 0)`,
+      [userId, outcome, Math.floor(Date.now() / 1000)]
     );
+    
+    if (!result.meta.last_row_id) {
+      throw new Error('Failed to create position');
+    }
+    
     position = await dbFirst<Position>(
       db,
-      'SELECT * FROM positions WHERE market_id = ? AND user_id = ?',
-      [marketId, userId]
+      'SELECT * FROM positions WHERE id = ?',
+      [result.meta.last_row_id]
     )!;
   }
 
@@ -181,93 +194,84 @@ export async function getOrCreatePosition(
 
 export async function updatePosition(
   db: D1Database,
-  marketId: string,
-  userId: string,
-  side: 'bid' | 'ask',
-  priceCents: number,
-  qtyContracts: number
+  outcome: string,
+  userId: number,
+  side: number, // 0 = bid, 1 = ask
+  price: number,
+  contracts: number
 ): Promise<void> {
-  const position = await getOrCreatePosition(db, marketId, userId);
+  const position = await getOrCreatePosition(db, outcome, userId);
 
-  let newQtyLong = position.qty_long;
-  let newQtyShort = position.qty_short;
-  let newAvgPriceLong = position.avg_price_long_cents;
-  let newAvgPriceShort = position.avg_price_short_cents;
+  // Calculate new net position
+  // bid (side=0) increases net_position (going long), ask (side=1) decreases it (going short)
+  const positionDelta = side === 0 ? contracts : -contracts;
+  const newNetPosition = position.net_position + positionDelta;
 
-  if (side === 'bid') {
-    // Buying - increase long position or decrease short position
-    if (position.qty_short > 0) {
-      // Close short position first
-      const closeQty = Math.min(qtyContracts, position.qty_short);
-      newQtyShort = position.qty_short - closeQty;
-      const remainingQty = qtyContracts - closeQty;
+  let newClosedProfit = position.closed_profit;
+  let newPriceBasis = position.price_basis;
 
-      if (remainingQty > 0) {
-        // Open new long position
-        newQtyLong = position.qty_long + remainingQty;
-        if (newAvgPriceLong === null) {
-          newAvgPriceLong = priceCents;
-        } else {
-          // Weighted average
-          const totalValue = newAvgPriceLong * position.qty_long + priceCents * remainingQty;
-          newAvgPriceLong = Math.round(totalValue / newQtyLong);
-        }
-      }
+  // Handle position updates
+  if (position.net_position === 0) {
+    // Opening new position
+    newPriceBasis = price;
+  } else if (position.net_position > 0 && side === 0) {
+    // Adding to long position - weighted average
+    const totalValue = position.price_basis * position.net_position + price * contracts;
+    newPriceBasis = Math.round(totalValue / newNetPosition);
+  } else if (position.net_position < 0 && side === 1) {
+    // Adding to short position - weighted average
+    const totalValue = position.price_basis * Math.abs(position.net_position) + price * contracts;
+    newPriceBasis = Math.round(totalValue / Math.abs(newNetPosition));
+  } else if (position.net_position > 0 && side === 1) {
+    // Closing/reducing long position (selling)
+    const closingQty = Math.min(position.net_position, contracts);
+    const remainingQty = contracts - closingQty;
+    
+    // Calculate profit from closing
+    const profitPerContract = price - position.price_basis;
+    newClosedProfit += profitPerContract * closingQty;
+    
+    if (remainingQty > 0) {
+      // Going short after closing long
+      newPriceBasis = price;
+    } else if (newNetPosition > 0) {
+      // Partially closed, keep same basis
+      newPriceBasis = position.price_basis;
     } else {
-      // Open new long position
-      newQtyLong = position.qty_long + qtyContracts;
-      if (newAvgPriceLong === null) {
-        newAvgPriceLong = priceCents;
-      } else {
-        // Weighted average
-        const totalValue = newAvgPriceLong * position.qty_long + priceCents * qtyContracts;
-        newAvgPriceLong = Math.round(totalValue / newQtyLong);
-      }
+      // Fully closed
+      newPriceBasis = 0;
     }
-  } else {
-    // Selling - increase short position or decrease long position
-    if (position.qty_long > 0) {
-      // Close long position first
-      const closeQty = Math.min(qtyContracts, position.qty_long);
-      newQtyLong = position.qty_long - closeQty;
-      const remainingQty = qtyContracts - closeQty;
-
-      if (remainingQty > 0) {
-        // Open new short position
-        newQtyShort = position.qty_short + remainingQty;
-        if (newAvgPriceShort === null) {
-          newAvgPriceShort = priceCents;
-        } else {
-          // Weighted average
-          const totalValue = newAvgPriceShort * position.qty_short + priceCents * remainingQty;
-          newAvgPriceShort = Math.round(totalValue / newQtyShort);
-        }
-      }
+  } else if (position.net_position < 0 && side === 0) {
+    // Closing/reducing short position (buying)
+    const closingQty = Math.min(Math.abs(position.net_position), contracts);
+    const remainingQty = contracts - closingQty;
+    
+    // Calculate profit from closing (short profit = entry price - exit price)
+    const profitPerContract = position.price_basis - price;
+    newClosedProfit += profitPerContract * closingQty;
+    
+    if (remainingQty > 0) {
+      // Going long after closing short
+      newPriceBasis = price;
+    } else if (newNetPosition < 0) {
+      // Partially closed, keep same basis
+      newPriceBasis = position.price_basis;
     } else {
-      // Open new short position
-      newQtyShort = position.qty_short + qtyContracts;
-      if (newAvgPriceShort === null) {
-        newAvgPriceShort = priceCents;
-      } else {
-        // Weighted average
-        const totalValue = newAvgPriceShort * position.qty_short + priceCents * qtyContracts;
-        newAvgPriceShort = Math.round(totalValue / newQtyShort);
-      }
+      // Fully closed
+      newPriceBasis = 0;
     }
   }
 
   await dbRun(
     db,
     `UPDATE positions 
-     SET qty_long = ?, qty_short = ?, avg_price_long_cents = ?, avg_price_short_cents = ?, updated_at = ?
-     WHERE market_id = ? AND user_id = ?`,
+     SET net_position = ?, closed_profit = ?, price_basis = ?
+     WHERE outcome = ? AND user_id = ?`,
     [
-      newQtyLong,
-      newQtyShort,
-      newAvgPriceLong,
-      newAvgPriceShort,
-      Math.floor(Date.now() / 1000),
-      marketId,
+      newNetPosition,
+      newClosedProfit,
+      newPriceBasis,
+      outcome,
       userId,
     ]
   );
@@ -275,13 +279,13 @@ export async function updatePosition(
 
 export async function calculateExposure(
   db: D1Database,
-  userId: string,
+  userId: number,
   _maxExposureCents: number
 ): Promise<{ currentExposure: number; worstCaseLoss: number }> {
   // Get all positions
   const positions = await dbQuery<Position>(
     db,
-    'SELECT * FROM positions WHERE user_id = ?',
+    'SELECT * FROM positions WHERE user_id = ? AND is_settled = 0',
     [userId]
   );
 
@@ -296,24 +300,24 @@ export async function calculateExposure(
 
   // Calculate worst-case loss from positions
   for (const position of positions) {
-    // Long position: lose if market settles at 0
-    if (position.qty_long > 0 && position.avg_price_long_cents !== null) {
-      worstCaseLoss += position.qty_long * position.avg_price_long_cents;
-    }
-    // Short position: lose if market settles at 10000
-    if (position.qty_short > 0 && position.avg_price_short_cents !== null) {
-      worstCaseLoss += position.qty_short * (10000 - position.avg_price_short_cents);
+    if (position.net_position > 0) {
+      // Long position: lose if market settles at 0
+      worstCaseLoss += position.net_position * position.price_basis;
+    } else if (position.net_position < 0) {
+      // Short position: lose if market settles at 10000
+      worstCaseLoss += Math.abs(position.net_position) * (10000 - position.price_basis);
     }
   }
 
   // Calculate worst-case loss from open orders
   for (const order of openOrders) {
-    if (order.side === 'bid') {
+    const contractSize = order.contract_size || 0;
+    if (order.side === 0) { // bid
       // If filled, worst case is market settles at 0
-      worstCaseLoss += order.qty_remaining * order.price_cents;
-    } else {
+      worstCaseLoss += contractSize * order.price;
+    } else { // ask
       // If filled, worst case is market settles at 10000
-      worstCaseLoss += order.qty_remaining * (10000 - order.price_cents);
+      worstCaseLoss += contractSize * (10000 - order.price);
     }
   }
 
@@ -330,8 +334,12 @@ export async function executeMatching(
   const fills: Fill[] = [];
   const trades: Trade[] = [];
 
+  if (!takerOrder.outcome) {
+    throw new Error('Order must have an outcome');
+  }
+
   // Get opposite side orders sorted by price-time priority
-  const oppositeOrders = await getOppositeOrders(db, takerOrder.market_id, takerOrder.side, takerOrder.user_id);
+  const oppositeOrders = await getOppositeOrders(db, takerOrder.outcome, takerOrder.side, takerOrder.user_id || undefined);
 
   // Match the order
   const matchedFills = await matchOrder(db, takerOrder, oppositeOrders);
@@ -340,40 +348,43 @@ export async function executeMatching(
   // Note: D1 doesn't support explicit transactions, so we'll do it sequentially
   for (const fill of matchedFills) {
     // Update maker order
-    await updateOrderStatus(db, fill.maker_order_id, fill.qty_contracts);
+    await updateOrderStatus(db, parseInt(fill.maker_order_id), fill.contracts);
+
+    // Generate unique token for this trade
+    const tradeToken = crypto.randomUUID();
 
     // Create trade
     const tradeId = await createTrade(
       db,
-      takerOrder.market_id,
-      takerOrder.id,
-      fill.maker_order_id,
-      fill.price_cents,
-      fill.qty_contracts
+      tradeToken,
+      fill.price,
+      fill.contracts
     );
 
     // Update positions for both users
     const makerOrder = await dbFirst<Order>(db, 'SELECT * FROM orders WHERE id = ?', [fill.maker_order_id]);
-    if (makerOrder) {
+    if (makerOrder && takerOrder.user_id) {
       // Taker position
       await updatePosition(
         db,
-        takerOrder.market_id,
+        takerOrder.outcome,
         takerOrder.user_id,
         takerOrder.side,
-        fill.price_cents,
-        fill.qty_contracts
+        fill.price,
+        fill.contracts
       );
 
       // Maker position (opposite side)
-      await updatePosition(
-        db,
-        makerOrder.market_id,
-        makerOrder.user_id,
-        makerOrder.side,
-        fill.price_cents,
-        fill.qty_contracts
-      );
+      if (makerOrder.user_id) {
+        await updatePosition(
+          db,
+          makerOrder.outcome,
+          makerOrder.user_id,
+          makerOrder.side,
+          fill.price,
+          fill.contracts
+        );
+      }
     }
 
     const trade = await dbFirst<Trade>(db, 'SELECT * FROM trades WHERE id = ?', [tradeId]);
@@ -385,7 +396,7 @@ export async function executeMatching(
   }
 
   // Update taker order status
-  const totalFilled = fills.reduce((sum, f) => sum + f.qty_contracts, 0);
+  const totalFilled = fills.reduce((sum, f) => sum + f.contracts, 0);
   if (totalFilled > 0) {
     await updateOrderStatus(db, takerOrder.id, totalFilled);
   }

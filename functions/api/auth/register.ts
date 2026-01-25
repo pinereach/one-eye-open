@@ -1,13 +1,12 @@
 import { z } from 'zod';
 import type { OnRequest } from '@cloudflare/pages';
 import { getDb, dbFirst, dbRun, type Env } from '../../lib/db';
-import { hashPassword, createSession, setSessionCookie } from '../../lib/auth';
+import { hashPassword, createToken, setSessionCookie } from '../../lib/auth';
 import { jsonResponse, errorResponse } from '../../middleware';
 
 const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  displayName: z.string().min(1).max(100),
+  username: z.string().min(1).max(100),
+  password: z.string().min(1),
 });
 
 export const onRequestPost: OnRequest<Env> = async (context) => {
@@ -19,39 +18,45 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
     const db = getDb(env);
 
-    // Check if email already exists
+    // Check if username already exists
     const existing = await dbFirst(
       db,
-      'SELECT id FROM users WHERE email = ?',
-      [validated.email]
+      'SELECT id FROM users WHERE username = ?',
+      [validated.username]
     );
 
     if (existing) {
-      return errorResponse('Email already registered', 409);
+      return errorResponse('Username already taken', 409);
     }
 
-    // Hash password
+    // Hash password (plain text for unserious projects)
     const passwordHash = await hashPassword(validated.password);
 
     // Create user
-    const userId = crypto.randomUUID();
-    await dbRun(
+    const result = await dbRun(
       db,
-      `INSERT INTO users (id, email, password_hash, display_name, role, created_at)
-       VALUES (?, ?, ?, ?, 'user', ?)`,
-      [userId, validated.email, passwordHash, validated.displayName, Math.floor(Date.now() / 1000)]
+      `INSERT INTO users (username, password)
+       VALUES (?, ?)`,
+      [validated.username, passwordHash]
     );
 
-    // Create session
-    const token = crypto.randomUUID();
-    await createSession(db, userId, token);
+    if (!result.meta.last_row_id) {
+      return errorResponse('Failed to create user', 500);
+    }
 
-    // Return user (without password)
-    const user = await dbFirst(
+    // Get created user
+    const user = await dbFirst<{ id: number; username: string }>(
       db,
-      'SELECT id, email, display_name, role, created_at FROM users WHERE id = ?',
-      [userId]
+      'SELECT id, username FROM users WHERE id = ?',
+      [result.meta.last_row_id]
     );
+
+    if (!user) {
+      return errorResponse('Failed to retrieve created user', 500);
+    }
+
+    // Create token
+    const token = await createToken(user, env);
 
     const response = jsonResponse({ user }, 201);
     response.headers.set('Set-Cookie', setSessionCookie(token));

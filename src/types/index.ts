@@ -1,91 +1,70 @@
 export interface User {
+  id: number;
+  username: string;
+}
+
+export interface Participant {
   id: string;
-  email: string;
-  display_name: string;
-  role: 'user' | 'admin';
+  name: string;
   created_at: number;
 }
 
-export interface Trip {
-  id: string;
+export interface Outcome {
+  id: number;
+  outcome_id: string;
   name: string;
-  start_date: number;
-  created_at: number;
-}
-
-export interface Round {
-  id: string;
-  trip_id: string;
-  round_no: number;
-  name: string;
-  date: number;
-  is_active: number;
-}
-
-export interface RoundScore {
-  id: string;
-  round_id: string;
-  user_id: string;
-  cross_score: number | null;
-  net_score: number | null;
-  updated_at: number;
-  display_name?: string;
-  email?: string;
+  ticker: string;
+  market_id: string;
+  strike: string;
+  settled_price: number | null;
+  created_date: number;
 }
 
 export interface Market {
-  id: string;
-  trip_id: string;
-  type: string;
-  round_id: string | null;
-  subject_user_id: string | null;
-  title: string;
-  description: string | null;
-  status: 'open' | 'closed' | 'settled' | 'void';
-  settle_value: number | null;
-  created_at: number;
+  id: number;
+  market_id: string;
+  short_name: string;
+  symbol: string;
+  max_winners: number;
+  min_winners: number;
+  created_date: number;
+  outcomes?: Outcome[];
 }
 
 export interface Order {
-  id: string;
-  market_id: string;
-  user_id: string;
-  side: 'bid' | 'ask';
-  price_cents: number;
-  qty_contracts: number;
-  qty_remaining: number;
+  id: number;
+  create_time: number;
+  user_id: number | null;
+  token: string;
+  order_id: number;
+  outcome: string;
+  price: number;
   status: 'open' | 'partial' | 'filled' | 'canceled';
-  created_at: number;
+  tif: string;
+  side: number; // 0 = bid, 1 = ask
+  contract_size: number | null;
 }
 
 export interface Trade {
-  id: string;
-  market_id: string;
-  taker_order_id: string;
-  maker_order_id: string;
-  price_cents: number;
-  qty_contracts: number;
-  created_at: number;
+  id: number;
+  token: string;
+  price: number;
+  contracts: number;
+  create_time: number;
+  risk_off_contracts: number;
+  risk_off_price_diff: number;
 }
 
 export interface Position {
-  id: string;
-  market_id: string;
-  user_id: string;
-  qty_long: number;
-  qty_short: number;
-  avg_price_long_cents: number | null;
-  avg_price_short_cents: number | null;
-  updated_at: number;
+  id: number;
+  user_id: number | null;
+  outcome: string;
+  create_time: number;
+  closed_profit: number;
+  settled_profit: number;
+  net_position: number;
+  price_basis: number;
+  is_settled: number; // 0 = false, 1 = true
 }
 
-export interface LedgerEntry {
-  id: string;
-  trip_id: string;
-  user_id: string;
-  counterparty_user_id: string;
-  amount_cents: number;
-  reason: string;
-  user_name?: string;
-  counterparty_name?: string;
-}
+// LedgerEntry removed - ledger functionality removed

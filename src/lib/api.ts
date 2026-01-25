@@ -23,13 +23,13 @@ async function apiRequest<T>(
 
 export const api = {
   // Auth
-  register: (data: { email: string; password: string; displayName: string }) =>
+  register: (data: { username: string; password: string }) =>
     apiRequest<{ user: any }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
-  login: (data: { email: string; password: string }) =>
+  login: (data: { username: string; password: string }) =>
     apiRequest<{ user: any }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -42,23 +42,18 @@ export const api = {
 
   me: () => apiRequest<{ user: any }>('/auth/me'),
 
-  // Trips
-  getTrips: () => apiRequest<{ trips: any[] }>('/trips'),
-  getTrip: (id: string) => apiRequest<{ trip: any; members: any[]; rounds: any[]; markets: any[] }>(`/trips/${id}`),
+  // Participants
+  getParticipants: () => apiRequest<{ participants: any[] }>('/participants'),
 
   // Markets
-  getMarkets: (params?: { tripId?: string; status?: string }) => {
-    const searchParams = new URLSearchParams();
-    if (params?.tripId) searchParams.set('tripId', params.tripId);
-    if (params?.status) searchParams.set('status', params.status);
-    const query = searchParams.toString();
-    return apiRequest<{ markets: any[] }>(`/markets${query ? `?${query}` : ''}`);
+  getMarkets: () => {
+    return apiRequest<{ markets: any[] }>('/markets');
   },
 
   getMarket: (id: string) =>
-    apiRequest<{ market: any; orderbook: { bids: any[]; asks: any[] }; recentTrades: any[] }>(`/markets/${id}`),
+    apiRequest<{ market: any; outcomes: any[]; orderbook: Record<string, { bids: any[]; asks: any[] }>; recentTrades: any[] }>(`/markets/${id}`),
 
-  placeOrder: (marketId: string, data: { side: 'bid' | 'ask'; price_cents: number; qty_contracts: number }) =>
+  placeOrder: (marketId: string, data: { outcome_id: string; side: 'bid' | 'ask'; price: number; contract_size: number; tif?: string; token?: string }) =>
     apiRequest<{ order: any; fills: any[]; trades: any[] }>(`/markets/${marketId}/orders`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -72,40 +67,8 @@ export const api = {
   getPositions: (marketId: string) =>
     apiRequest<{ positions: any[] }>(`/markets/${marketId}/positions`),
 
-  // Scoring
-  getRounds: (params?: { tripId?: string; roundId?: string }) => {
-    const searchParams = new URLSearchParams();
-    if (params?.tripId) searchParams.set('tripId', params.tripId);
-    if (params?.roundId) searchParams.set('roundId', params.roundId);
-    const query = searchParams.toString();
-    return apiRequest<{ rounds?: any[]; round?: any; scores?: any[] }>(`/scoring/rounds${query ? `?${query}` : ''}`);
-  },
-
-  updateScore: (roundId: string, data: { cross_score: number | null; net_score: number | null }) =>
-    apiRequest<{ score: any }>(`/scoring/rounds?roundId=${roundId}`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-
-  // Ledger
-  getLedger: (tripId?: string) => {
-    const query = tripId ? `?tripId=${tripId}` : '';
-    return apiRequest<{ entries: any[] }>(`/ledger${query}`);
-  },
-
   // Export
-  exportScores: (tripId?: string) => {
-    const query = tripId ? `?type=scores&tripId=${tripId}` : '?type=scores';
-    return fetch(`${API_BASE}/export${query}`, { credentials: 'include' });
-  },
-
-  exportTrades: (tripId?: string) => {
-    const query = tripId ? `?type=trades&tripId=${tripId}` : '?type=trades';
-    return fetch(`${API_BASE}/export${query}`, { credentials: 'include' });
-  },
-
-  exportLedger: (tripId?: string) => {
-    const query = tripId ? `?type=ledger&tripId=${tripId}` : '?type=ledger';
-    return fetch(`${API_BASE}/export${query}`, { credentials: 'include' });
+  exportTrades: () => {
+    return fetch(`${API_BASE}/export?type=trades`, { credentials: 'include' });
   },
 };

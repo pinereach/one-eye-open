@@ -21,14 +21,14 @@ export function useAuth() {
     }
   }
 
-  async function login(email: string, password: string) {
-    const { user } = await api.login({ email, password });
+  async function login(username: string, password: string) {
+    const { user } = await api.login({ username, password });
     setUser(user);
     return user;
   }
 
-  async function register(email: string, password: string, displayName: string) {
-    const { user } = await api.register({ email, password, displayName });
+  async function register(username: string, password: string) {
+    const { user } = await api.register({ username, password });
     setUser(user);
     return user;
   }

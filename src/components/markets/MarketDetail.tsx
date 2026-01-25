@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { Orderbook } from './Orderbook';
-import type { Market, Order, Trade, Position } from '../../types';
+import type { Market, Order, Trade, Position, Outcome } from '../../types';
 import { format } from 'date-fns';
 
 export function MarketDetail() {
   const { id } = useParams<{ id: string }>();
   const [market, setMarket] = useState<Market | null>(null);
-  const [bids, setBids] = useState<Order[]>([]);
-  const [asks, setAsks] = useState<Order[]>([]);
+  const [outcomes, setOutcomes] = useState<Outcome[]>([]);
+  const [selectedOutcomeId, setSelectedOutcomeId] = useState<string>('');
+  const [orderbookByOutcome, setOrderbookByOutcome] = useState<Record<string, { bids: Order[]; asks: Order[] }>>({});
   const [trades, setTrades] = useState<Trade[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,8 +33,12 @@ export function MarketDetail() {
     try {
       const data = await api.getMarket(id);
       setMarket(data.market);
-      setBids(data.orderbook.bids);
-      setAsks(data.orderbook.asks);
+      setOutcomes(data.outcomes || []);
+      setOrderbookByOutcome(data.orderbook || {});
+      // Set first outcome as selected by default
+      if (data.outcomes && data.outcomes.length > 0 && !selectedOutcomeId) {
+        setSelectedOutcomeId(data.outcomes[0].outcome_id);
+      }
     } catch (err) {
       console.error('Failed to load market:', err);
     } finally {
@@ -63,14 +68,19 @@ export function MarketDetail() {
 
   async function handlePlaceOrder(e: React.FormEvent) {
     e.preventDefault();
-    if (!id) return;
+    if (!id || !selectedOutcomeId) {
+      alert('Please select an outcome');
+      return;
+    }
 
     setSubmitting(true);
     try {
       await api.placeOrder(id, {
+        outcome_id: selectedOutcomeId,
         side: orderSide,
-        price_cents: Math.round(parseFloat(orderPrice) * 100),
-        qty_contracts: parseInt(orderQty, 10),
+        price: Math.round(parseFloat(orderPrice) * 100),
+        contract_size: parseInt(orderQty, 10),
+        tif: 'GTC',
       });
       setOrderPrice('');
       setOrderQty('');
@@ -97,25 +107,80 @@ export function MarketDetail() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">{market.title}</h1>
-        {market.description && (
-          <p className="text-gray-600 dark:text-gray-400 mt-2">{market.description}</p>
-        )}
+        <h1 className="text-2xl font-bold">{market.short_name}</h1>
         <div className="mt-2 text-sm text-gray-500 dark:text-gray-500">
-          Status: <span className="font-medium">{market.status}</span> • Type:{' '}
-          {market.type.replace(/_/g, ' ')}
+          <div>Symbol: <span className="font-medium">{market.symbol}</span></div>
+          <div>Market ID: <span className="font-medium">{market.market_id}</span></div>
+          <div>Winners: <span className="font-medium">{market.min_winners} - {market.max_winners}</span></div>
         </div>
       </div>
+
+      {outcomes.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Outcomes</h2>
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            {outcomes.map((outcome) => (
+              <div
+                key={outcome.id}
+                className={`p-4 border rounded-lg cursor-pointer ${
+                  selectedOutcomeId === outcome.outcome_id
+                    ? 'border-primary-600 bg-primary-50 dark:bg-primary-900'
+                    : 'border-gray-300 dark:border-gray-600'
+                }`}
+                onClick={() => setSelectedOutcomeId(outcome.outcome_id)}
+              >
+                <h3 className="font-semibold">{outcome.name}</h3>
+                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  <div>Ticker: {outcome.ticker}</div>
+                  <div>Strike: {outcome.strike}</div>
+                </div>
+                {outcome.settled_price !== null && (
+                  <div className="text-sm mt-2">
+                    Settled: <span className="font-medium">{formatPrice(outcome.settled_price)}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6">
         <div>
           <h2 className="text-xl font-semibold mb-4">Orderbook</h2>
-          <Orderbook bids={bids} asks={asks} />
+          {selectedOutcomeId && orderbookByOutcome[selectedOutcomeId] ? (
+            <Orderbook
+              bids={orderbookByOutcome[selectedOutcomeId].bids}
+              asks={orderbookByOutcome[selectedOutcomeId].asks}
+            />
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
+              Select an outcome to view orderbook
+            </div>
+          )}
         </div>
 
         <div>
           <h2 className="text-xl font-semibold mb-4">Place Order</h2>
           <form onSubmit={handlePlaceOrder} className="space-y-4">
+            {outcomes.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium mb-1">Outcome</label>
+                <select
+                  value={selectedOutcomeId}
+                  onChange={(e) => setSelectedOutcomeId(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+                >
+                  <option value="">Select an outcome</option>
+                  {outcomes.map((outcome) => (
+                    <option key={outcome.id} value={outcome.outcome_id}>
+                      {outcome.name} ({outcome.ticker})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium mb-1">Side</label>
               <div className="flex gap-2">
@@ -172,7 +237,7 @@ export function MarketDetail() {
 
             <button
               type="submit"
-              disabled={submitting || market.status !== 'open'}
+              disabled={submitting}
               className="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-md disabled:opacity-50"
             >
               {submitting ? 'Placing...' : 'Place Order'}
@@ -191,19 +256,17 @@ export function MarketDetail() {
                 className="p-4 border border-gray-300 dark:border-gray-600 rounded-lg"
               >
                 <div className="flex justify-between">
-                  <span>Long: {pos.qty_long}</span>
-                  <span>Short: {pos.qty_short}</span>
+                  <span>Outcome: {pos.outcome}</span>
+                  <span>Net Position: {pos.net_position}</span>
                 </div>
-                {pos.avg_price_long_cents && (
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Avg Long: {formatPrice(pos.avg_price_long_cents)}
-                  </div>
-                )}
-                {pos.avg_price_short_cents && (
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Avg Short: {formatPrice(pos.avg_price_short_cents)}
-                  </div>
-                )}
+                <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                  <div>Price Basis: {formatPrice(pos.price_basis)}</div>
+                  <div>Closed Profit: {formatPrice(pos.closed_profit)}</div>
+                  {pos.is_settled === 1 && (
+                    <div>Settled Profit: {formatPrice(pos.settled_profit)}</div>
+                  )}
+                  <div>Status: {pos.is_settled === 1 ? 'Settled' : 'Open'}</div>
+                </div>
               </div>
             ))}
           </div>
@@ -223,10 +286,10 @@ export function MarketDetail() {
                 key={trade.id}
                 className="flex justify-between p-2 border border-gray-300 dark:border-gray-600 rounded text-sm"
               >
-                <span>{formatPrice(trade.price_cents)}</span>
-                <span>{trade.qty_contracts} contracts</span>
+                <span>{formatPrice(trade.price)}</span>
+                <span>{trade.contracts} contracts</span>
                 <span className="text-gray-500 dark:text-gray-400">
-                  {format(new Date(trade.created_at * 1000), 'HH:mm:ss')}
+                  {format(new Date(trade.create_time * 1000), 'HH:mm:ss')}
                 </span>
               </div>
             ))

@@ -1,80 +1,100 @@
--- Seed 12 users
--- Note: Passwords are stored as plain text (no security - for unserious projects only!)
+-- Seed 12 users (using new simplified schema)
+-- Note: After running migration 0010, users table will have new schema
+-- These seed users use: username, password (plain text - no security for unserious projects!)
 -- All users have password: "password123"
--- For demo purposes, you can register new users through the UI.
-INSERT INTO users (id, email, password_hash, display_name, role) VALUES
-  ('user-1', 'alice@example.com', 'password123', 'Alice Johnson', 'user'),
-  ('user-2', 'bob@example.com', 'password123', 'Bob Smith', 'user'),
-  ('user-3', 'charlie@example.com', 'password123', 'Charlie Brown', 'user'),
-  ('user-4', 'diana@example.com', 'password123', 'Diana Prince', 'user'),
-  ('user-5', 'edward@example.com', 'password123', 'Edward Norton', 'user'),
-  ('user-6', 'fiona@example.com', 'password123', 'Fiona Apple', 'user'),
-  ('user-7', 'george@example.com', 'password123', 'George Washington', 'user'),
-  ('user-8', 'helen@example.com', 'password123', 'Helen Keller', 'user'),
-  ('user-9', 'ivan@example.com', 'password123', 'Ivan Petrov', 'user'),
-  ('user-10', 'jane@example.com', 'password123', 'Jane Doe', 'user'),
-  ('user-11', 'kevin@example.com', 'password123', 'Kevin Hart', 'user'),
-  ('user-12', 'linda@example.com', 'password123', 'Linda Hamilton', 'admin');
+INSERT INTO users (username, password) VALUES
+  ('alice', 'password123'),
+  ('bob', 'password123'),
+  ('charlie', 'password123'),
+  ('diana', 'password123'),
+  ('edward', 'password123'),
+  ('fiona', 'password123'),
+  ('george', 'password123'),
+  ('helen', 'password123'),
+  ('ivan', 'password123'),
+  ('jane', 'password123'),
+  ('kevin', 'password123'),
+  ('linda', 'password123');
 
--- Create demo trip
-INSERT INTO trips (id, name, start_date, created_at) VALUES
-  ('trip-1', 'Spring Golf Championship 2025', 1735689600, 1735603200);
+-- Seed participants (the people playing)
+INSERT INTO participants (id, name) VALUES
+  ('participant-1', 'Loop'),
+  ('participant-2', 'Boose'),
+  ('participant-3', 'Krass'),
+  ('participant-4', 'TK'),
+  ('participant-5', 'CTH'),
+  ('participant-6', 'Avayou'),
+  ('participant-7', 'Alex'),
+  ('participant-8', 'Huffman'),
+  ('participant-9', 'Jon'),
+  ('participant-10', 'Tim'),
+  ('participant-11', 'Doc'),
+  ('participant-12', 'Will');
 
--- Add all users as trip members (mix of players, observers, and admin)
-INSERT INTO trip_members (id, trip_id, user_id, role) VALUES
-  ('tm-1', 'trip-1', 'user-1', 'player'),
-  ('tm-2', 'trip-1', 'user-2', 'player'),
-  ('tm-3', 'trip-1', 'user-3', 'player'),
-  ('tm-4', 'trip-1', 'user-4', 'player'),
-  ('tm-5', 'trip-1', 'user-5', 'player'),
-  ('tm-6', 'trip-1', 'user-6', 'player'),
-  ('tm-7', 'trip-1', 'user-7', 'player'),
-  ('tm-8', 'trip-1', 'user-8', 'player'),
-  ('tm-9', 'trip-1', 'user-9', 'player'),
-  ('tm-10', 'trip-1', 'user-10', 'player'),
-  ('tm-11', 'trip-1', 'user-11', 'observer'),
-  ('tm-12', 'trip-1', 'user-12', 'admin');
+-- Create sample markets (using new schema)
+-- Note: After running migration 0009, markets table will have new schema
+-- These seed markets use: market_id (text), short_name, symbol, max_winners, min_winners, created_date
+INSERT INTO markets (market_id, short_name, symbol, max_winners, min_winners, created_date) VALUES
+  ('market-1', 'Will Team A Win?', 'TEAM-A', 1, 1, 1735603200),
+  ('market-2', 'Player Score Over/Under 80', 'SCORE-80', 1, 1, 1735603200),
+  ('market-3', 'Birdies Over/Under 3', 'BIRDIES-3', 1, 1, 1735603200),
+  ('market-4', 'Hole in One', 'HIO', 1, 1, 1735603200),
+  ('market-5', 'Player Score Over/Under 75', 'SCORE-75', 1, 1, 1735603200);
 
--- Create 5 rounds (round 1 is active)
-INSERT INTO rounds (id, trip_id, round_no, name, date, is_active) VALUES
-  ('round-1', 'trip-1', 1, 'Opening Round', 1735689600, 1),
-  ('round-2', 'trip-1', 2, 'Championship Round', 1735776000, 0),
-  ('round-3', 'trip-1', 3, 'Final Round', 1735862400, 0),
-  ('round-4', 'trip-1', 4, 'Playoff Round', 1735948800, 0),
-  ('round-5', 'trip-1', 5, 'Tiebreaker Round', 1736035200, 0);
+-- Create outcomes for each market (using new schema)
+-- Note: After running migration 0008, outcomes table will have new schema
+-- These seed outcomes use: outcome_id (text), name, ticker, market_id, strike, settled_price, created_date
+-- Market 1: Binary outcome (Yes/No)
+INSERT INTO outcomes (outcome_id, name, ticker, market_id, strike, settled_price, created_date) VALUES
+  ('outcome-1-yes', 'Yes', 'YES', 'market-1', '0', NULL, 1735603200),
+  ('outcome-1-no', 'No', 'NO', 'market-1', '0', NULL, 1735603200);
 
--- Add some initial scores for round 1
-INSERT INTO round_scores (id, round_id, user_id, cross_score, net_score, updated_at) VALUES
-  ('score-1', 'round-1', 'user-1', 85, 78, 1735693200),
-  ('score-2', 'round-1', 'user-2', 92, 85, 1735693200),
-  ('score-3', 'round-1', 'user-3', 88, 81, 1735693200),
-  ('score-4', 'round-1', 'user-4', 79, 72, 1735693200),
-  ('score-5', 'round-1', 'user-5', 95, 88, 1735693200);
+-- Market 2: Over/Under
+INSERT INTO outcomes (outcome_id, name, ticker, market_id, strike, settled_price, created_date) VALUES
+  ('outcome-2-over', 'Over', 'OVER', 'market-2', '80', NULL, 1735603200),
+  ('outcome-2-under', 'Under', 'UNDER', 'market-2', '80', NULL, 1735603200);
 
--- Create sample markets (all types)
-INSERT INTO markets (id, trip_id, type, round_id, subject_user_id, title, description, status, created_at) VALUES
-  ('market-1', 'trip-1', 'TEAM_OVERALL_WINNER', NULL, NULL, 'Overall Tournament Winner', 'Who will win the entire tournament?', 'open', 1735603200),
-  ('market-2', 'trip-1', 'ROUND_OU_PERSON', 'round-1', 'user-1', 'Alice Round 1 Over/Under 80', 'Will Alice score over or under 80 in round 1?', 'open', 1735603200),
-  ('market-3', 'trip-1', 'BIRDIES_OU_PLAYER_ROUND', 'round-1', 'user-2', 'Bob Birdies Round 1 Over/Under 3', 'Will Bob make over or under 3 birdies in round 1?', 'open', 1735603200),
-  ('market-4', 'trip-1', 'HOLE_IN_ONE_TRIP', NULL, 'user-3', 'Charlie Hole in One', 'Will Charlie get a hole in one during the trip?', 'open', 1735603200),
-  ('market-5', 'trip-1', 'ROUND_OU_PERSON', 'round-1', 'user-4', 'Diana Round 1 Over/Under 75', 'Will Diana score over or under 75 in round 1?', 'open', 1735603200);
+-- Market 3: Over/Under
+INSERT INTO outcomes (outcome_id, name, ticker, market_id, strike, settled_price, created_date) VALUES
+  ('outcome-3-over', 'Over', 'OVER', 'market-3', '3', NULL, 1735603200),
+  ('outcome-3-under', 'Under', 'UNDER', 'market-3', '3', NULL, 1735603200);
 
--- Create sample orders
-INSERT INTO orders (id, market_id, user_id, side, price_cents, qty_contracts, qty_remaining, status, created_at) VALUES
-  ('order-1', 'market-1', 'user-1', 'bid', 5500, 10, 5, 'partial', 1735603800),
-  ('order-2', 'market-1', 'user-2', 'ask', 6000, 5, 0, 'filled', 1735603500),
-  ('order-3', 'market-2', 'user-3', 'bid', 4500, 20, 20, 'open', 1735604000),
-  ('order-4', 'market-2', 'user-4', 'ask', 5000, 15, 10, 'partial', 1735604100),
-  ('order-5', 'market-3', 'user-5', 'bid', 7000, 8, 8, 'open', 1735604200);
+-- Market 4: Binary outcome
+INSERT INTO outcomes (outcome_id, name, ticker, market_id, strike, settled_price, created_date) VALUES
+  ('outcome-4-yes', 'Yes', 'YES', 'market-4', '0', NULL, 1735603200),
+  ('outcome-4-no', 'No', 'NO', 'market-4', '0', NULL, 1735603200);
 
--- Create sample trades
-INSERT INTO trades (id, market_id, taker_order_id, maker_order_id, price_cents, qty_contracts, created_at) VALUES
-  ('trade-1', 'market-1', 'order-1', 'order-2', 6000, 5, 1735603600),
-  ('trade-2', 'market-2', 'order-4', 'order-3', 4500, 5, 1735604200);
+-- Market 5: Over/Under
+INSERT INTO outcomes (outcome_id, name, ticker, market_id, strike, settled_price, created_date) VALUES
+  ('outcome-5-over', 'Over', 'OVER', 'market-5', '75', NULL, 1735603200),
+  ('outcome-5-under', 'Under', 'UNDER', 'market-5', '75', NULL, 1735603200);
 
--- Create initial positions
-INSERT INTO positions (id, market_id, user_id, qty_long, qty_short, avg_price_long_cents, avg_price_short_cents, updated_at) VALUES
-  ('pos-1', 'market-1', 'user-1', 5, 0, 6000, NULL, 1735603600),
-  ('pos-2', 'market-1', 'user-2', 0, 5, NULL, 6000, 1735603600),
-  ('pos-3', 'market-2', 'user-3', 5, 0, 4500, NULL, 1735604200),
-  ('pos-4', 'market-2', 'user-4', 0, 5, NULL, 4500, 1735604200);
+-- Create sample orders (using new schema)
+-- Note: After running migrations 0005 and 0010, orders and users tables will have new schemas
+-- user_id in orders is INTEGER, so we reference users by their auto-increment ID
+-- For seed data, we'll leave user_id as NULL since actual user IDs are auto-increment integers
+-- In practice, orders will be created through the API with actual user IDs
+INSERT INTO orders (create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size) VALUES
+  (1735603800, NULL, 'token-1', -1, 'outcome-1-yes', 5500, 'partial', 'GTC', 0, 5),
+  (1735603500, NULL, 'token-2', -1, 'outcome-1-yes', 6000, 'filled', 'GTC', 1, 0),
+  (1735604000, NULL, 'token-3', -1, 'outcome-2-over', 4500, 'open', 'GTC', 0, 20),
+  (1735604100, NULL, 'token-4', -1, 'outcome-2-over', 5000, 'partial', 'GTC', 1, 10),
+  (1735604200, NULL, 'token-5', -1, 'outcome-3-over', 7000, 'open', 'GTC', 0, 8);
+
+-- Create sample trades (using new schema)
+-- Note: After running migration 0006, trades table will have new schema
+-- These seed trades use the new format: token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff
+INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff) VALUES
+  ('token-1', 6000, 5, 1735603600, 0, 0),
+  ('token-2', 4500, 5, 1735604200, 0, 0);
+
+-- Create initial positions (using new schema)
+-- Note: After running migrations 0007 and 0010, positions and users tables will have new schemas
+-- user_id in positions is INTEGER, so we reference users by their auto-increment ID
+-- For seed data, we'll leave user_id as NULL since actual user IDs are auto-increment integers
+-- In practice, positions will be created through the API with actual user IDs
+INSERT INTO positions (user_id, outcome, create_time, closed_profit, settled_profit, net_position, price_basis, is_settled) VALUES
+  (NULL, 'outcome-1-yes', 1735603600, 0, 0, 5, 6000, 0),
+  (NULL, 'outcome-1-yes', 1735603600, 0, 0, -5, 6000, 0),
+  (NULL, 'outcome-2-over', 1735604200, 0, 0, 5, 4500, 0),
+  (NULL, 'outcome-2-over', 1735604200, 0, 0, -5, 4500, 0);

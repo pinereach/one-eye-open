@@ -1,4 +1,4 @@
-import { getSessionByToken, getCookieValue, type User } from './lib/auth';
+import { getUserFromToken, getCookieValue, type User } from './lib/auth';
 import { getDb, type Env } from './lib/db';
 
 export interface AuthenticatedRequest extends Request {
@@ -22,9 +22,9 @@ export async function requireAuth(
   }
 
   const db = getDb(env);
-  const sessionData = await getSessionByToken(db, token);
+  const user = await getUserFromToken(db, token, env);
 
-  if (!sessionData) {
+  if (!user) {
     return {
       error: new Response(JSON.stringify({ error: 'Invalid session' }), {
         status: 401,
@@ -33,29 +33,11 @@ export async function requireAuth(
     };
   }
 
-  return { user: sessionData.user };
+  return { user };
 }
 
-export async function requireAdmin(
-  request: Request,
-  env: Env
-): Promise<{ user: User; error?: never } | { user?: never; error: Response }> {
-  const authResult = await requireAuth(request, env);
-  if ('error' in authResult) {
-    return authResult;
-  }
-
-  if (authResult.user.role !== 'admin') {
-    return {
-      error: new Response(JSON.stringify({ error: 'Forbidden: Admin only' }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    };
-  }
-
-  return authResult;
-}
+// requireAdmin removed - users no longer have roles
+// If admin functionality is needed, it can be added back with a separate admin_users table or similar
 
 export function jsonResponse(data: any, status: number = 200): Response {
   return new Response(JSON.stringify(data), {

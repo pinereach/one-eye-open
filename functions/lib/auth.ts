@@ -1,19 +1,14 @@
-import { dbFirst, dbRun, type D1Database } from './db';
+import { dbFirst, type D1Database } from './db';
 
 export interface User {
-  id: string;
-  email: string;
-  display_name: string;
-  role: 'user' | 'admin';
-  created_at: number;
+  id: number;
+  username: string;
 }
 
-export interface Session {
-  id: string;
-  user_id: string;
-  token_hash: string;
-  expires_at: number;
-  created_at: number;
+interface TokenPayload {
+  userId: number;
+  username: string;
+  exp: number;
 }
 
 const SESSION_DURATION_DAYS = 14;
@@ -30,86 +25,102 @@ export async function verifyPassword(
   return password === storedPassword;
 }
 
-export function generateSessionToken(): string {
-  return crypto.randomUUID();
-}
-
-export async function hashToken(token: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(token);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-export function getSessionExpiry(days: number = SESSION_DURATION_DAYS): number {
+function getSessionExpiry(days: number = SESSION_DURATION_DAYS): number {
   return Math.floor(Date.now() / 1000) + days * 24 * 60 * 60;
 }
 
-export async function createSession(
-  db: D1Database,
-  userId: string,
-  token: string,
-  days: number = SESSION_DURATION_DAYS
-): Promise<Session> {
-  const sessionId = crypto.randomUUID();
-  const tokenHash = await hashToken(token);
-  const expiresAt = getSessionExpiry(days);
-  const createdAt = Math.floor(Date.now() / 1000);
-
-  await dbRun(
-    db,
-    `INSERT INTO sessions (id, user_id, token_hash, expires_at, created_at)
-     VALUES (?, ?, ?, ?, ?)`,
-    [sessionId, userId, tokenHash, expiresAt, createdAt]
+async function getSecretKey(env: any): Promise<CryptoKey> {
+  // Use a simple secret from env or default
+  const secret = env.SESSION_SECRET || 'default-secret-key-change-in-production';
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const keyBuffer = await crypto.subtle.digest('SHA-256', keyData);
+  
+  return crypto.subtle.importKey(
+    'raw',
+    keyBuffer,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign', 'verify']
   );
-
-  return {
-    id: sessionId,
-    user_id: userId,
-    token_hash: tokenHash,
-    expires_at: expiresAt,
-    created_at: createdAt,
-  };
 }
 
-export async function getSessionByToken(
+export async function createToken(
+  user: User,
+  env: any
+): Promise<string> {
+  const payload: TokenPayload = {
+    userId: user.id,
+    username: user.username,
+    exp: getSessionExpiry(),
+  };
+
+  const payloadJson = JSON.stringify(payload);
+  const encoder = new TextEncoder();
+  const payloadData = encoder.encode(payloadJson);
+
+  const key = await getSecretKey(env);
+  const signature = await crypto.subtle.sign('HMAC', key, payloadData);
+
+  // Simple base64 encoding (not URL-safe, but works for cookies)
+  const payloadB64 = btoa(payloadJson);
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+
+  return `${payloadB64}.${sigB64}`;
+}
+
+export async function verifyToken(
+  token: string,
+  env: any
+): Promise<TokenPayload | null> {
+  try {
+    const [payloadB64, sigB64] = token.split('.');
+    if (!payloadB64 || !sigB64) return null;
+
+    const payloadJson = atob(payloadB64);
+    const payload: TokenPayload = JSON.parse(payloadJson);
+
+    // Check expiration
+    if (payload.exp < Math.floor(Date.now() / 1000)) {
+      return null;
+    }
+
+    // Verify signature
+    const encoder = new TextEncoder();
+    const payloadData = encoder.encode(payloadJson);
+    const signature = Uint8Array.from(atob(sigB64), c => c.charCodeAt(0));
+
+    const key = await getSecretKey(env);
+    const isValid = await crypto.subtle.verify('HMAC', key, signature, payloadData);
+
+    if (!isValid) {
+      return null;
+    }
+
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+export async function getUserFromToken(
   db: D1Database,
-  token: string
-): Promise<{ session: Session; user: User } | null> {
-  const tokenHash = await hashToken(token);
-  const now = Math.floor(Date.now() / 1000);
-
-  const session = await dbFirst<Session>(
-    db,
-    `SELECT * FROM sessions 
-     WHERE token_hash = ? AND expires_at > ?`,
-    [tokenHash, now]
-  );
-
-  if (!session) {
+  token: string,
+  env: any
+): Promise<User | null> {
+  const payload = await verifyToken(token, env);
+  if (!payload) {
     return null;
   }
 
+  // Verify user still exists and get latest data
   const user = await dbFirst<User>(
     db,
-    `SELECT id, email, display_name, role, created_at FROM users WHERE id = ?`,
-    [session.user_id]
+    `SELECT id, username FROM users WHERE id = ?`,
+    [payload.userId]
   );
 
-  if (!user) {
-    return null;
-  }
-
-  return { session, user };
-}
-
-export async function deleteSession(
-  db: D1Database,
-  token: string
-): Promise<void> {
-  const tokenHash = await hashToken(token);
-  await dbRun(db, `DELETE FROM sessions WHERE token_hash = ?`, [tokenHash]);
+  return user;
 }
 
 export function getCookieValue(cookieHeader: string | null, name: string): string | null {
@@ -126,7 +137,7 @@ export function getCookieValue(cookieHeader: string | null, name: string): strin
 
 export function setSessionCookie(token: string, days: number = SESSION_DURATION_DAYS): string {
   const maxAge = days * 24 * 60 * 60;
-  return `session=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
+  return `session=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
 }
 
 export function clearSessionCookie(): string {

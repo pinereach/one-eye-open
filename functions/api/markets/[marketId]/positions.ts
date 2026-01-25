@@ -15,9 +15,13 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   const userId = authResult.user.id;
   const db = getDb(env);
 
+  // Get positions for all outcomes in this market
   const positions = await dbQuery<Position>(
     db,
-    'SELECT * FROM positions WHERE market_id = ? AND user_id = ?',
+    `SELECT p.* 
+     FROM positions p
+     JOIN outcomes o ON p.outcome = o.outcome_id
+     WHERE o.market_id = ? AND p.user_id = ?`,
     [marketId, userId]
   );
 

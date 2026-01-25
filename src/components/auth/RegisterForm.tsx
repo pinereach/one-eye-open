@@ -7,9 +7,8 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
@@ -20,10 +19,7 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
     setLoading(true);
 
     try {
-      if (password.length < 8) {
-        throw new Error('Password must be at least 8 characters');
-      }
-      await register(email, password, displayName);
+      await register(username, password);
       onSuccess?.();
     } catch (err: any) {
       setError(err.message || 'Registration failed');
@@ -35,28 +31,14 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="displayName" className="block text-sm font-medium mb-1">
-          Display Name
+        <label htmlFor="username" className="block text-sm font-medium mb-1">
+          Username
         </label>
         <input
-          id="displayName"
+          id="username"
           type="text"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-          required
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium mb-1">
-          Email
-        </label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           required
           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
         />
@@ -64,7 +46,7 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
 
       <div>
         <label htmlFor="password" className="block text-sm font-medium mb-1">
-          Password (min 8 characters)
+          Password
         </label>
         <input
           id="password"
@@ -72,7 +54,6 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          minLength={8}
           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
         />
       </div>

@@ -10,13 +10,17 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
 
   const db = getDb(env);
 
+  // Note: Trades no longer have direct market/order references
+  // For now, return all recent trades. To filter by market, you would need to:
+  // 1. Add market_id back to trades, or
+  // 2. Create a trades_orders junction table, or  
+  // 3. Store market_id in the trade token somehow
   const trades = await dbQuery(
     db,
     `SELECT * FROM trades 
-     WHERE market_id = ?
-     ORDER BY created_at DESC
+     ORDER BY create_time DESC
      LIMIT ?`,
-    [marketId, limit]
+    [limit]
   );
 
   return jsonResponse({ trades });
