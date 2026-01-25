@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbFirst, dbRun, type Env } from '../lib/db';
-import { hashPassword, createSession, setSessionCookie } from '../lib/auth';
-import { jsonResponse, errorResponse } from '../../middleware';
+import { getDb, dbFirst, dbRun, type Env } from '../../lib/db.ts';
+import { hashPassword, createSession, setSessionCookie } from '../../lib/auth.ts';
+import { jsonResponse, errorResponse } from '../../middleware.ts';
 
 const registerSchema = z.object({
   email: z.string().email(),

@@ -16,66 +16,18 @@ export interface Session {
   created_at: number;
 }
 
-const SALT_ROUNDS = 100000; // PBKDF2 iterations
 const SESSION_DURATION_DAYS = 14;
 
-// Web Crypto API compatible password hashing using PBKDF2
-async function deriveKey(password: string, salt: ArrayBuffer): Promise<CryptoKey> {
-  const encoder = new TextEncoder();
-  const passwordKey = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(password),
-    'PBKDF2',
-    false,
-    ['deriveBits', 'deriveKey']
-  );
-
-  return crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: salt,
-      iterations: SALT_ROUNDS,
-      hash: 'SHA-256',
-    },
-    passwordKey,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt']
-  );
-}
-
+// Plain text password storage (no security - for unserious projects only!)
 export async function hashPassword(password: string): Promise<string> {
-  const saltArray = crypto.getRandomValues(new Uint8Array(16));
-  const salt = saltArray.buffer;
-  const key = await deriveKey(password, salt);
-  const keyBuffer = await crypto.subtle.exportKey('raw', key);
-  const hash = Array.from(new Uint8Array(keyBuffer));
-
-  // Store as: salt:hash (both base64 encoded)
-  const saltB64 = btoa(String.fromCharCode(...saltArray));
-  const hashB64 = btoa(String.fromCharCode(...hash));
-  return `${saltB64}:${hashB64}`;
+  return password;
 }
 
 export async function verifyPassword(
   password: string,
-  storedHash: string
+  storedPassword: string
 ): Promise<boolean> {
-  try {
-    const [saltB64, hashB64] = storedHash.split(':');
-    if (!saltB64 || !hashB64) return false;
-
-    const saltArray = Uint8Array.from(atob(saltB64), (c) => c.charCodeAt(0));
-    const salt = saltArray.buffer;
-    const key = await deriveKey(password, salt);
-    const keyBuffer = await crypto.subtle.exportKey('raw', key);
-    const hash = Array.from(new Uint8Array(keyBuffer));
-    const hashB64New = btoa(String.fromCharCode(...hash));
-
-    return hashB64 === hashB64New;
-  } catch {
-    return false;
-  }
+  return password === storedPassword;
 }
 
 export function generateSessionToken(): string {

@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbFirst, dbRun, type Env } from '../../../../lib/db';
-import { requireAuth, jsonResponse, errorResponse } from '../../../middleware';
+import { getDb, dbFirst, dbRun, type Env } from '../../../../lib/db.ts';
+import { requireAuth, jsonResponse, errorResponse } from '../../../middleware.ts';
 import {
   executeMatching,
   calculateExposure,
   type Order,
-} from '../../../../lib/matching';
+} from '../../../../lib/matching.ts';
 
 const orderSchema = z.object({
   side: z.enum(['bid', 'ask']),

@@ -1,7 +1,7 @@
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbFirst, dbQuery, type Env } from '../lib/db';
-import { jsonResponse, errorResponse } from '../../../middleware';
-import type { Order, Position } from '../lib/matching';
+import { getDb, dbFirst, dbQuery, type Env } from '../../../lib/db.ts';
+import { jsonResponse, errorResponse } from '../../../middleware.ts';
+import type { Order, Position } from '../../../lib/matching.ts';
 
 export const onRequestGet: OnRequest<Env> = async (context) => {
   const { request, env, params } = context;
