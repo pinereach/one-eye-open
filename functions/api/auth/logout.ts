@@ -1,6 +1,6 @@
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, type Env } from '../../../lib/db';
-import { getCookieValue, deleteSession, clearSessionCookie } from '../../../lib/auth';
+import { getDb, type Env } from '../lib/db';
+import { getCookieValue, deleteSession, clearSessionCookie } from '../lib/auth';
 import { requireAuth, jsonResponse } from '../../middleware';
 
 export const onRequestPost: OnRequest<Env> = async (context) => {
