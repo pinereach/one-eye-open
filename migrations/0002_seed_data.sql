@@ -1,20 +1,20 @@
 -- Seed 12 users
--- Note: These users have placeholder password hashes. In production, users should register with real passwords.
+-- Note: Passwords are stored as plain text (no security - for unserious projects only!)
+-- All users have password: "password123"
 -- For demo purposes, you can register new users through the UI.
--- Password hash for "password123" (bcrypt, 10 rounds): $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 INSERT INTO users (id, email, password_hash, display_name, role) VALUES
-  ('user-1', 'alice@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Alice Johnson', 'user'),
-  ('user-2', 'bob@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Bob Smith', 'user'),
-  ('user-3', 'charlie@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Charlie Brown', 'user'),
-  ('user-4', 'diana@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Diana Prince', 'user'),
-  ('user-5', 'edward@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Edward Norton', 'user'),
-  ('user-6', 'fiona@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Fiona Apple', 'user'),
-  ('user-7', 'george@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'George Washington', 'user'),
-  ('user-8', 'helen@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Helen Keller', 'user'),
-  ('user-9', 'ivan@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Ivan Petrov', 'user'),
-  ('user-10', 'jane@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Jane Doe', 'user'),
-  ('user-11', 'kevin@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Kevin Hart', 'observer'),
-  ('user-12', 'linda@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Linda Hamilton', 'admin');
+  ('user-1', 'alice@example.com', 'password123', 'Alice Johnson', 'user'),
+  ('user-2', 'bob@example.com', 'password123', 'Bob Smith', 'user'),
+  ('user-3', 'charlie@example.com', 'password123', 'Charlie Brown', 'user'),
+  ('user-4', 'diana@example.com', 'password123', 'Diana Prince', 'user'),
+  ('user-5', 'edward@example.com', 'password123', 'Edward Norton', 'user'),
+  ('user-6', 'fiona@example.com', 'password123', 'Fiona Apple', 'user'),
+  ('user-7', 'george@example.com', 'password123', 'George Washington', 'user'),
+  ('user-8', 'helen@example.com', 'password123', 'Helen Keller', 'user'),
+  ('user-9', 'ivan@example.com', 'password123', 'Ivan Petrov', 'user'),
+  ('user-10', 'jane@example.com', 'password123', 'Jane Doe', 'user'),
+  ('user-11', 'kevin@example.com', 'password123', 'Kevin Hart', 'user'),
+  ('user-12', 'linda@example.com', 'password123', 'Linda Hamilton', 'admin');
 
 -- Create demo trip
 INSERT INTO trips (id, name, start_date, created_at) VALUES
