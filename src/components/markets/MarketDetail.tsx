@@ -192,7 +192,7 @@ export function MarketDetail() {
               >
                 <div className="flex justify-between">
                   <span>Long: {pos.qty_long}</span>
-                  <span>Short: {pos.qty_short</span>
+                  <span>Short: {pos.qty_short}</span>
                 </div>
                 {pos.avg_price_long_cents && (
                   <div className="text-sm text-gray-600 dark:text-gray-400">
