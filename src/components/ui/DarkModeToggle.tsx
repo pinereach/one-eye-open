@@ -31,7 +31,7 @@ export function DarkModeToggle() {
   return (
     <button
       onClick={toggleDarkMode}
-      className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
+      className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center leading-none"
       aria-label="Toggle dark mode"
     >
       {darkMode ? '☀️' : '🌙'}

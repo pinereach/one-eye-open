@@ -11,7 +11,7 @@ import {
 const orderSchema = z.object({
   outcome_id: z.string(),
   side: z.enum(['bid', 'ask']),
-  price: z.number().int().min(0).max(10000),
+  price: z.number().int().min(100).max(9900), // 1-99 dollars in cents (whole numbers only)
   contract_size: z.number().int().positive(),
   tif: z.string().optional().default('GTC'), // Time in force, default to Good Till Cancel
   token: z.string().optional(),
@@ -58,7 +58,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
     // Check exposure limit
     const maxExposureCents = parseInt(env.MAX_EXPOSURE_CENTS || '500000', 10);
-    const exposure = await calculateExposure(db, userId, maxExposureCents);
+    const exposure = await calculateExposure(db, userId, maxExposureCents); // userId is already a number
 
     // Calculate potential new exposure
     const sideNum = validated.side === 'bid' ? 0 : 1;
@@ -78,6 +78,8 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const token = validated.token || crypto.randomUUID();
 
     // Create order
+    // Note: orders table uses contract_size, but we need qty_remaining for matching
+    // We'll use contract_size as the initial qty_remaining
     const result = await dbRun(
       db,
       `INSERT INTO orders (create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size)
@@ -102,10 +104,26 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       return errorResponse('Failed to create order', 500);
     }
 
-    // Get the created order
-    const order = await dbFirst<Order>(
+    // Get the created order with outcome info to get market_id
+    const order = await dbFirst<{
+      id: number;
+      create_time: number;
+      user_id: number;
+      token: string;
+      order_id: number;
+      outcome: string;
+      price: number;
+      status: string;
+      tif: string;
+      side: number;
+      contract_size: number;
+      market_id?: string;
+    }>(
       db,
-      'SELECT * FROM orders WHERE id = ?',
+      `SELECT o.*, oc.market_id 
+       FROM orders o
+       JOIN outcomes oc ON o.outcome = oc.outcome_id
+       WHERE o.id = ?`,
       [orderId]
     );
 
@@ -113,15 +131,112 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       return errorResponse('Failed to retrieve created order', 500);
     }
 
-    // Execute matching
-    const { fills, trades } = await executeMatching(db, order);
+    // Convert database order to matching engine format
+    const matchingOrder: Order = {
+      id: order.id.toString(),
+      market_id: order.market_id || marketId,
+      user_id: order.user_id.toString(),
+      side: order.side === 0 ? 'bid' : 'ask',
+      price_cents: order.price,
+      qty_contracts: order.contract_size || 0,
+      qty_remaining: order.contract_size || 0, // Use contract_size as initial qty_remaining
+      status: order.status as 'open' | 'partial' | 'filled' | 'canceled',
+      created_at: order.create_time,
+    };
 
-    // Get updated order
-    const updatedOrder = await dbFirst<Order>(
+    // Execute matching - pass outcomeId for positions table
+    const { fills, trades } = await executeMatching(db, matchingOrder, validated.outcome_id);
+
+    // Get updated order with outcome info
+    const updatedOrderDb = await dbFirst<{
+      id: number;
+      create_time: number;
+      user_id: number | null;
+      token: string;
+      order_id: number;
+      outcome: string;
+      price: number;
+      status: string;
+      tif: string;
+      side: number;
+      contract_size: number | null;
+      market_id?: string;
+    }>(
       db,
-      'SELECT * FROM orders WHERE id = ?',
+      `SELECT o.*, oc.market_id 
+       FROM orders o
+       JOIN outcomes oc ON o.outcome = oc.outcome_id
+       WHERE o.id = ?`,
       [orderId]
     );
+
+    // Convert to Order interface format
+    const updatedOrder: Order | null = updatedOrderDb ? {
+      id: updatedOrderDb.id.toString(),
+      market_id: updatedOrderDb.market_id || marketId,
+      user_id: updatedOrderDb.user_id?.toString() || '',
+      side: updatedOrderDb.side === 0 ? 'bid' : 'ask',
+      price_cents: updatedOrderDb.price,
+      qty_contracts: updatedOrderDb.contract_size || 0,
+      qty_remaining: updatedOrderDb.contract_size || 0,
+      status: updatedOrderDb.status as 'open' | 'partial' | 'filled' | 'canceled',
+      created_at: updatedOrderDb.create_time,
+    } : null;
+
+    // Validation: If order is still open/partial and price equals best opposite price, it should have matched
+    if (updatedOrder && (updatedOrder.status === 'open' || updatedOrder.status === 'partial')) {
+      const orderPrice = updatedOrder.price_cents;
+      const orderSide = updatedOrder.side;
+
+      // Get best opposite price from orderbook
+      if (orderSide === 'bid') {
+        // For a bid, check if there's an ask at this price or lower
+        const bestAsk = await dbFirst<{ price: number }>(
+          db,
+          `SELECT price FROM orders 
+           WHERE outcome = ? AND side = 1 AND status IN ('open', 'partial')
+           ORDER BY price ASC, create_time ASC
+           LIMIT 1`,
+          [validated.outcome_id]
+        );
+        
+        if (bestAsk && bestAsk.price <= orderPrice) {
+          // Cancel the order and return error
+          await dbRun(
+            db,
+            'UPDATE orders SET status = ? WHERE id = ?',
+            ['canceled', orderId]
+          );
+          return errorResponse(
+            `Order price ($${Math.round(orderPrice / 100)}) equals or exceeds best ask price ($${Math.round(bestAsk.price / 100)}). Order must match immediately or be rejected.`,
+            400
+          );
+        }
+      } else {
+        // For an ask, check if there's a bid at this price or higher
+        const bestBid = await dbFirst<{ price: number }>(
+          db,
+          `SELECT price FROM orders 
+           WHERE outcome = ? AND side = 0 AND status IN ('open', 'partial')
+           ORDER BY price DESC, create_time ASC
+           LIMIT 1`,
+          [validated.outcome_id]
+        );
+        
+        if (bestBid && bestBid.price >= orderPrice) {
+          // Cancel the order and return error
+          await dbRun(
+            db,
+            'UPDATE orders SET status = ? WHERE id = ?',
+            ['canceled', orderId]
+          );
+          return errorResponse(
+            `Order price ($${Math.round(orderPrice / 100)}) equals or is below best bid price ($${Math.round(bestBid.price / 100)}). Order must match immediately or be rejected.`,
+            400
+          );
+        }
+      }
+    }
 
     return jsonResponse(
       {
@@ -133,6 +248,11 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     );
   } catch (error) {
     if (error instanceof z.ZodError) {
+      // Provide clearer error message for price validation
+      const priceError = error.errors.find(e => e.path.includes('price'));
+      if (priceError) {
+        return errorResponse('Price must be a whole number between $1 and $99 (100-9900 cents)', 400);
+      }
       return errorResponse(error.errors[0].message, 400);
     }
     console.error('Order placement error:', error);

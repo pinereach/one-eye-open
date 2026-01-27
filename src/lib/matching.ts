@@ -42,27 +42,71 @@ export interface Fill {
 
 export async function getOppositeOrders(
   db: D1Database,
-  marketId: string,
+  outcomeId: string, // Filter by specific outcome, not just market
   side: 'bid' | 'ask',
   excludeUserId?: string
 ): Promise<Order[]> {
-  const oppositeSide = side === 'bid' ? 'ask' : 'bid';
-  let sql = `
-    SELECT * FROM orders
-    WHERE market_id = ? AND side = ? AND status IN ('open', 'partial')
+  // Local DB uses outcome, not market_id. Query orders by outcome with integer side (0=bid, 1=ask)
+  const oppositeSideNum = side === 'bid' ? 1 : 0; // 0 = bid, 1 = ask in local DB
+  
+  const params: any[] = [outcomeId, oppositeSideNum];
+  let userExclusion = '';
+  
+  if (excludeUserId) {
+    // Handle NULL user_ids: include them, but exclude the specific user_id
+    // In SQL, NULL != value evaluates to NULL (not true), so we need: (user_id IS NULL OR user_id != ?)
+    userExclusion = ' AND (o.user_id IS NULL OR o.user_id != ?)';
+    // Convert excludeUserId to number if it's a string
+    const excludeUserIdNum = typeof excludeUserId === 'string' ? parseInt(excludeUserId, 10) : excludeUserId;
+    if (isNaN(excludeUserIdNum as number)) {
+      console.error('Invalid excludeUserId:', excludeUserId, 'parsed as:', excludeUserIdNum);
+      throw new Error(`Invalid excludeUserId: ${excludeUserId}`);
+    }
+    params.push(excludeUserIdNum);
+  }
+  
+  const sql = `
+    SELECT o.*, oc.market_id
+    FROM orders o
+    JOIN outcomes oc ON o.outcome = oc.outcome_id
+    WHERE o.outcome = ? AND o.side = ? AND o.status IN ('open', 'partial')${userExclusion}
     ORDER BY 
-      CASE WHEN side = 'bid' THEN price_cents END DESC,
-      CASE WHEN side = 'ask' THEN price_cents END ASC,
-      created_at ASC
+      CASE WHEN o.side = 0 THEN o.price END DESC,
+      CASE WHEN o.side = 1 THEN o.price END ASC,
+      o.create_time ASC
   `;
 
-  const params: any[] = [marketId, oppositeSide];
-  if (excludeUserId) {
-    sql += ' AND user_id != ?';
-    params.push(excludeUserId);
-  }
+  try {
+    const dbOrders = await dbQuery<{
+      id: number;
+      create_time: number;
+      user_id: number | null;
+      token: string;
+      order_id: number;
+      outcome: string;
+      price: number;
+      status: string;
+      tif: string;
+      side: number;
+      contract_size: number | null;
+      market_id: string;
+    }>(db, sql, params);
 
-  return dbQuery<Order>(db, sql, params);
+    // Convert database orders to matching engine Order format
+    return dbOrders.map(o => ({
+      id: o.id.toString(),
+      market_id: o.market_id,
+      user_id: o.user_id?.toString() || '',
+      side: o.side === 0 ? 'bid' : 'ask',
+      price_cents: o.price,
+      qty_contracts: o.contract_size || 0,
+      qty_remaining: o.contract_size || 0, // Use contract_size as qty_remaining
+      status: o.status as 'open' | 'partial' | 'filled' | 'canceled',
+      created_at: o.create_time,
+    }));
+  } catch (error) {
+    throw error;
+  }
 }
 
 export function canMatch(bidPrice: number, askPrice: number): boolean {
@@ -108,169 +152,253 @@ export async function matchOrder(
 
 export async function updateOrderStatus(
   db: D1Database,
-  orderId: string,
+  orderId: string | number,
   qtyFilled: number
 ): Promise<void> {
-  const order = await dbFirst<Order>(db, 'SELECT * FROM orders WHERE id = ?', [orderId]);
+  const orderIdNum = typeof orderId === 'string' ? parseInt(orderId, 10) : orderId;
+  // Local DB uses contract_size, not qty_remaining
+  const order = await dbFirst<{
+    id: number;
+    contract_size: number | null;
+    status: string;
+  }>(db, 'SELECT id, contract_size, status FROM orders WHERE id = ?', [orderIdNum]);
   if (!order) return;
 
-  const newRemaining = order.qty_remaining - qtyFilled;
-  let newStatus: Order['status'];
+  const currentQty = order.contract_size || 0;
+  const newRemaining = currentQty - qtyFilled;
+  let newStatus: 'open' | 'partial' | 'filled' | 'canceled';
 
-  if (newRemaining === 0) {
+  if (newRemaining <= 0) {
     newStatus = 'filled';
-  } else if (newRemaining < order.qty_remaining) {
+  } else if (newRemaining < currentQty) {
     newStatus = 'partial';
   } else {
-    newStatus = order.status;
+    newStatus = (order.status as 'open' | 'partial' | 'filled' | 'canceled') || 'open';
   }
 
+  // Update contract_size to reflect remaining quantity (local DB uses contract_size, not qty_remaining)
   await dbRun(
     db,
-    'UPDATE orders SET qty_remaining = ?, status = ? WHERE id = ?',
-    [newRemaining, newStatus, orderId]
+    'UPDATE orders SET contract_size = ?, status = ? WHERE id = ?',
+    [Math.max(0, newRemaining), newStatus, orderIdNum]
   );
 }
 
 export async function createTrade(
   db: D1Database,
-  marketId: string,
-  takerOrderId: string,
-  makerOrderId: string,
+  _marketId: string, // Keep for reference but trades table doesn't have market_id
+  _takerOrderId: string | number,
+  _makerOrderId: string | number,
   priceCents: number,
-  qtyContracts: number
-): Promise<string> {
-  const tradeId = crypto.randomUUID();
-  await dbRun(
+  qtyContracts: number,
+  outcomeId?: string // Optional outcome_id to link trade to outcome
+): Promise<number> {
+  // Local DB uses token, price, contracts, create_time, outcome (not id, market_id, etc.)
+  const token = crypto.randomUUID();
+  const result = await dbRun(
     db,
-    `INSERT INTO trades (id, market_id, taker_order_id, maker_order_id, price_cents, qty_contracts, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [tradeId, marketId, takerOrderId, makerOrderId, priceCents, qtyContracts, Math.floor(Date.now() / 1000)]
+    `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, outcome)
+     VALUES (?, ?, ?, ?, 0, 0, ?)`,
+    [token, priceCents, qtyContracts, Math.floor(Date.now() / 1000), outcomeId || null]
   );
-  return tradeId;
+  return result.meta.last_row_id || 0;
 }
 
 export async function getOrCreatePosition(
   db: D1Database,
-  marketId: string,
-  userId: string
+  outcomeId: string, // Local DB uses outcome, not market_id
+  userId: string | number
 ): Promise<Position> {
-  let position = await dbFirst<Position>(
+  const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+  // Local DB uses outcome, net_position, price_basis (not market_id, qty_long, qty_short)
+  let positionDb = await dbFirst<{
+    id: number;
+    user_id: number | null;
+    outcome: string;
+    net_position: number;
+    price_basis: number;
+    closed_profit: number;
+    settled_profit: number;
+    is_settled: number;
+  }>(
     db,
-    'SELECT * FROM positions WHERE market_id = ? AND user_id = ?',
-    [marketId, userId]
+    'SELECT * FROM positions WHERE outcome = ? AND user_id = ?',
+    [outcomeId, userIdNum]
   );
 
-  if (!position) {
-    const positionId = crypto.randomUUID();
+  if (!positionDb) {
     await dbRun(
       db,
-      `INSERT INTO positions (id, market_id, user_id, qty_long, qty_short, avg_price_long_cents, avg_price_short_cents, updated_at)
-       VALUES (?, ?, ?, 0, 0, NULL, NULL, ?)`,
-      [positionId, marketId, userId, Math.floor(Date.now() / 1000)]
+      `INSERT INTO positions (user_id, outcome, net_position, price_basis, closed_profit, settled_profit, is_settled, create_time)
+       VALUES (?, ?, 0, 0, 0, 0, 0, ?)`,
+      [userIdNum, outcomeId, Math.floor(Date.now() / 1000)]
     );
-    position = await dbFirst<Position>(
+    positionDb = await dbFirst<{
+      id: number;
+      user_id: number | null;
+      outcome: string;
+      net_position: number;
+      price_basis: number;
+      closed_profit: number;
+      settled_profit: number;
+      is_settled: number;
+    }>(
       db,
-      'SELECT * FROM positions WHERE market_id = ? AND user_id = ?',
-      [marketId, userId]
+      'SELECT * FROM positions WHERE outcome = ? AND user_id = ?',
+      [outcomeId, userIdNum]
     )!;
   }
 
-  return position!;
+  // Convert to Position interface format (for compatibility)
+  // positionDb is guaranteed to be non-null here because we just created it if it didn't exist
+  return {
+    id: positionDb!.id.toString(),
+    market_id: outcomeId, // Use outcomeId as market_id for compatibility
+    user_id: positionDb!.user_id?.toString() || '',
+    qty_long: Math.max(0, positionDb!.net_position),
+    qty_short: Math.max(0, -positionDb!.net_position),
+    avg_price_long_cents: positionDb!.net_position > 0 ? positionDb!.price_basis : null,
+    avg_price_short_cents: positionDb!.net_position < 0 ? positionDb!.price_basis : null,
+    updated_at: Math.floor(Date.now() / 1000),
+  };
 }
 
 export async function updatePosition(
   db: D1Database,
-  marketId: string,
-  userId: string,
+  outcomeId: string, // Local DB uses outcome, not market_id
+  userId: string | number,
   side: 'bid' | 'ask',
   priceCents: number,
   qtyContracts: number
 ): Promise<void> {
-  const position = await getOrCreatePosition(db, marketId, userId);
+  const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+  // Local DB uses outcome, net_position, price_basis (not market_id, qty_long, qty_short)
+  const positionDb = await dbFirst<{
+    id: number;
+    user_id: number | null;
+    outcome: string;
+    net_position: number;
+    price_basis: number;
+    closed_profit: number;
+  }>(
+    db,
+    'SELECT * FROM positions WHERE outcome = ? AND user_id = ?',
+    [outcomeId, userIdNum]
+  );
 
-  let newQtyLong = position.qty_long;
-  let newQtyShort = position.qty_short;
-  let newAvgPriceLong = position.avg_price_long_cents;
-  let newAvgPriceShort = position.avg_price_short_cents;
+  let currentNetPosition = positionDb?.net_position || 0;
+  let currentPriceBasis = positionDb?.price_basis || 0;
+  let currentClosedProfit = positionDb?.closed_profit || 0;
+  let newNetPosition = currentNetPosition;
+  let newPriceBasis = currentPriceBasis;
+  let newClosedProfit = currentClosedProfit;
 
   if (side === 'bid') {
-    // Buying - increase long position or decrease short position
-    if (position.qty_short > 0) {
-      // Close short position first
-      const closeQty = Math.min(qtyContracts, position.qty_short);
-      newQtyShort = position.qty_short - closeQty;
+    // Buying - increase net position (more long, less short)
+    if (currentNetPosition < 0) {
+      // Currently short, close some/all of short position
+      const closeQty = Math.min(qtyContracts, Math.abs(currentNetPosition));
       const remainingQty = qtyContracts - closeQty;
-
+      newNetPosition = currentNetPosition + closeQty; // Move toward 0
+      
+      // Calculate closed profit: profit = (price_basis - buy_price) * closeQty
+      // For short positions, profit when buying to close at lower price
+      if (closeQty > 0 && currentPriceBasis > 0) {
+        const profit = (currentPriceBasis - priceCents) * closeQty;
+        newClosedProfit = currentClosedProfit + profit;
+      }
+      
       if (remainingQty > 0) {
-        // Open new long position
-        newQtyLong = position.qty_long + remainingQty;
-        if (newAvgPriceLong === null) {
-          newAvgPriceLong = priceCents;
+        // Go long with remaining
+        newNetPosition = newNetPosition + remainingQty;
+        // Calculate weighted average price
+        if (currentPriceBasis > 0 && currentNetPosition < 0) {
+          const totalValue = Math.abs(currentNetPosition) * currentPriceBasis + remainingQty * priceCents;
+          newPriceBasis = Math.round(totalValue / newNetPosition);
         } else {
-          // Weighted average
-          const totalValue = newAvgPriceLong * position.qty_long + priceCents * remainingQty;
-          newAvgPriceLong = Math.round(totalValue / newQtyLong);
+          newPriceBasis = priceCents;
         }
+      } else {
+        // Fully closed short, price_basis resets
+        newPriceBasis = 0;
       }
     } else {
-      // Open new long position
-      newQtyLong = position.qty_long + qtyContracts;
-      if (newAvgPriceLong === null) {
-        newAvgPriceLong = priceCents;
+      // Currently long or flat, increase long position
+      newNetPosition = currentNetPosition + qtyContracts;
+      // Calculate weighted average
+      if (currentNetPosition > 0 && currentPriceBasis > 0) {
+        const totalValue = currentNetPosition * currentPriceBasis + qtyContracts * priceCents;
+        newPriceBasis = Math.round(totalValue / newNetPosition);
       } else {
-        // Weighted average
-        const totalValue = newAvgPriceLong * position.qty_long + priceCents * qtyContracts;
-        newAvgPriceLong = Math.round(totalValue / newQtyLong);
+        newPriceBasis = priceCents;
       }
     }
   } else {
-    // Selling - increase short position or decrease long position
-    if (position.qty_long > 0) {
-      // Close long position first
-      const closeQty = Math.min(qtyContracts, position.qty_long);
-      newQtyLong = position.qty_long - closeQty;
+    // Selling - decrease net position (less long, more short)
+    if (currentNetPosition > 0) {
+      // Currently long, close some/all of long position
+      const closeQty = Math.min(qtyContracts, currentNetPosition);
       const remainingQty = qtyContracts - closeQty;
-
+      newNetPosition = currentNetPosition - closeQty; // Move toward 0
+      
+      // Calculate closed profit: profit = (sell_price - price_basis) * closeQty
+      // For long positions, profit when selling to close at higher price
+      if (closeQty > 0 && currentPriceBasis > 0) {
+        const profit = (priceCents - currentPriceBasis) * closeQty;
+        newClosedProfit = currentClosedProfit + profit;
+      }
+      
       if (remainingQty > 0) {
-        // Open new short position
-        newQtyShort = position.qty_short + remainingQty;
-        if (newAvgPriceShort === null) {
-          newAvgPriceShort = priceCents;
+        // Go short with remaining
+        newNetPosition = newNetPosition - remainingQty;
+        // Calculate weighted average price for short
+        if (currentPriceBasis > 0 && currentNetPosition > 0) {
+          const totalValue = currentNetPosition * currentPriceBasis + remainingQty * priceCents;
+          newPriceBasis = Math.round(totalValue / Math.abs(newNetPosition));
         } else {
-          // Weighted average
-          const totalValue = newAvgPriceShort * position.qty_short + priceCents * remainingQty;
-          newAvgPriceShort = Math.round(totalValue / newQtyShort);
+          newPriceBasis = priceCents;
         }
+      } else {
+        // Fully closed long, price_basis resets
+        newPriceBasis = 0;
       }
     } else {
-      // Open new short position
-      newQtyShort = position.qty_short + qtyContracts;
-      if (newAvgPriceShort === null) {
-        newAvgPriceShort = priceCents;
+      // Currently short or flat, increase short position
+      newNetPosition = currentNetPosition - qtyContracts;
+      // Calculate weighted average for short
+      if (currentNetPosition < 0 && currentPriceBasis > 0) {
+        const totalValue = Math.abs(currentNetPosition) * currentPriceBasis + qtyContracts * priceCents;
+        newPriceBasis = Math.round(totalValue / Math.abs(newNetPosition));
       } else {
-        // Weighted average
-        const totalValue = newAvgPriceShort * position.qty_short + priceCents * qtyContracts;
-        newAvgPriceShort = Math.round(totalValue / newQtyShort);
+        newPriceBasis = priceCents;
       }
     }
   }
 
-  await dbRun(
-    db,
-    `UPDATE positions 
-     SET qty_long = ?, qty_short = ?, avg_price_long_cents = ?, avg_price_short_cents = ?, updated_at = ?
-     WHERE market_id = ? AND user_id = ?`,
-    [
-      newQtyLong,
-      newQtyShort,
-      newAvgPriceLong,
-      newAvgPriceShort,
-      Math.floor(Date.now() / 1000),
-      marketId,
-      userId,
-    ]
-  );
+  // Create position if it doesn't exist
+  if (!positionDb) {
+    await dbRun(
+      db,
+      `INSERT INTO positions (user_id, outcome, net_position, price_basis, closed_profit, settled_profit, is_settled, create_time)
+       VALUES (?, ?, ?, ?, 0, 0, 0, ?)`,
+      [userIdNum, outcomeId, newNetPosition, newPriceBasis, Math.floor(Date.now() / 1000)]
+    );
+  } else {
+    // Update existing position
+    await dbRun(
+      db,
+      `UPDATE positions 
+       SET net_position = ?, price_basis = ?, closed_profit = ?
+       WHERE outcome = ? AND user_id = ?`,
+      [
+        newNetPosition,
+        newPriceBasis,
+        newClosedProfit,
+        outcomeId,
+        userIdNum,
+      ]
+    );
+  }
 }
 
 export async function calculateExposure(
@@ -325,13 +453,15 @@ export async function calculateExposure(
 
 export async function executeMatching(
   db: D1Database,
-  takerOrder: Order
+  takerOrder: Order,
+  outcomeId: string // Local DB uses outcome for positions, need to pass it
 ): Promise<{ fills: Fill[]; trades: Trade[] }> {
   const fills: Fill[] = [];
   const trades: Trade[] = [];
 
   // Get opposite side orders sorted by price-time priority
-  const oppositeOrders = await getOppositeOrders(db, takerOrder.market_id, takerOrder.side, takerOrder.user_id);
+  // Pass outcomeId to filter by the specific outcome, not just market
+  const oppositeOrders = await getOppositeOrders(db, outcomeId, takerOrder.side, takerOrder.user_id);
 
   // Match the order
   const matchedFills = await matchOrder(db, takerOrder, oppositeOrders);
@@ -342,43 +472,72 @@ export async function executeMatching(
     // Update maker order
     await updateOrderStatus(db, fill.maker_order_id, fill.qty_contracts);
 
-    // Create trade
+    // Create trade - pass outcomeId to link trade to outcome
     const tradeId = await createTrade(
       db,
       takerOrder.market_id,
       takerOrder.id,
       fill.maker_order_id,
       fill.price_cents,
-      fill.qty_contracts
+      fill.qty_contracts,
+      outcomeId
     );
 
     // Update positions for both users
-    const makerOrder = await dbFirst<Order>(db, 'SELECT * FROM orders WHERE id = ?', [fill.maker_order_id]);
-    if (makerOrder) {
-      // Taker position
+    // Need to get outcome from maker order (local DB stores outcome, not market_id in orders table)
+    const makerOrderId = typeof fill.maker_order_id === 'string' ? parseInt(fill.maker_order_id, 10) : fill.maker_order_id;
+    const makerOrderDb = await dbFirst<{
+      id: number;
+      user_id: number | null;
+      outcome: string;
+      side: number;
+    }>(db, 'SELECT id, user_id, outcome, side FROM orders WHERE id = ?', [makerOrderId]);
+    
+    if (makerOrderDb) {
+      const takerUserId = typeof takerOrder.user_id === 'string' ? parseInt(takerOrder.user_id, 10) : parseInt(takerOrder.user_id, 10);
+      const makerUserId = makerOrderDb.user_id;
+      
+      // Taker position - use outcomeId since positions table uses outcome
       await updatePosition(
         db,
-        takerOrder.market_id,
-        takerOrder.user_id,
+        outcomeId, // Use outcomeId passed to executeMatching
+        takerUserId,
         takerOrder.side,
         fill.price_cents,
         fill.qty_contracts
       );
 
-      // Maker position (opposite side)
-      await updatePosition(
-        db,
-        makerOrder.market_id,
-        makerOrder.user_id,
-        makerOrder.side,
-        fill.price_cents,
-        fill.qty_contracts
-      );
+      // Maker position (opposite side) - use same outcomeId
+      if (makerUserId) {
+        await updatePosition(
+          db,
+          outcomeId, // Use same outcomeId
+          makerUserId,
+          makerOrderDb.side === 0 ? 'bid' : 'ask',
+          fill.price_cents,
+          fill.qty_contracts
+        );
+      }
     }
 
-    const trade = await dbFirst<Trade>(db, 'SELECT * FROM trades WHERE id = ?', [tradeId]);
-    if (trade) {
-      trades.push(trade);
+    const tradeDb = await dbFirst<{
+      id: number;
+      token: string;
+      price: number;
+      contracts: number;
+      create_time: number;
+    }>(db, 'SELECT * FROM trades WHERE id = ?', [tradeId]);
+    if (tradeDb) {
+      // Convert to Trade interface format
+      trades.push({
+        id: tradeDb.id.toString(),
+        market_id: takerOrder.market_id,
+        taker_order_id: takerOrder.id,
+        maker_order_id: fill.maker_order_id,
+        price_cents: tradeDb.price,
+        qty_contracts: tradeDb.contracts,
+        created_at: tradeDb.create_time,
+      });
     }
 
     fills.push(fill);

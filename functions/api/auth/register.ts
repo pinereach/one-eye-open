@@ -40,7 +40,14 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       [validated.username, passwordHash]
     );
 
-    if (!result.meta.last_row_id) {
+    console.log('Registration result:', {
+      success: result.success,
+      meta: result.meta,
+      username: validated.username,
+    });
+
+    if (!result.success || !result.meta.last_row_id) {
+      console.error('Failed to create user:', result);
       return errorResponse('Failed to create user', 500);
     }
 

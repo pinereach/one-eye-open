@@ -53,6 +53,11 @@ export interface Trade {
   create_time: number;
   risk_off_contracts: number;
   risk_off_price_diff: number;
+  outcome?: string | null;
+  outcome_name?: string | null;
+  outcome_ticker?: string | null;
+  market_id?: string | null;
+  market_short_name?: string | null;
 }
 
 export interface Position {

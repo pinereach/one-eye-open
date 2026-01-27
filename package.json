@@ -5,22 +5,29 @@
   "scripts": {
     "sync-lib": "cp src/lib/db.ts functions/lib/ && cp src/lib/auth.ts functions/lib/ && cp src/lib/matching.ts functions/lib/ && cp src/lib/settlement.ts functions/lib/",
     "prebuild": "npm run sync-lib",
-    "dev": "vite",
+    "dev": "npm run sync-lib && vite",
+    "dev:style": "vite --port 3000",
+    "dev:functions": "wrangler pages dev dist --port 8788",
+    "dev:full": "npm run sync-lib && npm run build && wrangler pages dev dist",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler pages deploy dist",
     "migrate": "wrangler d1 execute golf-trip-db --file=./migrations/0001_initial.sql",
-    "seed": "wrangler d1 execute golf-trip-db --file=./migrations/0002_seed_data.sql"
+    "seed": "wrangler d1 execute golf-trip-db --file=./migrations/0002_seed_data.sql",
+    "reset-test-data": "wrangler d1 execute golf-trip-db --file=./migrations/0019_reset_stable_test_data.sql",
+    "reset-test-data-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0020_reset_stable_test_data_remote.sql",
+    "setup-local": "wrangler d1 execute golf-trip-db --file=./migrations/0014_local_setup.sql && wrangler d1 execute golf-trip-db --file=./migrations/0019_reset_stable_test_data.sql"
   },
   "dependencies": {
+    "date-fns": "^2.30.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.0",
-    "zod": "^3.22.4",
-    "date-fns": "^2.30.0"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240125.0",
+    "@types/date-fns": "^2.5.3",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
@@ -28,7 +35,7 @@
     "postcss": "^8.4.32",
     "tailwindcss": "^3.3.6",
     "typescript": "^5.3.3",
-    "vite": "^5.0.8",
-    "wrangler": "^3.19.0"
+    "vite": "^7.3.1",
+    "wrangler": "^4.60.0"
   }
 }

@@ -31,7 +31,7 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="username" className="block text-sm font-medium mb-1">
+        <label htmlFor="username" className="block text-sm font-medium mb-1.5">
           Username
         </label>
         <input
@@ -40,12 +40,13 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+          autoComplete="username"
+          className="w-full px-3 py-2.5 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium mb-1">
+        <label htmlFor="password" className="block text-sm font-medium mb-1.5">
           Password
         </label>
         <input
@@ -54,7 +55,8 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+          autoComplete="new-password"
+          className="w-full px-3 py-2.5 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
         />
       </div>
 
@@ -65,7 +67,7 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-md disabled:opacity-50"
+        className="w-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-medium py-3 px-4 rounded-md disabled:opacity-50 min-h-[44px] text-base touch-manipulation"
       >
         {loading ? 'Registering...' : 'Register'}
       </button>

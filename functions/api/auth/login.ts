@@ -18,7 +18,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
     const db = getDb(env);
 
-    // Find user by username
+    // Find user by username in database
     const user = await dbFirst<{
       id: number;
       username: string;
@@ -29,17 +29,18 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       [validated.username]
     );
 
+    // Validate user exists
     if (!user) {
       return errorResponse('Invalid username or password', 401);
     }
 
-    // Verify password
+    // Validate password matches database
     const isValid = await verifyPassword(validated.password, user.password);
     if (!isValid) {
       return errorResponse('Invalid username or password', 401);
     }
 
-    // Create token
+    // Create authentication token
     const userForToken = {
       id: user.id,
       username: user.username,
