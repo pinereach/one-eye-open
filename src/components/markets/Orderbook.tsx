@@ -38,7 +38,7 @@ function CancelDialog({ isOpen, orders, price, onClose, onCancel }: CancelDialog
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
         <div className="p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg sm:text-xl font-semibold">Cancel Order</h3>
+            <h3 className="text-lg sm:text-xl font-bold">Cancel Order</h3>
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl font-bold"
@@ -209,7 +209,7 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
       <div>
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <div>
-            <h3 className="font-semibold mb-2 text-sm sm:text-base text-green-600 dark:text-green-400">Bids</h3>
+            <h3 className="font-bold mb-2 text-sm sm:text-base text-green-600 dark:text-green-400">Bids</h3>
             <div className="space-y-1">
               {bidLevels.length === 0 ? (
                 <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
@@ -286,7 +286,7 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
           </div>
 
           <div>
-            <h3 className="font-semibold mb-2 text-sm sm:text-base text-red-600 dark:text-red-400">Asks</h3>
+            <h3 className="font-bold mb-2 text-sm sm:text-base text-red-600 dark:text-red-400">Asks</h3>
             <div className="space-y-1">
               {askLevels.length === 0 ? (
                 <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 py-4 text-center">

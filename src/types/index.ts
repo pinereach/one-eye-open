@@ -28,6 +28,7 @@ export interface Market {
   max_winners: number;
   min_winners: number;
   created_date: number;
+  market_type?: string | null;
   outcomes?: Outcome[];
 }
 
@@ -42,7 +43,11 @@ export interface Order {
   status: 'open' | 'partial' | 'filled' | 'canceled';
   tif: string;
   side: number; // 0 = bid, 1 = ask
-  contract_size: number | null;
+  contract_size: number | null; // For backward compatibility, shows filled/original size
+  original_size?: number | null; // Original order size
+  remaining_size?: number | null; // Remaining quantity to fill
+  outcome_name?: string; // For display
+  market_name?: string; // For display
 }
 
 export interface Trade {
@@ -58,6 +63,7 @@ export interface Trade {
   outcome_ticker?: string | null;
   market_id?: string | null;
   market_short_name?: string | null;
+  side?: number | null; // 0 = bid/buy, 1 = ask/sell
 }
 
 export interface Position {
@@ -70,6 +76,10 @@ export interface Position {
   net_position: number;
   price_basis: number;
   is_settled: number; // 0 = false, 1 = true
+  current_price?: number | null; // Current midpoint price from orderbook
+  market_name?: string; // For display
+  outcome_ticker?: string; // For display
+  outcome_name?: string; // For display
 }
 
 // LedgerEntry removed - ledger functionality removed

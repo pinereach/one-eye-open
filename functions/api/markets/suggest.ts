@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbRun, type Env } from '../../lib/db';
+import { getDb, dbRun, dbFirst, type Env } from '../../lib/db';
 import { requireAuth, jsonResponse, errorResponse } from '../../middleware';
 
 const outcomeSchema = z.object({
@@ -15,6 +15,7 @@ const marketSuggestionSchema = z.object({
   max_winners: z.number().int().min(1).max(12).default(1),
   min_winners: z.number().int().min(1).max(12).default(1),
   outcomes: z.array(outcomeSchema).min(1, 'At least one outcome is required').max(12, 'Maximum 12 outcomes allowed'),
+  round_number: z.number().optional(), // Optional round number for Round O/U markets
 });
 
 export const onRequestPost: OnRequest<Env> = async (context) => {
@@ -31,23 +32,85 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const body = await request.json();
     const validated = marketSuggestionSchema.parse(body);
 
-    // Generate unique market_id
-    const marketId = `market-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Determine market_type from short_name (if it contains "Round" and "Over/Under", it's round_ou)
+    const isRoundOU = validated.short_name.includes('Round') && validated.short_name.includes('Over/Under');
+    const marketType = isRoundOU ? 'round_ou' : null;
 
-    // Insert market
-    await dbRun(
-      db,
-      `INSERT INTO markets (market_id, short_name, symbol, max_winners, min_winners, created_date)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        marketId,
-        validated.short_name,
-        validated.symbol,
-        validated.max_winners,
-        validated.min_winners,
-        Math.floor(Date.now() / 1000),
-      ]
-    );
+    let marketId: string;
+
+    // For Round O/U markets, find or create the market for that round
+    if (isRoundOU && validated.round_number) {
+      // Extract round number from short_name or use provided round_number
+      const roundMatch = validated.short_name.match(/Round (\d+)/);
+      const roundNum = validated.round_number || (roundMatch ? parseInt(roundMatch[1], 10) : null);
+      
+      if (roundNum) {
+        // Look for existing market for this round
+        const existingMarket = await dbFirst<{ market_id: string }>(
+          db,
+          `SELECT market_id FROM markets 
+           WHERE market_type = 'round_ou' 
+           AND short_name LIKE ?`,
+          [`Round ${roundNum} Over/Under%`]
+        );
+
+        if (existingMarket) {
+          // Use existing market
+          marketId = existingMarket.market_id;
+        } else {
+          // Create new market for this round
+          marketId = `market-round-${roundNum}-ou`;
+          await dbRun(
+            db,
+            `INSERT INTO markets (market_id, short_name, symbol, max_winners, min_winners, created_date, market_type)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              marketId,
+              `Round ${roundNum} Over/Under`,
+              `R${roundNum}OU`,
+              validated.max_winners,
+              validated.min_winners,
+              Math.floor(Date.now() / 1000),
+              marketType,
+            ]
+          );
+        }
+      } else {
+        // Fallback: create new market if we can't determine round
+        marketId = `market-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        await dbRun(
+          db,
+          `INSERT INTO markets (market_id, short_name, symbol, max_winners, min_winners, created_date, market_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            marketId,
+            validated.short_name,
+            validated.symbol,
+            validated.max_winners,
+            validated.min_winners,
+            Math.floor(Date.now() / 1000),
+            marketType,
+          ]
+        );
+      }
+    } else {
+      // For non-Round O/U markets, create a new market
+      marketId = `market-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      await dbRun(
+        db,
+        `INSERT INTO markets (market_id, short_name, symbol, max_winners, min_winners, created_date, market_type)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          marketId,
+          validated.short_name,
+          validated.symbol,
+          validated.max_winners,
+          validated.min_winners,
+          Math.floor(Date.now() / 1000),
+          marketType,
+        ]
+      );
+    }
 
     // Insert outcomes
     const outcomeIds: string[] = [];

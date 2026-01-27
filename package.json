@@ -16,7 +16,15 @@
     "seed": "wrangler d1 execute golf-trip-db --file=./migrations/0002_seed_data.sql",
     "reset-test-data": "wrangler d1 execute golf-trip-db --file=./migrations/0019_reset_stable_test_data.sql",
     "reset-test-data-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0020_reset_stable_test_data_remote.sql",
-    "setup-local": "wrangler d1 execute golf-trip-db --file=./migrations/0014_local_setup.sql && wrangler d1 execute golf-trip-db --file=./migrations/0019_reset_stable_test_data.sql"
+    "setup-local": "wrangler d1 execute golf-trip-db --file=./migrations/0014_local_setup.sql && wrangler d1 execute golf-trip-db --file=./migrations/0013_add_participants.sql && wrangler d1 execute golf-trip-db --file=./migrations/0019_reset_stable_test_data.sql",
+    "add-participants": "wrangler d1 execute golf-trip-db --local --file=./migrations/0013_add_participants.sql",
+    "migrate-trades": "wrangler d1 execute golf-trip-db --local --file=./migrations/0021_add_outcome_to_trades.sql",
+    "setup-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0023_setup_remote_outcomes_only.sql && wrangler d1 execute golf-trip-db --remote --file=./migrations/0021_add_outcome_to_trades.sql",
+    "setup-remote-outcomes": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0023_setup_remote_outcomes_only.sql",
+    "update-markets": "wrangler d1 execute golf-trip-db --local --file=./migrations/0025_add_market_type.sql && wrangler d1 execute golf-trip-db --local --file=./migrations/0024_update_all_markets.sql",
+    "update-markets-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0025_add_market_type.sql && wrangler d1 execute golf-trip-db --remote --file=./migrations/0024_update_all_markets.sql",
+    "add-market-type": "wrangler d1 execute golf-trip-db --local --file=./migrations/0025_add_market_type.sql",
+    "add-market-type-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0025_add_market_type.sql"
   },
   "dependencies": {
     "date-fns": "^2.30.0",

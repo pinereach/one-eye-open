@@ -25,9 +25,11 @@ CREATE TABLE IF NOT EXISTS markets (
   symbol TEXT NOT NULL,
   max_winners INTEGER NOT NULL,
   min_winners INTEGER NOT NULL,
-  created_date INTEGER NOT NULL DEFAULT (unixepoch())
+  created_date INTEGER NOT NULL DEFAULT (unixepoch()),
+  market_type TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_markets_market_id ON markets(market_id);
+CREATE INDEX IF NOT EXISTS idx_markets_market_type ON markets(market_type);
 
 -- Outcomes table
 CREATE TABLE IF NOT EXISTS outcomes (

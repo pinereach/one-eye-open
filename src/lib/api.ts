@@ -116,7 +116,16 @@ async function mockApiRequest<T>(endpoint: string, options: RequestInit): Promis
 
   // Mock /participants
   if (endpoint === '/participants') {
-    return { participants: [] } as T;
+    // Return some mock participants for development
+    return { 
+      participants: [
+        { id: '1', name: 'Alex Kane' },
+        { id: '2', name: 'Loop & Boose' },
+        { id: '3', name: 'Tiger Woods' },
+        { id: '4', name: 'Phil Mickelson' },
+        { id: '5', name: 'Rory McIlroy' },
+      ] 
+    } as T;
   }
 
   // Default: return empty object
@@ -202,6 +211,7 @@ export const api = {
     max_winners: number;
     min_winners: number;
     outcomes: Array<{ name: string; ticker: string; strike?: string }>;
+    round_number?: number;
   }) => {
     return apiRequest<{ success: boolean; market_id: string; outcome_ids: string[] }>('/markets/suggest', {
       method: 'POST',
@@ -211,6 +221,21 @@ export const api = {
 
   updateScore: (roundId: string, data: { cross_score?: number; net_score?: number }) =>
     apiRequest<{ success: boolean }>(`/scoring/rounds?roundId=${roundId}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Scores (historical scoring data)
+  getScores: (course?: string, year?: string) => {
+    const params = new URLSearchParams();
+    if (course) params.append('course', course);
+    if (year) params.append('year', year);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiRequest<{ scores: Array<{ id: number; course: string; year: number; player: string; score: number | null; index_number: number | null }> }>(`/scoring/scores${query}`);
+  },
+
+  updateScoreValue: (data: { course: string; year: number; player: string; score: number | null; index_number?: number | null }) =>
+    apiRequest<{ success: boolean }>('/scoring/scores', {
       method: 'POST',
       body: JSON.stringify(data),
     }),

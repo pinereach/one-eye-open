@@ -1,5 +1,5 @@
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbQuery, type Env } from '../../lib/db';
+import { getDb, dbQuery, dbRun, type Env } from '../../lib/db';
 import { requireAuth, jsonResponse } from '../../middleware';
 
 export const onRequestGet: OnRequest<Env> = async (context) => {
@@ -15,6 +15,27 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   const db = getDb(env);
 
   // Get all recent trades with outcome and market information
+  // First, try to backfill missing outcomes for trades that don't have them
+  // by matching with orders created around the same time
+  await dbRun(
+    db,
+    `UPDATE trades 
+     SET outcome = (
+       SELECT o.outcome 
+       FROM orders o 
+       WHERE ABS(o.create_time - trades.create_time) <= 2 
+         AND ABS(o.price - trades.price) <= 50
+       LIMIT 1
+     )
+     WHERE outcome IS NULL 
+       AND EXISTS (
+         SELECT 1 FROM orders o 
+         WHERE ABS(o.create_time - trades.create_time) <= 2 
+           AND ABS(o.price - trades.price) <= 50
+       )`
+  );
+
+  // Now get trades with outcome and market information
   const trades = await dbQuery<{
     id: number;
     token: string;
@@ -31,7 +52,14 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   }>(
     db,
     `SELECT 
-       t.*,
+       t.id,
+       t.token,
+       t.price,
+       t.contracts,
+       t.create_time,
+       t.risk_off_contracts,
+       t.risk_off_price_diff,
+       t.outcome,
        o.name as outcome_name,
        o.ticker as outcome_ticker,
        o.market_id,

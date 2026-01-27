@@ -177,6 +177,8 @@ export async function updateOrderStatus(
   }
 
   // Update contract_size to reflect remaining quantity (local DB uses contract_size, not qty_remaining)
+  // IMPORTANT: We NEVER update original_contract_size here - it must remain immutable after order creation
+  // original_contract_size preserves the original order size even when the order is filled
   await dbRun(
     db,
     'UPDATE orders SET contract_size = ?, status = ? WHERE id = ?',
@@ -195,13 +197,34 @@ export async function createTrade(
 ): Promise<number> {
   // Local DB uses token, price, contracts, create_time, outcome (not id, market_id, etc.)
   const token = crypto.randomUUID();
-  const result = await dbRun(
-    db,
-    `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, outcome)
-     VALUES (?, ?, ?, ?, 0, 0, ?)`,
-    [token, priceCents, qtyContracts, Math.floor(Date.now() / 1000), outcomeId || null]
-  );
-  return result.meta.last_row_id || 0;
+  
+  // Try to insert with outcome column first (if migration has been run)
+  // If that fails, fall back to inserting without outcome column (backward compatibility)
+  try {
+    const result = await dbRun(
+      db,
+      `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, outcome)
+       VALUES (?, ?, ?, ?, 0, 0, ?)`,
+      [token, priceCents, qtyContracts, Math.floor(Date.now() / 1000), outcomeId || null]
+    );
+    const tradeId = result.meta.last_row_id || 0;
+    console.log(`[createTrade] Created trade id=${tradeId}, price=${priceCents}, contracts=${qtyContracts}, outcome=${outcomeId || 'null'}`);
+    return tradeId;
+  } catch (error: any) {
+    console.error('[createTrade] Error creating trade with outcome column:', error);
+    // If outcome column doesn't exist, insert without it (backward compatibility)
+    if (error?.message?.includes('no such column: outcome')) {
+      console.log('[createTrade] Falling back to insert without outcome column');
+      const result = await dbRun(
+        db,
+        `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff)
+         VALUES (?, ?, ?, ?, 0, 0)`,
+        [token, priceCents, qtyContracts, Math.floor(Date.now() / 1000)]
+      );
+      return result.meta.last_row_id || 0;
+    }
+    throw error;
+  }
 }
 
 export async function getOrCreatePosition(
@@ -318,9 +341,12 @@ export async function updatePosition(
         } else {
           newPriceBasis = priceCents;
         }
-      } else {
-        // Fully closed short, price_basis resets
+      } else if (newNetPosition === 0) {
+        // Fully closed short (net position is now 0), price_basis resets
         newPriceBasis = 0;
+      } else {
+        // Partially closed short (still have remaining position), price_basis stays the same
+        newPriceBasis = currentPriceBasis;
       }
     } else {
       // Currently long or flat, increase long position
@@ -358,9 +384,12 @@ export async function updatePosition(
         } else {
           newPriceBasis = priceCents;
         }
-      } else {
-        // Fully closed long, price_basis resets
+      } else if (newNetPosition === 0) {
+        // Fully closed long (net position is now 0), price_basis resets
         newPriceBasis = 0;
+      } else {
+        // Partially closed long (still have remaining position), price_basis stays the same
+        newPriceBasis = currentPriceBasis;
       }
     } else {
       // Currently short or flat, increase short position
@@ -456,15 +485,18 @@ export async function executeMatching(
   takerOrder: Order,
   outcomeId: string // Local DB uses outcome for positions, need to pass it
 ): Promise<{ fills: Fill[]; trades: Trade[] }> {
+  console.log(`[executeMatching] Starting matching for order ${takerOrder.id}, outcomeId=${outcomeId}, side=${takerOrder.side}`);
   const fills: Fill[] = [];
   const trades: Trade[] = [];
 
   // Get opposite side orders sorted by price-time priority
   // Pass outcomeId to filter by the specific outcome, not just market
   const oppositeOrders = await getOppositeOrders(db, outcomeId, takerOrder.side, takerOrder.user_id);
+  console.log(`[executeMatching] Found ${oppositeOrders.length} opposite orders`);
 
   // Match the order
   const matchedFills = await matchOrder(db, takerOrder, oppositeOrders);
+  console.log(`[executeMatching] Matched ${matchedFills.length} fills`);
 
   // Execute all matches in a transaction-like manner
   // Note: D1 doesn't support explicit transactions, so we'll do it sequentially
@@ -549,5 +581,6 @@ export async function executeMatching(
     await updateOrderStatus(db, takerOrder.id, totalFilled);
   }
 
+  console.log(`[executeMatching] Completed: ${fills.length} fills, ${trades.length} trades created`);
   return { fills, trades };
 }

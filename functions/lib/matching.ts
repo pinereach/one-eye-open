@@ -177,6 +177,8 @@ export async function updateOrderStatus(
   }
 
   // Update contract_size to reflect remaining quantity (local DB uses contract_size, not qty_remaining)
+  // IMPORTANT: We NEVER update original_contract_size here - it must remain immutable after order creation
+  // original_contract_size preserves the original order size even when the order is filled
   await dbRun(
     db,
     'UPDATE orders SET contract_size = ?, status = ? WHERE id = ?',
@@ -190,17 +192,39 @@ export async function createTrade(
   _takerOrderId: string | number,
   _makerOrderId: string | number,
   priceCents: number,
-  qtyContracts: number
+  qtyContracts: number,
+  outcomeId?: string // Optional outcome_id to link trade to outcome
 ): Promise<number> {
-  // Local DB uses token, price, contracts, create_time (not id, market_id, etc.)
+  // Local DB uses token, price, contracts, create_time, outcome (not id, market_id, etc.)
   const token = crypto.randomUUID();
-  const result = await dbRun(
-    db,
-    `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff)
-     VALUES (?, ?, ?, ?, 0, 0)`,
-    [token, priceCents, qtyContracts, Math.floor(Date.now() / 1000)]
-  );
-  return result.meta.last_row_id || 0;
+  
+  // Try to insert with outcome column first (if migration has been run)
+  // If that fails, fall back to inserting without outcome column (backward compatibility)
+  try {
+    const result = await dbRun(
+      db,
+      `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, outcome)
+       VALUES (?, ?, ?, ?, 0, 0, ?)`,
+      [token, priceCents, qtyContracts, Math.floor(Date.now() / 1000), outcomeId || null]
+    );
+    const tradeId = result.meta.last_row_id || 0;
+    console.log(`[createTrade] Created trade id=${tradeId}, price=${priceCents}, contracts=${qtyContracts}, outcome=${outcomeId || 'null'}`);
+    return tradeId;
+  } catch (error: any) {
+    console.error('[createTrade] Error creating trade with outcome column:', error);
+    // If outcome column doesn't exist, insert without it (backward compatibility)
+    if (error?.message?.includes('no such column: outcome')) {
+      console.log('[createTrade] Falling back to insert without outcome column');
+      const result = await dbRun(
+        db,
+        `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff)
+         VALUES (?, ?, ?, ?, 0, 0)`,
+        [token, priceCents, qtyContracts, Math.floor(Date.now() / 1000)]
+      );
+      return result.meta.last_row_id || 0;
+    }
+    throw error;
+  }
 }
 
 export async function getOrCreatePosition(
@@ -278,6 +302,7 @@ export async function updatePosition(
     outcome: string;
     net_position: number;
     price_basis: number;
+    closed_profit: number;
   }>(
     db,
     'SELECT * FROM positions WHERE outcome = ? AND user_id = ?',
@@ -286,8 +311,10 @@ export async function updatePosition(
 
   let currentNetPosition = positionDb?.net_position || 0;
   let currentPriceBasis = positionDb?.price_basis || 0;
+  let currentClosedProfit = positionDb?.closed_profit || 0;
   let newNetPosition = currentNetPosition;
   let newPriceBasis = currentPriceBasis;
+  let newClosedProfit = currentClosedProfit;
 
   if (side === 'bid') {
     // Buying - increase net position (more long, less short)
@@ -296,6 +323,13 @@ export async function updatePosition(
       const closeQty = Math.min(qtyContracts, Math.abs(currentNetPosition));
       const remainingQty = qtyContracts - closeQty;
       newNetPosition = currentNetPosition + closeQty; // Move toward 0
+      
+      // Calculate closed profit: profit = (price_basis - buy_price) * closeQty
+      // For short positions, profit when buying to close at lower price
+      if (closeQty > 0 && currentPriceBasis > 0) {
+        const profit = (currentPriceBasis - priceCents) * closeQty;
+        newClosedProfit = currentClosedProfit + profit;
+      }
       
       if (remainingQty > 0) {
         // Go long with remaining
@@ -307,6 +341,12 @@ export async function updatePosition(
         } else {
           newPriceBasis = priceCents;
         }
+      } else if (newNetPosition === 0) {
+        // Fully closed short (net position is now 0), price_basis resets
+        newPriceBasis = 0;
+      } else {
+        // Partially closed short (still have remaining position), price_basis stays the same
+        newPriceBasis = currentPriceBasis;
       }
     } else {
       // Currently long or flat, increase long position
@@ -327,6 +367,13 @@ export async function updatePosition(
       const remainingQty = qtyContracts - closeQty;
       newNetPosition = currentNetPosition - closeQty; // Move toward 0
       
+      // Calculate closed profit: profit = (sell_price - price_basis) * closeQty
+      // For long positions, profit when selling to close at higher price
+      if (closeQty > 0 && currentPriceBasis > 0) {
+        const profit = (priceCents - currentPriceBasis) * closeQty;
+        newClosedProfit = currentClosedProfit + profit;
+      }
+      
       if (remainingQty > 0) {
         // Go short with remaining
         newNetPosition = newNetPosition - remainingQty;
@@ -337,9 +384,12 @@ export async function updatePosition(
         } else {
           newPriceBasis = priceCents;
         }
-      } else {
-        // Fully closed long, price_basis resets
+      } else if (newNetPosition === 0) {
+        // Fully closed long (net position is now 0), price_basis resets
         newPriceBasis = 0;
+      } else {
+        // Partially closed long (still have remaining position), price_basis stays the same
+        newPriceBasis = currentPriceBasis;
       }
     } else {
       // Currently short or flat, increase short position
@@ -367,11 +417,12 @@ export async function updatePosition(
     await dbRun(
       db,
       `UPDATE positions 
-       SET net_position = ?, price_basis = ?
+       SET net_position = ?, price_basis = ?, closed_profit = ?
        WHERE outcome = ? AND user_id = ?`,
       [
         newNetPosition,
         newPriceBasis,
+        newClosedProfit,
         outcomeId,
         userIdNum,
       ]
@@ -434,15 +485,18 @@ export async function executeMatching(
   takerOrder: Order,
   outcomeId: string // Local DB uses outcome for positions, need to pass it
 ): Promise<{ fills: Fill[]; trades: Trade[] }> {
+  console.log(`[executeMatching] Starting matching for order ${takerOrder.id}, outcomeId=${outcomeId}, side=${takerOrder.side}`);
   const fills: Fill[] = [];
   const trades: Trade[] = [];
 
   // Get opposite side orders sorted by price-time priority
   // Pass outcomeId to filter by the specific outcome, not just market
   const oppositeOrders = await getOppositeOrders(db, outcomeId, takerOrder.side, takerOrder.user_id);
+  console.log(`[executeMatching] Found ${oppositeOrders.length} opposite orders`);
 
   // Match the order
   const matchedFills = await matchOrder(db, takerOrder, oppositeOrders);
+  console.log(`[executeMatching] Matched ${matchedFills.length} fills`);
 
   // Execute all matches in a transaction-like manner
   // Note: D1 doesn't support explicit transactions, so we'll do it sequentially
@@ -450,14 +504,15 @@ export async function executeMatching(
     // Update maker order
     await updateOrderStatus(db, fill.maker_order_id, fill.qty_contracts);
 
-    // Create trade
+    // Create trade - pass outcomeId to link trade to outcome
     const tradeId = await createTrade(
       db,
       takerOrder.market_id,
       takerOrder.id,
       fill.maker_order_id,
       fill.price_cents,
-      fill.qty_contracts
+      fill.qty_contracts,
+      outcomeId
     );
 
     // Update positions for both users
@@ -526,5 +581,6 @@ export async function executeMatching(
     await updateOrderStatus(db, takerOrder.id, totalFilled);
   }
 
+  console.log(`[executeMatching] Completed: ${fills.length} fills, ${trades.length} trades created`);
   return { fills, trades };
 }

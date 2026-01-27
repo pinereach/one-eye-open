@@ -27,6 +27,22 @@ export default {
           'border-dark': '#374151',
         },
       },
+      fontSize: {
+        'fluid-xs': 'clamp(0.75rem, 2vw, 0.875rem)',
+        'fluid-sm': 'clamp(0.875rem, 2.5vw, 1rem)',
+        'fluid-base': 'clamp(1rem, 3vw, 1.125rem)',
+        'fluid-lg': 'clamp(1.125rem, 3.5vw, 1.25rem)',
+        'fluid-xl': 'clamp(1.25rem, 4vw, 1.5rem)',
+        'fluid-2xl': 'clamp(1.5rem, 5vw, 2rem)',
+      },
+      lineHeight: {
+        'relaxed': '1.6',
+        'tight': '1.3',
+      },
+      boxShadow: {
+        'mobile': '0 2px 8px rgba(0, 0, 0, 0.1)',
+        'mobile-lg': '0 4px 16px rgba(0, 0, 0, 0.15)',
+      },
     },
   },
   plugins: [],

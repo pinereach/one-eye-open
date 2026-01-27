@@ -80,10 +80,12 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     // Create order
     // Note: orders table uses contract_size, but we need qty_remaining for matching
     // We'll use contract_size as the initial qty_remaining
+    // IMPORTANT: original_contract_size is set here and should NEVER be updated after order creation
+    // It preserves the original order size even when the order is filled (contract_size becomes 0)
     const result = await dbRun(
       db,
-      `INSERT INTO orders (create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO orders (create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size, original_contract_size)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         Math.floor(Date.now() / 1000),
         userId, // user.id is now a number
@@ -95,6 +97,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
         validated.tif || 'GTC',
         sideNum,
         validated.contract_size,
+        validated.contract_size, // Store original size - this should NEVER change after order creation
       ]
     );
 

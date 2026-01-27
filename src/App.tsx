@@ -6,6 +6,11 @@ import { RegisterForm } from './components/auth/RegisterForm';
 import { MarketList } from './components/markets/MarketList';
 import { MarketDetail } from './components/markets/MarketDetail';
 import { DarkModeToggle } from './components/ui/DarkModeToggle';
+import { BottomNav } from './components/ui/BottomNav';
+import { Card, CardContent, CardHeader } from './components/ui/Card';
+import { Skeleton, SkeletonCard, SkeletonTable } from './components/ui/Skeleton';
+import { EmptyState } from './components/ui/EmptyState';
+import { SwipeableCard } from './components/ui/SwipeableCard';
 import { api } from './lib/api';
 import { format } from 'date-fns';
 import { ToastContainer, useToast } from './components/ui/Toast';
@@ -220,7 +225,8 @@ function Layout({ children }: { children: React.ReactNode }) {
           )}
         </div>
       </nav>
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8">{children}</main>
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 pb-20 md:pb-4 sm:pb-6 lg:pb-8">{children}</main>
+      {(user || isDevelopment) && <BottomNav />}
     </div>
   );
 }
@@ -266,34 +272,65 @@ function LandingPage() {
 function HistoricalScoringPage() {
   const [selectedCourse, setSelectedCourse] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
-
-  // Historical scoring data
-  const historicalData = [
-    { course: 'Harbour Town', year: 2022, Loop: 91, Boose: 99, Krass: 84, TK: 102, CTH: 99, Avayou: 97, Alex: 93, Huffman: 89, Jon: null, Tim: null, Doc: null, Will: null },
-    { course: 'Harbour Town', year: 2023, Loop: 89, Boose: 117, Krass: 81, TK: 91, CTH: 92, Avayou: 92, Alex: 96, Huffman: 87, Jon: null, Tim: null, Doc: null, Will: null },
-    { course: 'Harbour Town', year: 2024, Loop: 93, Boose: 113, Krass: 79, TK: 97, CTH: 99, Avayou: 97, Alex: 97, Huffman: null, Jon: 102, Tim: null, Doc: null, Will: null },
-    { course: 'Harbour Town', year: 2025, Loop: 82, Boose: 115, Krass: 90, TK: 90, CTH: 92, Avayou: 96, Alex: 87, Huffman: null, Jon: 94, Tim: null, Doc: null, Will: null },
-    { course: 'Heron Point', year: 2022, Loop: 83, Boose: 99, Krass: 86, TK: 97, CTH: 90, Avayou: 103, Alex: 93, Huffman: 89, Jon: null, Tim: null, Doc: null, Will: null },
-    { course: 'Heron Point', year: 2023, Loop: 90, Boose: 113, Krass: 83, TK: 93, CTH: 101, Avayou: 91, Alex: 93, Huffman: 97, Jon: null, Tim: null, Doc: null, Will: null },
-    { course: 'Heron Point', year: 2024, Loop: 78, Boose: 109, Krass: 86, TK: 109, CTH: 85, Avayou: 90, Alex: 88, Huffman: null, Jon: 110, Tim: null, Doc: null, Will: null },
-    { course: 'Heron Point', year: 2025, Loop: 75, Boose: 104, Krass: 85, TK: 93, CTH: 93, Avayou: 85, Alex: 94, Huffman: null, Jon: 92, Tim: null, Doc: null, Will: null },
-    { course: 'RTJ', year: 2022, Loop: 80, Boose: 105, Krass: 92, TK: 97, CTH: 97, Avayou: 97, Alex: 95, Huffman: 94, Jon: null, Tim: null, Doc: null, Will: null },
-    { course: 'RTJ', year: 2023, Loop: 91, Boose: 117, Krass: 86, TK: 95, CTH: 88, Avayou: 90, Alex: 86, Huffman: 94, Jon: null, Tim: null, Doc: null, Will: null },
-    { course: 'RTJ', year: 2024, Loop: 82, Boose: 105, Krass: 81, TK: 97, CTH: 93, Avayou: 94, Alex: 84, Huffman: null, Jon: 101, Tim: null, Doc: null, Will: null },
-    { course: 'RTJ', year: 2025, Loop: 81, Boose: 113, Krass: 80, TK: 97, CTH: 96, Avayou: 93, Alex: 92, Huffman: null, Jon: 98, Tim: null, Doc: null, Will: null },
-    { course: 'Fazio', year: 2022, Loop: 84, Boose: 104, Krass: 83, TK: 93, CTH: 99, Avayou: 86, Alex: 84, Huffman: 95, Jon: null, Tim: null, Doc: null, Will: null },
-    { course: 'Fazio', year: 2023, Loop: 78, Boose: 93, Krass: 87, TK: 83, CTH: 87, Avayou: 88, Alex: 89, Huffman: 90, Jon: null, Tim: null, Doc: null, Will: null },
-    { course: 'Fazio', year: 2024, Loop: 84, Boose: 108, Krass: 85, TK: 96, CTH: 97, Avayou: 94, Alex: 85, Huffman: null, Jon: 99, Tim: null, Doc: null, Will: null },
-    { course: 'Fazio', year: 2025, Loop: 81, Boose: 112, Krass: 88, TK: 98, CTH: 92, Avayou: 87, Alex: 96, Huffman: null, Jon: 102, Tim: null, Doc: null, Will: null },
-    { course: 'Hills', year: 2022, Loop: 89, Boose: 98, Krass: 79, TK: 100, CTH: 98, Avayou: 92, Alex: null, Huffman: null, Jon: null, Tim: null, Doc: null, Will: null },
-    { course: 'Hills', year: 2023, Loop: 77, Boose: 100, Krass: 78, TK: 94, CTH: 94, Avayou: 92, Alex: 87, Huffman: 87, Jon: null, Tim: null, Doc: null, Will: null },
-    { course: 'Hills', year: 2024, Loop: null, Boose: null, Krass: null, TK: null, CTH: null, Avayou: null, Alex: null, Huffman: null, Jon: null, Tim: null, Doc: null, Will: null },
-    { course: 'Hills', year: 2025, Loop: null, Boose: null, Krass: null, TK: null, CTH: null, Avayou: null, Alex: null, Huffman: null, Jon: null, Tim: null, Doc: null, Will: null },
-  ];
+  const [scores, setScores] = useState<Array<{ id: number; course: string; year: number; player: string; score: number | null; index_number: number | null }>>([]);
+  const [loading, setLoading] = useState(true);
 
   const players = ['Loop', 'Boose', 'Krass', 'TK', 'CTH', 'Avayou', 'Alex', 'Huffman', 'Jon', 'Tim', 'Doc', 'Will'];
-  const courses = Array.from(new Set(historicalData.map(d => d.course)));
-  const years = Array.from(new Set(historicalData.map(d => d.year))).sort((a, b) => b - a);
+
+  // Load scores from database
+  useEffect(() => {
+    loadScores();
+  }, [selectedCourse, selectedYear]);
+
+  async function loadScores() {
+    setLoading(true);
+    try {
+      const { scores: scoresData } = await api.getScores(
+        selectedCourse !== 'all' ? selectedCourse : undefined,
+        selectedYear !== 'all' ? selectedYear : undefined
+      );
+      setScores(scoresData || []);
+    } catch (err) {
+      console.error('Failed to load scores:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Transform flat scores array into row-based format for display
+  type RowData = {
+    course: string;
+    year: number;
+    [player: string]: string | number | null | undefined;
+  };
+
+  const getRowData = (): RowData[] => {
+    const rowMap = new Map<string, RowData>();
+    
+    scores.forEach(score => {
+      const key = `${score.course}-${score.year}`;
+      if (!rowMap.has(key)) {
+        rowMap.set(key, { course: score.course, year: score.year });
+      }
+      const row = rowMap.get(key)!;
+      row[score.player] = score.score;
+    });
+
+    // Initialize all players to null for each row
+    rowMap.forEach((row) => {
+      players.forEach(player => {
+        if (!(player in row)) {
+          row[player] = null;
+        }
+      });
+    });
+
+    return Array.from(rowMap.values());
+  };
+
+  const historicalData = getRowData();
+  const courses = Array.from(new Set(historicalData.map(d => d.course as string))).filter((c): c is string => typeof c === 'string');
+  const years = Array.from(new Set(historicalData.map(d => d.year as number))).filter((y): y is number => typeof y === 'number').sort((a, b) => b - a);
 
   const filteredData = historicalData.filter(row => {
     if (selectedCourse !== 'all' && row.course !== selectedCourse) return false;
@@ -304,11 +341,37 @@ function HistoricalScoringPage() {
   // Calculate averages per player
   const playerAverages = players.map(player => {
     const scores = filteredData
-      .map(row => row[player as keyof typeof row] as number)
+      .map(row => row[player] as number | null)
       .filter(score => score !== null && score !== undefined) as number[];
     const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
     return { player, avg, count: scores.length };
   });
+
+  // Handler to update a score value
+  const updateScore = async (course: string, year: number | null, player: string, value: string) => {
+    if (year === null) return; // Can't update if year is null
+    
+    const numValue = value === '' ? null : parseInt(value, 10);
+    if (isNaN(numValue as number) && value !== '') return; // Invalid input, don't update
+    
+    try {
+      await api.updateScoreValue({
+        course,
+        year,
+        player,
+        score: numValue,
+      });
+      
+      // Reload scores to get updated data
+      await loadScores();
+    } catch (err) {
+      console.error('Failed to update score:', err);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading scores...</div>;
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -325,7 +388,7 @@ function HistoricalScoringPage() {
           >
             <option value="all">All Courses</option>
             {courses.map(course => (
-              <option key={course} value={course}>{course}</option>
+              <option key={course} value={String(course)}>{course}</option>
             ))}
           </select>
         </div>
@@ -334,7 +397,7 @@ function HistoricalScoringPage() {
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 min-h-[44px] touch-manipulation"
           >
             <option value="all">All Years</option>
             {years.map(year => (
@@ -347,7 +410,7 @@ function HistoricalScoringPage() {
       {/* Player Averages */}
       {filteredData.length > 0 && (
         <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-          <h2 className="text-sm font-semibold mb-3">Average Scores</h2>
+          <h2 className="text-sm font-bold mb-3">Average Scores</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {playerAverages
               .filter(p => p.count > 0)
@@ -363,16 +426,81 @@ function HistoricalScoringPage() {
         </div>
       )}
 
-      {/* Data Table */}
-      <div className="overflow-x-auto -mx-3 sm:mx-0">
+      {/* Mobile Card Layout */}
+      <div className="md:hidden space-y-4">
+        {filteredData.length === 0 ? (
+          <EmptyState
+            icon={
+              <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            }
+            title="No Data Available"
+            message="Try adjusting your filters to see more results."
+          />
+        ) : (
+          filteredData.map((row, idx) => (
+            <Card key={`${row.course}-${row.year}-${idx}`}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-base text-gray-900 dark:text-gray-100">
+                    {row.course}
+                  </h3>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {row.year}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3">
+                  {players.map(player => {
+                    const score = row[player] as number | null;
+                    return (
+                      <div key={player} className="flex flex-col">
+                        <label className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                          {player}
+                        </label>
+                        <input
+                          type="number"
+                          value={score === null || score === undefined ? '' : score}
+                          onChange={(e) => updateScore(row.course, row.year as number, player, e.target.value)}
+                          onBlur={(e) => {
+                            updateScore(row.course, row.year as number, player, e.target.value);
+                          }}
+                          className={`w-full text-center text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 min-h-[44px] ${
+                            score === null || score === undefined
+                              ? 'text-gray-400 dark:text-gray-600'
+                              : score < 85
+                              ? 'text-green-600 dark:text-green-400 font-semibold'
+                              : score < 95
+                              ? 'text-blue-600 dark:text-blue-400'
+                              : 'text-gray-900 dark:text-gray-100'
+                          }`}
+                          placeholder="—"
+                          min="0"
+                          max="200"
+                          inputMode="numeric"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Table Layout */}
+      <div className="hidden md:block overflow-x-auto -mx-3 sm:mx-0">
         <div className="inline-block min-w-full align-middle">
-          <table className="w-full min-w-[800px] border-collapse">
+          <table className="w-full min-w-[1000px] border-collapse">
             <thead>
               <tr className="border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">
-                <th className="py-3 px-3 sm:px-4 text-left text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10">Course</th>
-                <th className="py-3 px-2 sm:px-3 text-center text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Year</th>
+                <th className="py-3 px-3 sm:px-4 text-left text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10">Course</th>
+                <th className="py-3 px-2 sm:px-3 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Year</th>
                 {players.map(player => (
-                  <th key={player} className="py-3 px-2 sm:px-3 text-center text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 min-w-[60px]">
+                  <th key={player} className="py-3 px-2 sm:px-3 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 min-w-[60px]">
                     {player}
                   </th>
                 ))}
@@ -396,21 +524,33 @@ function HistoricalScoringPage() {
                     </td>
                     <td className="py-3 px-2 sm:px-3 text-center text-xs sm:text-sm">{row.year}</td>
                     {players.map(player => {
-                      const score = row[player as keyof typeof row] as number | null;
+                      const score = row[player] as number | null;
                       return (
                         <td
                           key={player}
-                          className={`py-3 px-2 sm:px-3 text-center text-xs sm:text-sm ${
-                            score === null || score === undefined
-                              ? 'text-gray-400 dark:text-gray-600'
-                              : score < 85
-                              ? 'text-green-600 dark:text-green-400 font-semibold'
-                              : score < 95
-                              ? 'text-blue-600 dark:text-blue-400'
-                              : 'text-gray-900 dark:text-gray-100'
-                          }`}
+                          className="py-1 px-1 sm:py-2 sm:px-2 text-center"
                         >
-                          {score === null || score === undefined ? '—' : score}
+                          <input
+                            type="number"
+                            value={score === null || score === undefined ? '' : score}
+                            onChange={(e) => updateScore(row.course, row.year as number, player, e.target.value)}
+                            onBlur={(e) => {
+                              // On blur, save the value (even if empty)
+                              updateScore(row.course, row.year as number, player, e.target.value);
+                            }}
+                            className={`w-full text-center text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded px-2 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 min-h-[44px] ${
+                              score === null || score === undefined
+                                ? 'text-gray-400 dark:text-gray-600'
+                                : score < 85
+                                ? 'text-green-600 dark:text-green-400 font-semibold'
+                                : score < 95
+                                ? 'text-blue-600 dark:text-blue-400'
+                                : 'text-gray-900 dark:text-gray-100'
+                            }`}
+                            placeholder="—"
+                            min="0"
+                            max="200"
+                          />
                         </td>
                       );
                     })}
@@ -480,6 +620,93 @@ function OrdersPage() {
   const activeOrders = orders.filter(order => order.status === 'open' || order.status === 'partial');
   const completedOrders = orders.filter(order => order.status === 'filled' || order.status === 'canceled');
 
+  const renderOrderCard = (order: any) => {
+    const cardContent = (
+      <Card className="mb-3">
+      <CardHeader>
+        <div className="flex items-start justify-between">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 truncate">
+              {order.market_name || 'N/A'}
+            </h3>
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
+              {order.outcome_name || order.outcome}
+            </p>
+          </div>
+          <span className={`text-xs sm:text-sm font-medium px-2 py-1 rounded ml-2 ${
+            order.status === 'filled' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
+            order.status === 'open' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' :
+            order.status === 'partial' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' :
+            'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+          }`}>
+            {order.status}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2 text-xs sm:text-sm">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 dark:text-gray-400">Side:</span>
+            <span className={`font-medium ${
+              order.side === 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+            }`}>
+              {order.side === 0 ? 'Buy' : 'Sell'}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 dark:text-gray-400">Price:</span>
+            <span className="font-medium">{order.price ? formatPrice(order.price) : '—'}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 dark:text-gray-400">Qty:</span>
+            <span className="font-medium">
+              {order.original_size !== undefined && order.original_size !== null ? order.original_size : order.contract_size || 0}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 dark:text-gray-400">Remaining:</span>
+            <span className="font-medium">
+              {order.remaining_size !== undefined && order.remaining_size !== null ? order.remaining_size : (order.status === 'filled' ? 0 : order.contract_size || 0)}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 dark:text-gray-400">Time:</span>
+            <span className="text-gray-900 dark:text-gray-100">
+              {order.create_time ? format(new Date(order.create_time * 1000), 'MMM d, h:mm a') : '—'}
+            </span>
+          </div>
+          {(order.status === 'open' || order.status === 'partial') && (
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => handleCancelOrder(order.id)}
+                className="w-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 font-medium py-2 px-4 rounded-md text-sm touch-manipulation min-h-[44px] focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                aria-label={`Cancel order for ${order.market_name || 'market'}`}
+              >
+                Cancel Order
+              </button>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+    );
+
+    // Wrap in SwipeableCard only for mobile and only for active orders
+    if (order.status === 'open' || order.status === 'partial') {
+      return (
+        <SwipeableCard
+          key={order.id}
+          onSwipeLeft={() => handleCancelOrder(order.id)}
+          leftAction={<span className="text-white font-medium text-sm">Cancel</span>}
+        >
+          {cardContent}
+        </SwipeableCard>
+      );
+    }
+
+    return <div key={order.id}>{cardContent}</div>;
+  };
+
   const renderOrderRow = (order: any) => (
     <tr key={order.id} className="border-b border-gray-200 dark:border-gray-700">
       <td className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm">
@@ -497,7 +724,12 @@ function OrdersPage() {
       <td className="py-3 px-3 sm:px-4 text-center font-medium text-xs sm:text-sm">
         {order.price ? formatPrice(order.price) : '—'}
       </td>
-      <td className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm">{order.contract_size || 0}</td>
+      <td className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-medium">
+        {order.original_size !== undefined && order.original_size !== null ? order.original_size : order.contract_size || 0}
+      </td>
+      <td className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm">
+        {order.remaining_size !== undefined && order.remaining_size !== null ? order.remaining_size : (order.status === 'filled' ? 0 : order.contract_size || 0)}
+      </td>
       <td className="py-3 px-3 sm:px-4 text-center">
         <div className="flex items-center justify-center gap-2">
           <span className={`text-xs sm:text-sm px-2 py-1 rounded ${
@@ -529,19 +761,20 @@ function OrdersPage() {
         <table className="w-full min-w-[600px] border-collapse">
           <thead>
             <tr className="border-b border-gray-300 dark:border-gray-600">
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Time</th>
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Market</th>
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Outcome</th>
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Side</th>
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Price</th>
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Size</th>
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Status</th>
+              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Time</th>
+              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Market</th>
+              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Outcome</th>
+              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Side</th>
+              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Price</th>
+              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Qty</th>
+              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Remaining</th>
+              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Status</th>
             </tr>
           </thead>
           <tbody>
             {orderList.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
+                <td colSpan={8} className="py-8 text-center text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
                   {emptyMessage}
                 </td>
               </tr>
@@ -555,7 +788,19 @@ function OrdersPage() {
   );
 
   if (loading) {
-    return <div className="text-center py-8">Loading orders...</div>;
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <Skeleton variant="text" width="200px" height="32px" />
+        <div className="md:hidden space-y-3">
+          {[1, 2, 3].map(i => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+        <div className="hidden md:block">
+          <SkeletonTable rows={5} cols={8} />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -565,18 +810,54 @@ function OrdersPage() {
       
       {/* Active Orders Section */}
       <div className="space-y-3 sm:space-y-4">
-        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
           Active Orders
         </h2>
-        {renderOrderTable(activeOrders, 'No active orders')}
+        {/* Mobile Card Layout */}
+        <div className="md:hidden space-y-3">
+          {activeOrders.length === 0 ? (
+            <EmptyState
+              icon={
+                <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+              }
+              title="No Active Orders"
+              message="You don't have any open orders at the moment. Place an order from a market to get started."
+            />
+          ) : (
+            activeOrders.map(renderOrderCard)
+          )}
+        </div>
+        {/* Desktop Table Layout */}
+        <div className="hidden md:block">
+          {renderOrderTable(activeOrders, 'No active orders')}
+        </div>
       </div>
 
       {/* Completed Orders Section */}
       <div className="space-y-3 sm:space-y-4">
-        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
           Order History
         </h2>
-        {renderOrderTable(completedOrders, 'No completed orders')}
+        {/* Mobile Card Layout */}
+        <div className="md:hidden space-y-3">
+          {completedOrders.length === 0 ? (
+            <Card>
+              <CardContent>
+                <p className="text-center text-gray-500 dark:text-gray-400 text-sm py-4">
+                  No completed orders
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            completedOrders.map(renderOrderCard)
+          )}
+        </div>
+        {/* Desktop Table Layout */}
+        <div className="hidden md:block">
+          {renderOrderTable(completedOrders, 'No completed orders')}
+        </div>
       </div>
     </div>
   );
@@ -603,10 +884,70 @@ function TradesPage() {
   }
 
   const formatPrice = (cents: number) => `$${Math.round(cents / 100)}`;
-  const formatTotal = (price: number, contracts: number) => {
+  const formatNotional = (price: number, contracts: number) => {
     const totalCents = price * contracts;
     return `$${Math.round(totalCents / 100)}`;
   };
+  const formatIf100 = (price: number, contracts: number) => {
+    const priceDollars = price / 100;
+    const value = contracts * (100 - priceDollars);
+    return Math.round(value);
+  };
+  const formatIf0 = (price: number, contracts: number) => {
+    const priceDollars = price / 100;
+    const value = contracts * (0 - priceDollars);
+    return Math.round(value);
+  };
+
+  const renderTradeCard = (trade: any) => (
+    <Card key={trade.id} className="mb-3">
+      <CardHeader>
+        <div className="flex items-start justify-between">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 truncate">
+              {trade.market_short_name || trade.market_id || '—'}
+            </h3>
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
+              {trade.outcome_name || '—'}
+            </p>
+          </div>
+          <span className="font-medium text-sm sm:text-base ml-2">
+            {formatPrice(trade.price)}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2 text-xs sm:text-sm">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 dark:text-gray-400">Notional Value:</span>
+            <span className="font-medium">{formatNotional(trade.price, trade.contracts)}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 dark:text-gray-400">Contracts:</span>
+            <span className="font-medium">{trade.contracts}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 dark:text-gray-400">If 0:</span>
+            <span className={`font-bold ${formatIf0(trade.price, trade.contracts) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              ${formatIf0(trade.price, trade.contracts)}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 dark:text-gray-400">If 100:</span>
+            <span className={`font-bold ${formatIf100(trade.price, trade.contracts) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              ${formatIf100(trade.price, trade.contracts)}
+            </span>
+          </div>
+          <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
+            <span className="text-gray-600 dark:text-gray-400">Time:</span>
+            <span className="text-gray-900 dark:text-gray-100">
+              {trade.create_time ? format(new Date(trade.create_time * 1000), 'MMM d, h:mm a') : '—'}
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   if (loading) {
     return <div className="text-center py-8">Loading trades...</div>;
@@ -615,17 +956,36 @@ function TradesPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold">Trades</h1>
-      <div className="overflow-x-auto -mx-3 sm:mx-0">
+      {/* Mobile Card Layout */}
+      <div className="md:hidden space-y-3">
+        {trades.length === 0 ? (
+          <EmptyState
+            icon={
+              <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+            }
+            title="No Trades Yet"
+            message="Your executed trades will appear here once you start trading."
+          />
+        ) : (
+          trades.map(renderTradeCard)
+        )}
+      </div>
+      {/* Desktop Table Layout */}
+      <div className="hidden md:block overflow-x-auto -mx-3 sm:mx-0">
         <div className="inline-block min-w-full align-middle">
-          <table className="w-full min-w-[600px] border-collapse">
+          <table className="w-full min-w-[1000px] border-collapse">
             <thead>
               <tr className="border-b border-gray-300 dark:border-gray-600">
-                <th className="py-3 px-2 sm:px-3 text-left text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Time</th>
-                <th className="py-3 px-2 sm:px-3 text-left text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Market</th>
-                <th className="py-3 px-2 sm:px-3 text-left text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Outcome</th>
-                <th className="py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Price</th>
-                <th className="py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Contracts</th>
-                <th className="py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Total Value</th>
+                <th className="py-3 px-2 sm:px-3 text-left text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Time</th>
+                <th className="py-3 px-2 sm:px-3 text-left text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Market</th>
+                <th className="py-3 px-2 sm:px-3 text-left text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Outcome</th>
+                <th className="py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Price</th>
+                <th className="py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Contracts</th>
+                <th className="py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Notional Value</th>
+                <th className="py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">If 0</th>
+                <th className="py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">If 100</th>
               </tr>
             </thead>
             <tbody>
@@ -638,16 +998,17 @@ function TradesPage() {
                     {trade.market_short_name || trade.market_id || '—'}
                   </td>
                   <td className="py-3 px-2 sm:px-3 text-xs sm:text-sm">
-                    <div className="flex flex-col">
-                      <span className="font-medium">{trade.outcome_name || trade.outcome_ticker || '—'}</span>
-                      {trade.outcome_ticker && trade.outcome_name && (
-                        <span className="text-gray-500 dark:text-gray-400 text-[10px] sm:text-xs">{trade.outcome_ticker}</span>
-                      )}
-                    </div>
+                    <span className="font-medium">{trade.outcome_name || '—'}</span>
                   </td>
                   <td className="py-3 px-2 sm:px-3 text-right font-medium text-xs sm:text-sm">{formatPrice(trade.price)}</td>
                   <td className="py-3 px-2 sm:px-3 text-right text-xs sm:text-sm">{trade.contracts}</td>
-                  <td className="py-3 px-2 sm:px-3 text-right font-medium text-xs sm:text-sm">{formatTotal(trade.price, trade.contracts)}</td>
+                  <td className="py-3 px-2 sm:px-3 text-right font-medium text-xs sm:text-sm">{formatNotional(trade.price, trade.contracts)}</td>
+                  <td className={`py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-bold ${formatIf0(trade.price, trade.contracts) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    ${formatIf0(trade.price, trade.contracts)}
+                  </td>
+                  <td className={`py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-bold ${formatIf100(trade.price, trade.contracts) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    ${formatIf100(trade.price, trade.contracts)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -685,45 +1046,110 @@ function PositionsPage() {
 
   const formatPrice = (cents: number) => `$${Math.round(cents / 100)}`;
   const formatPriceBasis = (cents: number) => `$${(cents / 100).toFixed(1)}`;
+  const formatPriceDecimal = (cents: number) => `$${(cents / 100).toFixed(1)}`;
+
+  const renderPositionCard = (position: any) => {
+    const currentPrice = position.current_price !== null && position.current_price !== undefined 
+      ? position.current_price 
+      : null;
+    const positionValue = currentPrice !== null 
+      ? position.net_position * (currentPrice - position.price_basis)
+      : null;
+    
+    // Calculate total P&L (closed + settled)
+    const totalPnL = position.closed_profit + position.settled_profit;
+
+    return (
+      <Card key={position.id} className="mb-3">
+        <CardContent>
+          <div className="flex items-start justify-between">
+            {/* Left Side */}
+            <div className="flex-1 min-w-0 pr-4">
+              {/* Market - Large, Bold */}
+              <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-1">
+                {position.market_name || 'N/A'}
+              </h3>
+              
+              {/* Outcome - Smaller, Lighter */}
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">
+                {position.outcome_ticker || position.outcome_name || position.outcome}
+              </p>
+              
+              {/* Shares and Price Basis */}
+              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-500">
+                {position.net_position} shares at {formatPriceBasis(position.price_basis)}
+              </div>
+            </div>
+
+            {/* Right Side */}
+            <div className="flex flex-col items-end text-right">
+              {/* Position Value - Large, Bold */}
+              <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                {positionValue !== null ? formatPriceDecimal(Math.abs(positionValue)) : '—'}
+              </div>
+              
+              {/* Profit/Loss with +/- indicator */}
+              <div className={`text-sm sm:text-base font-semibold ${
+                totalPnL > 0 
+                  ? 'text-green-600 dark:text-green-400' 
+                  : totalPnL < 0 
+                  ? 'text-red-600 dark:text-red-400' 
+                  : 'text-gray-600 dark:text-gray-400'
+              }`}>
+                {totalPnL > 0 ? '↑' : totalPnL < 0 ? '↓' : ''} {formatPrice(Math.abs(totalPnL))}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
   if (loading) {
-    return <div className="text-center py-8">Loading positions...</div>;
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <Skeleton variant="text" width="200px" height="32px" />
+        <div className="md:hidden space-y-3">
+          {[1, 2, 3].map(i => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+        <div className="hidden md:block">
+          <SkeletonTable rows={5} cols={8} />
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4 sm:space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold">Positions</h1>
-      <div className="overflow-x-auto -mx-3 sm:mx-0">
-        <div className="inline-block min-w-full align-middle">
-          <table className="w-full min-w-[600px] border-collapse">
-            <thead>
-              <tr className="border-b border-gray-300 dark:border-gray-600">
-                <th className="py-3 px-3 sm:px-4 text-left text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Market</th>
-                <th className="py-3 px-3 sm:px-4 text-left text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Outcome</th>
-                <th className="py-3 px-3 sm:px-4 text-right text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Net Position</th>
-                <th className="py-3 px-3 sm:px-4 text-right text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Price Basis</th>
-                <th className="py-3 px-3 sm:px-4 text-right text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Closed Profit</th>
-                <th className="py-3 px-3 sm:px-4 text-right text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Settled Profit</th>
-              </tr>
-            </thead>
-            <tbody>
-              {positions.map((position) => (
-                <tr key={position.id} className="border-b border-gray-200 dark:border-gray-700">
-                  <td className="py-3 px-3 sm:px-4 text-xs sm:text-sm">{position.market_name || 'N/A'}</td>
-                  <td className="py-3 px-3 sm:px-4 text-xs sm:text-sm">{position.outcome_name || position.outcome}</td>
-                  <td className="py-3 px-3 sm:px-4 text-right font-medium text-xs sm:text-sm">{position.net_position}</td>
-                  <td className="py-3 px-3 sm:px-4 text-right text-xs sm:text-sm">{formatPriceBasis(position.price_basis)}</td>
-                  <td className="py-3 px-3 sm:px-4 text-right text-xs sm:text-sm">{formatPrice(position.closed_profit)}</td>
-                  <td className="py-3 px-3 sm:px-4 text-right text-xs sm:text-sm">{formatPrice(position.settled_profit)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {positions.length === 0 && (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            No positions found
-          </div>
+      {/* Mobile Card Layout */}
+      <div className="md:hidden space-y-3">
+        {positions.length === 0 ? (
+          <Card>
+            <CardContent>
+              <p className="text-center text-gray-500 dark:text-gray-400 text-sm py-4">
+                No positions found
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          positions.map(renderPositionCard)
+        )}
+      </div>
+      {/* Desktop Card Layout */}
+      <div className="hidden md:block space-y-3">
+        {positions.length === 0 ? (
+          <Card>
+            <CardContent>
+              <p className="text-center text-gray-500 dark:text-gray-400 text-sm py-4">
+                No positions found
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          positions.map(renderPositionCard)
         )}
       </div>
     </div>
@@ -731,54 +1157,97 @@ function PositionsPage() {
 }
 
 function MarketSuggestionsPage() {
-  const [shortName, setShortName] = useState('');
-  const [symbol, setSymbol] = useState('');
-  const [maxWinners, setMaxWinners] = useState(1);
-  const [minWinners, setMinWinners] = useState(1);
-  const [outcomes, setOutcomes] = useState<Array<{ name: string; ticker: string; strike: string }>>([
-    { name: '', ticker: '', strike: '' },
-  ]);
   const [submitting, setSubmitting] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
 
-  const addOutcome = () => {
-    if (outcomes.length < 12) {
-      setOutcomes([...outcomes, { name: '', ticker: '', strike: '' }]);
-    }
-  };
+  // Round O/U specific state
+  const [roundNumber, setRoundNumber] = useState<number>(1);
+  const [selectedParticipant, setSelectedParticipant] = useState<string>('');
+  const [strike, setStrike] = useState<string>('');
+  const [participants, setParticipants] = useState<Array<{ id: string; name: string }>>([]);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [outcomes, setOutcomes] = useState<Array<{ name: string; ticker: string; strike: string }>>([]);
 
-  const removeOutcome = (index: number) => {
-    if (outcomes.length > 1) {
-      setOutcomes(outcomes.filter((_, i) => i !== index));
+  // Load participants on mount
+  useEffect(() => {
+    async function loadParticipants() {
+      setLoadingParticipants(true);
+      try {
+        const { participants: participantsData } = await api.getParticipants();
+        // Participants have id and name fields
+        const mappedParticipants = (participantsData || []).map((p: any) => ({
+          id: p.id || p.name, // Use id if available, fallback to name
+          name: p.name,
+        }));
+        setParticipants(mappedParticipants);
+      } catch (err) {
+        console.error('Failed to load participants:', err);
+        // Silently fail - don't show toast on mount
+      } finally {
+        setLoadingParticipants(false);
+      }
     }
-  };
+    loadParticipants();
+  }, []); // Empty dependency array - only run once on mount
 
-  const updateOutcome = (index: number, field: 'name' | 'ticker' | 'strike', value: string) => {
-    const updated = [...outcomes];
-    updated[index] = { ...updated[index], [field]: value };
-    setOutcomes(updated);
-  };
+
+  // Generate Round O/U outcome when participant, round, and strike are filled
+  useEffect(() => {
+    if (selectedParticipant && roundNumber && strike.trim()) {
+      const participant = participants.find(p => p.id === selectedParticipant);
+      if (participant) {
+        const participantName = participant.name;
+        const overName = `${participantName} Over ${strike.trim()} - Round ${roundNumber}`;
+        
+        // Generate ticker (e.g., "AK-OV-R2-86.5")
+        const initials = participantName.split(' ').map(n => n[0]).join('').toUpperCase();
+        const overTicker = `${initials}-OV-R${roundNumber}-${strike.trim().replace('.', '_')}`;
+        
+        setOutcomes([
+          { name: overName, ticker: overTicker, strike: strike.trim() },
+        ]);
+      }
+    } else {
+      setOutcomes([]);
+    }
+  }, [selectedParticipant, roundNumber, strike, participants]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
 
-    // Filter out empty outcomes
-    const validOutcomes = outcomes.filter(o => o.name.trim() && o.ticker.trim());
-
-    if (validOutcomes.length === 0) {
-      showToast('At least one outcome with name and ticker is required', 'error');
+    // Validate required fields
+    if (!selectedParticipant || !roundNumber || !strike.trim()) {
+      showToast('Please fill in all required fields (Participant, Round, and Strike)', 'error');
       setSubmitting(false);
       return;
     }
+
+    if (outcomes.length !== 1) {
+      showToast('Please ensure outcome is generated correctly', 'error');
+      setSubmitting(false);
+      return;
+    }
+
+    const participant = participants.find(p => p.id === selectedParticipant);
+    if (!participant) {
+      showToast('Invalid participant selected', 'error');
+      setSubmitting(false);
+      return;
+    }
+
+    // Generate market name and symbol (just the round, not participant-specific)
+    const shortName = `Round ${roundNumber} Over/Under`;
+    const symbol = `R${roundNumber}OU`;
 
     try {
       await api.suggestMarket({
         short_name: shortName,
         symbol,
-        max_winners: maxWinners,
-        min_winners: minWinners,
-        outcomes: validOutcomes.map(o => ({
+        max_winners: 1,
+        min_winners: 1,
+        round_number: roundNumber,
+        outcomes: outcomes.map(o => ({
           name: o.name.trim(),
           ticker: o.ticker.trim(),
           strike: o.strike.trim() || undefined,
@@ -787,11 +1256,10 @@ function MarketSuggestionsPage() {
 
       showToast('Market suggestion submitted successfully!', 'success');
       // Reset form
-      setShortName('');
-      setSymbol('');
-      setMaxWinners(1);
-      setMinWinners(1);
-      setOutcomes([{ name: '', ticker: '', strike: '' }]);
+      setRoundNumber(1);
+      setSelectedParticipant('');
+      setStrike('');
+      setOutcomes([]);
     } catch (err: any) {
       console.error('Failed to submit market suggestion:', err);
       showToast(err.message || 'Failed to submit market suggestion', 'error');
@@ -805,151 +1273,86 @@ function MarketSuggestionsPage() {
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       <h1 className="text-xl sm:text-2xl font-bold">Market Suggestions</h1>
       <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
-        Suggest a new market with up to 12 outcomes. Your suggestion will be reviewed and may be added to the platform.
+        Create a Round Over/Under market by selecting a participant, round, and strike.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-        {/* Market Information */}
+        {/* Round Over/Under Quick Create */}
         <div className="bg-gray-50 dark:bg-gray-800 p-4 sm:p-6 rounded-lg space-y-4">
-          <h2 className="text-lg sm:text-xl font-semibold">Market Information</h2>
+          <h2 className="text-lg sm:text-xl font-bold">Round Over/Under Market</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Create a Round Over/Under market by selecting a participant, round, and strike.
+          </p>
           
-          <div>
-            <label htmlFor="short_name" className="block text-sm font-medium mb-1.5">
-              Market Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="short_name"
-              type="text"
-              value={shortName}
-              onChange={(e) => setShortName(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
-              placeholder="e.g., Team Champion"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="symbol" className="block text-sm font-medium mb-1.5">
-              Symbol <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="symbol"
-              type="text"
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
-              placeholder="e.g., TEAM"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label htmlFor="min_winners" className="block text-sm font-medium mb-1.5">
-                Min Winners
+              <label htmlFor="round_number" className="block text-sm font-medium mb-1.5">
+                Round # <span className="text-red-500">*</span>
               </label>
-              <input
-                id="min_winners"
-                type="number"
-                min="1"
-                max="12"
-                value={minWinners}
-                onChange={(e) => setMinWinners(parseInt(e.target.value, 10) || 1)}
+              <select
+                id="round_number"
+                value={roundNumber}
+                onChange={(e) => setRoundNumber(parseInt(e.target.value, 10))}
+                required
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
-              />
-            </div>
-            <div>
-              <label htmlFor="max_winners" className="block text-sm font-medium mb-1.5">
-                Max Winners
-              </label>
-              <input
-                id="max_winners"
-                type="number"
-                min="1"
-                max="12"
-                value={maxWinners}
-                onChange={(e) => setMaxWinners(parseInt(e.target.value, 10) || 1)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Outcomes */}
-        <div className="bg-gray-50 dark:bg-gray-800 p-4 sm:p-6 rounded-lg space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg sm:text-xl font-semibold">Outcomes</h2>
-            {outcomes.length < 12 && (
-              <button
-                type="button"
-                onClick={addOutcome}
-                className="text-sm px-3 py-1.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 touch-manipulation"
               >
-                + Add Outcome
-              </button>
-            )}
+                <option value={1}>Round 1</option>
+                <option value={2}>Round 2</option>
+                <option value={3}>Round 3</option>
+                <option value={4}>Round 4</option>
+                <option value={5}>Round 5</option>
+              </select>
+            </div>
+            
+            <div>
+              <label htmlFor="participant" className="block text-sm font-medium mb-1.5">
+                Participant <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="participant"
+                value={selectedParticipant}
+                onChange={(e) => setSelectedParticipant(e.target.value)}
+                required
+                disabled={loadingParticipants}
+                className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 min-h-[44px] touch-manipulation disabled:opacity-50"
+              >
+                <option value="">Select participant...</option>
+                {participants.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label htmlFor="strike" className="block text-sm font-medium mb-1.5">
+                Strike <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="strike"
+                type="text"
+                value={strike}
+                onChange={(e) => setStrike(e.target.value)}
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
+                placeholder="e.g., 86.5"
+              />
+            </div>
           </div>
-
-          <div className="space-y-3">
-            {outcomes.map((outcome, index) => (
-              <div key={index} className="bg-white dark:bg-gray-700 p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                <div className="flex items-start justify-between mb-3">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Outcome {index + 1}
-                  </span>
-                  {outcomes.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeOutcome(index)}
-                      className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-sm font-bold touch-manipulation"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">
-                      Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={outcome.name}
-                      onChange={(e) => updateOutcome(index, 'name', e.target.value)}
-                      required={index === 0}
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-xs sm:text-sm"
-                      placeholder="Outcome name"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">
-                      Ticker <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={outcome.ticker}
-                      onChange={(e) => updateOutcome(index, 'ticker', e.target.value)}
-                      required={index === 0}
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-xs sm:text-sm"
-                      placeholder="Ticker symbol"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">
-                      Strike (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={outcome.strike}
-                      onChange={(e) => updateOutcome(index, 'strike', e.target.value)}
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-xs sm:text-sm"
-                      placeholder="Strike value"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          
+          {selectedParticipant && roundNumber && strike.trim() && outcomes.length === 1 && (
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+                Generated Outcome:
+              </p>
+              <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                {outcomes.map((outcome, idx) => (
+                  <li key={idx}>• {outcome.name} ({outcome.ticker})</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* Submit Button */}
@@ -988,7 +1391,7 @@ function SettingsPage() {
       <h1 className="text-xl sm:text-2xl font-bold">Settings</h1>
       {user && (
         <div className="p-6 border border-gray-300 dark:border-gray-600 rounded-lg">
-          <h2 className="text-xl font-semibold mb-4">Profile</h2>
+          <h2 className="text-xl font-bold mb-4">Profile</h2>
           <div className="space-y-2">
             <div>
               <span className="font-medium">Username:</span> {user.username}
@@ -1000,7 +1403,7 @@ function SettingsPage() {
         </div>
       )}
       <div className="p-6 border border-gray-300 dark:border-gray-600 rounded-lg">
-        <h2 className="text-xl font-semibold mb-4">Appearance</h2>
+        <h2 className="text-xl font-bold mb-4">Appearance</h2>
         <div className="flex items-center gap-4">
           <span>Dark Mode:</span>
           <DarkModeToggle />
