@@ -349,7 +349,7 @@ export function HistoricalScoringPage() {
             <caption id="scores-table-caption" className="sr-only">Scores by course and year. Number under each score is handicap index for that year.</caption>
             <thead>
               <tr className="border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">
-                <th className="py-3 px-3 sm:px-4 text-left text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10">Course</th>
+                <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10">Course</th>
                 <th className="py-3 px-2 sm:px-3 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Year</th>
                 {players.map(player => (
                   <th key={player} className="py-3 px-2 sm:px-3 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 min-w-[60px]">{player}</th>
@@ -364,7 +364,7 @@ export function HistoricalScoringPage() {
               ) : (
                 filteredData.map((row, idx) => (
                   <tr key={`${row.course}-${row.year}-${idx}`} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <td className="py-3 px-3 sm:px-4 text-xs sm:text-sm font-medium sticky left-0 bg-white dark:bg-gray-900 z-10">{row.course}</td>
+                    <td className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-medium sticky left-0 bg-white dark:bg-gray-900 z-10">{row.course}</td>
                     <td className="py-3 px-2 sm:px-3 text-center text-xs sm:text-sm">{row.year}</td>
                     {players.map(player => {
                       const score = row[player] as number | null;
