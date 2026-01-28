@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { formatPrice, formatPriceBasis, formatPriceDecimal, formatPriceCents, formatNotionalBySide } from '../../lib/format';
@@ -36,10 +36,21 @@ export function MarketDetail() {
   const [cancelingOrderId, setCancelingOrderId] = useState<number | null>(null);
   const [cancelingAll, setCancelingAll] = useState(false);
   const isDesktop = useIsDesktop();
+  const quantityInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (id) loadMarket();
   }, [id]);
+
+  // Auto-focus quantity input when order window opens
+  useEffect(() => {
+    if (bottomSheetOpen && quantityInputRef.current) {
+      // Small delay to ensure the bottom sheet is fully rendered
+      setTimeout(() => {
+        quantityInputRef.current?.focus();
+      }, 100);
+    }
+  }, [bottomSheetOpen]);
 
   async function loadMarket() {
     if (!id) return;
@@ -908,6 +919,7 @@ export function MarketDetail() {
               <input
                 type="tel"
                 inputMode="numeric"
+                pattern="[0-9]*"
                 step="1"
                 min="1"
                 max="99"
@@ -1247,8 +1259,10 @@ export function MarketDetail() {
           <div>
             <label className="block text-sm font-medium mb-2">Quantity</label>
             <input
+              ref={quantityInputRef}
               type="tel"
               inputMode="numeric"
+              pattern="[0-9]*"
               min="1"
               value={orderQty}
               onChange={(e) => setOrderQty(e.target.value)}
@@ -1279,6 +1293,7 @@ export function MarketDetail() {
               <input
                 type="tel"
                 inputMode="numeric"
+                pattern="[0-9]*"
                 step="1"
                 min="1"
                 max="99"

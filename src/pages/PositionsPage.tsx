@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatPrice, formatPriceBasis, formatPriceDecimal } from '../lib/format';
 import { Card, CardContent } from '../components/ui/Card';
 import { Skeleton, SkeletonCard, SkeletonTable } from '../components/ui/Skeleton';
 
 export function PositionsPage() {
+  const navigate = useNavigate();
   const [positions, setPositions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,8 +49,19 @@ export function PositionsPage() {
     const positionValueForDiffCents = currentPrice !== null ? position.net_position * currentPrice : null;
     const diffCents = positionValueForDiffCents !== null ? positionValueForDiffCents - costCents : null;
 
+    const handleCardClick = () => {
+      if (position.market_id) {
+        navigate(`/markets/${position.market_id}`);
+      }
+    };
+
     return (
-      <Card key={position.id} className="mb-3">
+      <Card 
+        key={position.id} 
+        className="mb-3" 
+        onClick={position.market_id ? handleCardClick : undefined}
+        hover={!!position.market_id}
+      >
         <CardContent>
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0 pr-4">
