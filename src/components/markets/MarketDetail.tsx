@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
-import { formatPrice, formatPriceBasis, formatPriceDecimal, formatPriceCents } from '../../lib/format';
+import { formatPrice, formatPriceBasis, formatPriceDecimal, formatPriceCents, formatNotionalBySide } from '../../lib/format';
 import { Orderbook } from './Orderbook';
 import { ToastContainer, useToast } from '../ui/Toast';
 import { BottomSheet } from '../ui/BottomSheet';
@@ -573,6 +573,9 @@ export function MarketDetail() {
                         )}
                         <span className="text-gray-600 dark:text-gray-400 flex-shrink-0">
                           {trade.contracts} @ {formatPrice(trade.price)}
+                        </span>
+                        <span className="text-gray-700 dark:text-gray-300 font-medium flex-shrink-0">
+                          {formatNotionalBySide(trade.price, trade.contracts, trade.side ?? 0)}
                         </span>
                       </div>
                       <span className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap flex-shrink-0">
@@ -1157,6 +1160,9 @@ export function MarketDetail() {
                         )}
                         <span className="text-gray-600 dark:text-gray-400 flex-shrink-0">
                           {trade.contracts} @ {formatPrice(trade.price)}
+                        </span>
+                        <span className="text-gray-700 dark:text-gray-300 font-medium flex-shrink-0">
+                          {formatNotionalBySide(trade.price, trade.contracts, trade.side ?? 0)}
                         </span>
                       </div>
                       <span className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap flex-shrink-0">
