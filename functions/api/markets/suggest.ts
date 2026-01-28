@@ -33,10 +33,11 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const body = await request.json();
     const validated = marketSuggestionSchema.parse(body);
 
-    // Determine market_type from short_name
+    // Determine market_type from short_name / outcomes
     const isRoundOU = validated.short_name.includes('Round') && validated.short_name.includes('Over/Under');
     const isTotalBirdies = validated.short_name.includes('Total Birdies');
-    const marketType = isRoundOU ? 'round_ou' : isTotalBirdies ? 'total_birdies' : null;
+    const isH2H = validated.outcomes.some((o: { outcome_id?: string }) => o.outcome_id?.startsWith('outcome-h2h-'));
+    const marketType = isRoundOU ? 'round_ou' : isTotalBirdies ? 'total_birdies' : isH2H ? 'h2h_matchups' : null;
 
     let marketId: string;
 
@@ -121,8 +122,34 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
           ]
         );
       }
+    }
+    // For Head-to-Head, use single shared market market-h2h-matchups (find or create)
+    else if (isH2H) {
+      const existingMarket = await dbFirst<{ market_id: string }>(
+        db,
+        `SELECT market_id FROM markets WHERE market_id = 'market-h2h-matchups'`
+      );
+      if (existingMarket) {
+        marketId = existingMarket.market_id;
+      } else {
+        marketId = 'market-h2h-matchups';
+        await dbRun(
+          db,
+          `INSERT INTO markets (market_id, short_name, symbol, max_winners, min_winners, created_date, market_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            marketId,
+            'Head-to-Head Matchups',
+            'H2H',
+            validated.max_winners,
+            validated.min_winners,
+            Math.floor(Date.now() / 1000),
+            'h2h_matchups',
+          ]
+        );
+      }
     } else {
-      // For non-Round O/U markets, create a new market
+      // For other one-off markets, create a new market
       marketId = `market-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       await dbRun(
         db,
@@ -135,7 +162,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
           validated.max_winners,
           validated.min_winners,
           Math.floor(Date.now() / 1000),
-          marketType,
+          marketType ?? null,
         ]
       );
     }

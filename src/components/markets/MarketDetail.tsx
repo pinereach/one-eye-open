@@ -760,7 +760,7 @@ export function MarketDetail() {
                     <option value="">Select an outcome</option>
                     {outcomes.map((outcome) => (
                       <option key={outcome.id} value={outcome.outcome_id}>
-                        {outcome.ticker ?? outcome.name}
+                        {outcome.name ?? outcome.ticker}
                       </option>
                     ))}
                   </select>
@@ -1071,7 +1071,7 @@ export function MarketDetail() {
                 <option value="">Select an outcome</option>
                 {outcomes.map((outcome) => (
                   <option key={outcome.outcome_id} value={outcome.outcome_id}>
-                    {outcome.ticker ?? outcome.name}
+                    {outcome.name ?? outcome.ticker}
                   </option>
                 ))}
               </select>
