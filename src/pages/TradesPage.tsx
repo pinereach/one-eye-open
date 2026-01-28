@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { formatPrice, formatPricePercent, formatNotional, formatNotionalBySide } from '../lib/format';
+import { formatPrice, formatPricePercent, formatNotionalBySide } from '../lib/format';
 import { format } from 'date-fns';
 import { EmptyState } from '../components/ui/EmptyState';
 
