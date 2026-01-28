@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { formatPrice, formatPricePercent, formatNotional } from '../lib/format';
+import { formatPrice, formatPricePercent, formatNotional, formatNotionalBySide } from '../lib/format';
 import { format } from 'date-fns';
 import { EmptyState } from '../components/ui/EmptyState';
 
@@ -39,7 +39,7 @@ export function TradesPage() {
     const pricePercent = trade.price ? formatPricePercent(trade.price) : '0.0%';
     const unit = trade.contracts === 1 ? 'share' : 'shares';
     const actionText = isSell ? `Sold ${trade.contracts} ${unit} at ${pricePercent}` : `Bought ${trade.contracts} ${unit} at ${pricePercent}`;
-    const purchaseCost = formatNotional(trade.price, trade.contracts);
+    const purchaseCost = formatNotionalBySide(trade.price, trade.contracts, trade.side ?? 0);
     const timePurchased = trade.create_time ? format(new Date(trade.create_time * 1000), 'M/d, h:mm a') : '—';
 
     return (
@@ -97,7 +97,7 @@ export function TradesPage() {
                   <td className="py-3 px-2 sm:px-3 text-xs sm:text-sm"><span className="font-medium">{trade.outcome_name || '—'}</span></td>
                   <td className="py-3 px-2 sm:px-3 text-right font-medium text-xs sm:text-sm">{formatPrice(trade.price)}</td>
                   <td className="py-3 px-2 sm:px-3 text-right text-xs sm:text-sm">{trade.contracts}</td>
-                  <td className="py-3 px-2 sm:px-3 text-right font-medium text-xs sm:text-sm">{formatNotional(trade.price, trade.contracts)}</td>
+                  <td className="py-3 px-2 sm:px-3 text-right font-medium text-xs sm:text-sm">{formatNotionalBySide(trade.price, trade.contracts, trade.side ?? 0)}</td>
                   <td className={`py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-bold ${formatIf0(trade.price, trade.contracts) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>${formatIf0(trade.price, trade.contracts)}</td>
                   <td className={`py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-bold ${formatIf100(trade.price, trade.contracts) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>${formatIf100(trade.price, trade.contracts)}</td>
                 </tr>

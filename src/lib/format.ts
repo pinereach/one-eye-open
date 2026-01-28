@@ -16,10 +16,21 @@ export function formatPriceBasis(cents: number): string {
 /** Alias for formatPriceBasis */
 export const formatPriceDecimal = formatPriceBasis;
 
-/** Notional: price (cents) × contracts → "$X" */
+/** Notional for buy: price (cents) × contracts → "$X" */
 export function formatNotional(price: number, contracts: number): string {
   const totalCents = price * contracts;
   return `$${Math.round(totalCents / 100)}`;
+}
+
+/** Notional for sell: contracts × (100 − price) → "$X" (price in cents, 100 = $1) */
+export function formatNotionalSell(priceCents: number, contracts: number): string {
+  const totalDollars = (10000 - priceCents) * contracts / 100;
+  return `$${Math.round(totalDollars)}`;
+}
+
+/** Notional by side: buy = price×contracts, sell = contracts×(100−price) */
+export function formatNotionalBySide(priceCents: number, contracts: number, side: number): string {
+  return side === 1 ? formatNotionalSell(priceCents, contracts) : formatNotional(priceCents, contracts);
 }
 
 /** Price in cents → "$X" or "X¢" when under $1 */

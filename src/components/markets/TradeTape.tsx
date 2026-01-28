@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
-import { formatPrice } from '../../lib/format';
+import { formatPrice, formatNotionalBySide } from '../../lib/format';
 import { format } from 'date-fns';
 import type { Trade } from '../../types';
 
@@ -84,6 +84,9 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
                 </span>
                 <span className="flex-shrink-0 text-gray-600 dark:text-gray-400 whitespace-nowrap">
                   {trade.contracts} @ {formatPrice(trade.price)}
+                </span>
+                <span className="flex-shrink-0 text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" title="Trade cost">
+                  {formatNotionalBySide(trade.price, trade.contracts, trade.side ?? 0)}
                 </span>
                 <span className="flex-shrink-0 text-gray-500 dark:text-gray-500 text-xs whitespace-nowrap ml-auto">
                   {trade.create_time ? format(new Date(trade.create_time * 1000), 'M/d h:mm a') : '—'}
