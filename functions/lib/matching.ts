@@ -220,7 +220,7 @@ export async function createTrade(
       console.log(`[createTrade] Created trade id=${tradeId}, price=${priceCents}, contracts=${qtyContracts}, outcome=${outcomeId || 'null'}, taker_side=${takerSide}`);
       return tradeId;
     } catch (err: unknown) {
-      console.warn('[createTrade] Full insert failed, falling back:', (err as Error)?.message);
+      if (!(err as Error)?.message?.includes('no such column')) throw err;
       // Fall through to insert without taker/maker columns
     }
   }
@@ -237,16 +237,17 @@ export async function createTrade(
     console.log(`[createTrade] Created trade id=${tradeId}, price=${priceCents}, contracts=${qtyContracts}, outcome=${outcomeId || 'null'}`);
     return tradeId;
   } catch (error: unknown) {
-    console.warn('[createTrade] Outcome insert failed, falling back to minimal:', (error as Error)?.message);
-    const result = await dbRun(
-      db,
-      `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff)
-       VALUES (?, ?, ?, ?, 0, 0)`,
-      [token, priceCents, qtyContracts, createTime]
-    );
-    const tradeId = result.meta.last_row_id || 0;
-    console.log(`[createTrade] Created trade id=${tradeId} (minimal schema)`);
-    return tradeId;
+    const msg = (error as Error)?.message ?? '';
+    if (msg.includes('no such column: outcome')) {
+      const result = await dbRun(
+        db,
+        `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff)
+         VALUES (?, ?, ?, ?, 0, 0)`,
+        [token, priceCents, qtyContracts, createTime]
+      );
+      return result.meta.last_row_id || 0;
+    }
+    throw error;
   }
 }
 

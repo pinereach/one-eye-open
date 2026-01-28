@@ -23,8 +23,6 @@ export function MarketDetail() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingTrades, setLoadingTrades] = useState(false);
-  const [loadingPositions, setLoadingPositions] = useState(false);
   const [orderSide, setOrderSide] = useState<'bid' | 'ask'>('bid');
   const [orderPrice, setOrderPrice] = useState('');
   const [orderQty, setOrderQty] = useState('');
@@ -74,34 +72,6 @@ export function MarketDetail() {
       showToast('Failed to load market data', 'error');
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function loadTrades() {
-    if (!id) return;
-    setLoadingTrades(true);
-    try {
-      const { trades } = await api.getTrades(id, 20);
-      setTrades(trades || []);
-    } catch (err) {
-      console.error('Failed to load trades:', err);
-      setTrades([]);
-    } finally {
-      setLoadingTrades(false);
-    }
-  }
-
-  async function loadPositions() {
-    if (!id) return;
-    setLoadingPositions(true);
-    try {
-      const { positions } = await api.getPositions(id);
-      setPositions(positions || []);
-    } catch (err) {
-      console.error('Failed to load positions:', err);
-      setPositions([]);
-    } finally {
-      setLoadingPositions(false);
     }
   }
 
@@ -496,7 +466,7 @@ export function MarketDetail() {
 
         {activeTab === 'trades' && (
           <div className="mt-4">
-            {loadingTrades ? (
+            {loading ? (
               <div className="animate-pulse space-y-2">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
@@ -552,7 +522,7 @@ export function MarketDetail() {
 
         {activeTab === 'positions' && (
           <div className="mt-4">
-            {loadingPositions ? (
+            {loading ? (
               <div className="animate-pulse space-y-2">
                 {[1, 2].map(i => (
                   <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
@@ -950,7 +920,7 @@ export function MarketDetail() {
           {positions && positions.length > 0 && (
             <div className="mt-6">
               <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Your Positions</h2>
-              {loadingPositions ? (
+              {loading ? (
                 <div className="animate-pulse space-y-2">
                   {[1, 2].map(i => (
                     <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
@@ -1021,7 +991,7 @@ export function MarketDetail() {
           {/* Recent Trades Section */}
           <div className="mt-6">
             <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Recent Trades</h2>
-            {loadingTrades ? (
+            {loading ? (
               <div className="animate-pulse space-y-2">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
