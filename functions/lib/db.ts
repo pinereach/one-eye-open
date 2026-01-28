@@ -7,6 +7,8 @@ export interface Env {
   MAX_EXPOSURE_CENTS?: string;
   SESSION_SECRET?: string;
   SESSION_DURATION_DAYS?: string;
+  /** Optional secret for GET /api/debug/schema?key=... to dump production schema */
+  DEBUG_SCHEMA_KEY?: string;
 }
 
 export function getDb(env: Env): D1Database {
