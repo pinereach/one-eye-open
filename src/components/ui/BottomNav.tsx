@@ -49,15 +49,6 @@ export function BottomNav() {
         </svg>
       ),
     },
-    {
-      path: '/scoring',
-      label: 'Scoring',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.5 18.75h-9m9 0V15c0-2.485-.5-4.5-3-4.5S9.5 12.515 9.5 15v3.75m9 0H7.5m9 0v-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
-        </svg>
-      ),
-    },
   ];
 
   const isActive = (path: string) => {
