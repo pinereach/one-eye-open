@@ -4629,11 +4629,13 @@ async function matchOrder(_db, takerOrder, oppositeOrders) {
 __name(matchOrder, "matchOrder");
 __name2(matchOrder, "matchOrder");
 async function updateOrderStatus(db, orderId, qtyFilled) {
+  if (qtyFilled <= 0) return;
   const orderIdNum = typeof orderId === "string" ? parseInt(orderId, 10) : orderId;
   const order = await dbFirst(db, "SELECT id, contract_size, status FROM orders WHERE id = ?", [orderIdNum]);
   if (!order) return;
-  const currentQty = order.contract_size || 0;
-  const newRemaining = currentQty - qtyFilled;
+  const currentQty = order.contract_size ?? 0;
+  const effectiveFilled = Math.min(qtyFilled, currentQty);
+  const newRemaining = currentQty - effectiveFilled;
   let newStatus;
   if (newRemaining <= 0) {
     newStatus = "filled";
@@ -4837,7 +4839,9 @@ async function executeMatching(db, takerOrder, outcomeId) {
   console.log(`[executeMatching] Found ${oppositeOrders.length} opposite orders`);
   const matchedFills = await matchOrder(db, takerOrder, oppositeOrders);
   console.log(`[executeMatching] Matched ${matchedFills.length} fills`);
-  for (const fill of matchedFills) {
+  const takerIdStr = String(takerOrder.id);
+  const validFills = matchedFills.filter((f) => String(f.maker_order_id) !== takerIdStr);
+  for (const fill of validFills) {
     await updateOrderStatus(db, fill.maker_order_id, fill.qty_contracts);
     const makerOrderId = typeof fill.maker_order_id === "string" ? parseInt(fill.maker_order_id, 10) : fill.maker_order_id;
     const makerOrderDb = await dbFirst(db, "SELECT id, user_id, outcome, side FROM orders WHERE id = ?", [makerOrderId]);
@@ -4893,7 +4897,7 @@ async function executeMatching(db, takerOrder, outcomeId) {
     fills.push(fill);
   }
   const totalFilled = fills.reduce((sum, f) => sum + f.qty_contracts, 0);
-  if (totalFilled > 0) {
+  if (totalFilled > 0 && totalFilled <= takerOrder.qty_remaining) {
     await updateOrderStatus(db, takerOrder.id, totalFilled);
   }
   console.log(`[executeMatching] Completed: ${fills.length} fills, ${trades.length} trades created`);
@@ -4975,6 +4979,7 @@ var onRequestPost = /* @__PURE__ */ __name2(async (context) => {
     if (!orderId) {
       return errorResponse("Failed to create order", 500);
     }
+    await dbRun(db, "UPDATE orders SET order_id = ? WHERE id = ?", [orderId, orderId]);
     const order = await dbFirst(
       db,
       `SELECT o.*, oc.market_id 

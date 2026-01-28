@@ -5,7 +5,7 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// ../.wrangler/tmp/bundle-hLJTRG/checked-fetch.js
+// ../.wrangler/tmp/bundle-EmSYr7/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -4461,11 +4461,13 @@ async function matchOrder(_db, takerOrder, oppositeOrders) {
 }
 __name(matchOrder, "matchOrder");
 async function updateOrderStatus(db, orderId, qtyFilled) {
+  if (qtyFilled <= 0) return;
   const orderIdNum = typeof orderId === "string" ? parseInt(orderId, 10) : orderId;
   const order = await dbFirst(db, "SELECT id, contract_size, status FROM orders WHERE id = ?", [orderIdNum]);
   if (!order) return;
-  const currentQty = order.contract_size || 0;
-  const newRemaining = currentQty - qtyFilled;
+  const currentQty = order.contract_size ?? 0;
+  const effectiveFilled = Math.min(qtyFilled, currentQty);
+  const newRemaining = currentQty - effectiveFilled;
   let newStatus;
   if (newRemaining <= 0) {
     newStatus = "filled";
@@ -4665,7 +4667,9 @@ async function executeMatching(db, takerOrder, outcomeId) {
   console.log(`[executeMatching] Found ${oppositeOrders.length} opposite orders`);
   const matchedFills = await matchOrder(db, takerOrder, oppositeOrders);
   console.log(`[executeMatching] Matched ${matchedFills.length} fills`);
-  for (const fill of matchedFills) {
+  const takerIdStr = String(takerOrder.id);
+  const validFills = matchedFills.filter((f) => String(f.maker_order_id) !== takerIdStr);
+  for (const fill of validFills) {
     await updateOrderStatus(db, fill.maker_order_id, fill.qty_contracts);
     const makerOrderId = typeof fill.maker_order_id === "string" ? parseInt(fill.maker_order_id, 10) : fill.maker_order_id;
     const makerOrderDb = await dbFirst(db, "SELECT id, user_id, outcome, side FROM orders WHERE id = ?", [makerOrderId]);
@@ -4721,7 +4725,7 @@ async function executeMatching(db, takerOrder, outcomeId) {
     fills.push(fill);
   }
   const totalFilled = fills.reduce((sum, f) => sum + f.qty_contracts, 0);
-  if (totalFilled > 0) {
+  if (totalFilled > 0 && totalFilled <= takerOrder.qty_remaining) {
     await updateOrderStatus(db, takerOrder.id, totalFilled);
   }
   console.log(`[executeMatching] Completed: ${fills.length} fills, ${trades.length} trades created`);
@@ -4804,6 +4808,7 @@ var onRequestPost = /* @__PURE__ */ __name(async (context) => {
     if (!orderId) {
       return errorResponse("Failed to create order", 500);
     }
+    await dbRun(db, "UPDATE orders SET order_id = ? WHERE id = ?", [orderId, orderId]);
     const order = await dbFirst(
       db,
       `SELECT o.*, oc.market_id 
@@ -6793,7 +6798,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// ../.wrangler/tmp/bundle-hLJTRG/middleware-insertion-facade.js
+// ../.wrangler/tmp/bundle-EmSYr7/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -6825,7 +6830,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// ../.wrangler/tmp/bundle-hLJTRG/middleware-loader.entry.ts
+// ../.wrangler/tmp/bundle-EmSYr7/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

@@ -155,6 +155,9 @@ export async function updateOrderStatus(
   orderId: string | number,
   qtyFilled: number
 ): Promise<void> {
+  // No-op: never mark as filled when no quantity was actually filled
+  if (qtyFilled <= 0) return;
+
   const orderIdNum = typeof orderId === 'string' ? parseInt(orderId, 10) : orderId;
   // Local DB uses contract_size, not qty_remaining
   const order = await dbFirst<{
@@ -164,8 +167,10 @@ export async function updateOrderStatus(
   }>(db, 'SELECT id, contract_size, status FROM orders WHERE id = ?', [orderIdNum]);
   if (!order) return;
 
-  const currentQty = order.contract_size || 0;
-  const newRemaining = currentQty - qtyFilled;
+  const currentQty = order.contract_size ?? 0;
+  // Clamp qtyFilled so we never subtract more than current remaining (defensive)
+  const effectiveFilled = Math.min(qtyFilled, currentQty);
+  const newRemaining = currentQty - effectiveFilled;
   let newStatus: 'open' | 'partial' | 'filled' | 'canceled';
 
   if (newRemaining <= 0) {
@@ -517,9 +522,13 @@ export async function executeMatching(
   const matchedFills = await matchOrder(db, takerOrder, oppositeOrders);
   console.log(`[executeMatching] Matched ${matchedFills.length} fills`);
 
+  // Exclude self-matches: if the taker order somehow appeared in oppositeOrders (bug), ignore that fill
+  const takerIdStr = String(takerOrder.id);
+  const validFills = matchedFills.filter((f) => String(f.maker_order_id) !== takerIdStr);
+
   // Execute all matches in a transaction-like manner
   // Note: D1 doesn't support explicit transactions, so we'll do it sequentially
-  for (const fill of matchedFills) {
+  for (const fill of validFills) {
     // Update maker order
     await updateOrderStatus(db, fill.maker_order_id, fill.qty_contracts);
 
@@ -600,9 +609,9 @@ export async function executeMatching(
     fills.push(fill);
   }
 
-  // Update taker order status
+  // Update taker order status (only if we actually had fills and didn't double-count self)
   const totalFilled = fills.reduce((sum, f) => sum + f.qty_contracts, 0);
-  if (totalFilled > 0) {
+  if (totalFilled > 0 && totalFilled <= takerOrder.qty_remaining) {
     await updateOrderStatus(db, takerOrder.id, totalFilled);
   }
 
