@@ -403,13 +403,17 @@ function HistoricalScoringPage() {
       .sort((a, b) => a.course.localeCompare(b.course));
   })();
 
-  // Handler to update a score value
+  const currentYear = new Date().getFullYear();
+  const isHistoricalYear = (year: number) => year < currentYear;
+
+  // Handler to update a score value (only current year is editable)
   const updateScore = async (course: string, year: number | null, player: string, value: string) => {
     if (year === null) return; // Can't update if year is null
-    
+    if (isHistoricalYear(year)) return; // Historical scores are read-only
+
     const numValue = value === '' ? null : parseInt(value, 10);
     if (isNaN(numValue as number) && value !== '') return; // Invalid input, don't update
-    
+
     try {
       await api.updateScoreValue({
         course,
@@ -611,11 +615,15 @@ function HistoricalScoringPage() {
                         <input
                           type="number"
                           value={score === null || score === undefined ? '' : score}
-                          onChange={(e) => updateScore(row.course, row.year as number, player, e.target.value)}
+                          readOnly={isHistoricalYear(row.year as number)}
+                          onChange={(e) => !isHistoricalYear(row.year as number) && updateScore(row.course, row.year as number, player, e.target.value)}
                           onBlur={(e) => {
-                            updateScore(row.course, row.year as number, player, e.target.value);
+                            if (!isHistoricalYear(row.year as number)) updateScore(row.course, row.year as number, player, e.target.value);
                           }}
-                          className={`w-full text-center text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 min-h-[44px] ${
+                          className={`w-full text-center text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-2 min-h-[44px] ${
+                            isHistoricalYear(row.year as number)
+                              ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed text-gray-500 dark:text-gray-400'
+                              : 'focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ' + (
                             score === null || score === undefined
                               ? 'text-gray-400 dark:text-gray-600'
                               : score < 85
@@ -623,7 +631,8 @@ function HistoricalScoringPage() {
                               : score < 95
                               ? 'text-blue-600 dark:text-blue-400'
                               : 'text-gray-900 dark:text-gray-100'
-                          }`}
+                          )}
+                          `}
                           placeholder="—"
                           min="0"
                           max="200"
@@ -681,12 +690,15 @@ function HistoricalScoringPage() {
                           <input
                             type="number"
                             value={score === null || score === undefined ? '' : score}
-                            onChange={(e) => updateScore(row.course, row.year as number, player, e.target.value)}
+                            readOnly={isHistoricalYear(row.year as number)}
+                            onChange={(e) => !isHistoricalYear(row.year as number) && updateScore(row.course, row.year as number, player, e.target.value)}
                             onBlur={(e) => {
-                              // On blur, save the value (even if empty)
-                              updateScore(row.course, row.year as number, player, e.target.value);
+                              if (!isHistoricalYear(row.year as number)) updateScore(row.course, row.year as number, player, e.target.value);
                             }}
-                            className={`w-full text-center text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded px-2 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 min-h-[44px] ${
+                            className={`w-full text-center text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded px-2 py-2 min-h-[44px] ${
+                              isHistoricalYear(row.year as number)
+                                ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed text-gray-500 dark:text-gray-400'
+                                : 'focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ' + (
                               score === null || score === undefined
                                 ? 'text-gray-400 dark:text-gray-600'
                                 : score < 85
@@ -694,7 +706,8 @@ function HistoricalScoringPage() {
                                 : score < 95
                                 ? 'text-blue-600 dark:text-blue-400'
                                 : 'text-gray-900 dark:text-gray-100'
-                            }`}
+                            )}
+                            `}
                             placeholder="—"
                             min="0"
                             max="200"

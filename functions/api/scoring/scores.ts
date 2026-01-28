@@ -73,6 +73,12 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     return errorResponse('course, year, and player are required', 400);
   }
 
+  const yearNum = parseInt(year, 10);
+  const currentYear = new Date().getFullYear();
+  if (!Number.isNaN(yearNum) && yearNum < currentYear) {
+    return errorResponse('Historical scores cannot be modified. Only the current year can be edited.', 403);
+  }
+
   const db = getDb(env);
 
   try {
@@ -87,7 +93,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
          updated_at = excluded.updated_at`,
       [
         course,
-        parseInt(year, 10),
+        yearNum,
         player,
         score === null || score === '' ? null : parseInt(score, 10),
         index_number || null,
