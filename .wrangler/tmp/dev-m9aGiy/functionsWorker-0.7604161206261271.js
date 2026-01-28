@@ -1,7 +1,7 @@
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// .wrangler/tmp/bundle-pkMyLR/checked-fetch.js
+// .wrangler/tmp/bundle-r9fija/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -27,7 +27,7 @@ globalThis.fetch = new Proxy(globalThis.fetch, {
   }
 });
 
-// .wrangler/tmp/pages-SiGmT4/functionsWorker-0.06263036153675161.mjs
+// .wrangler/tmp/pages-Diisby/functionsWorker-0.7604161206261271.mjs
 var __defProp2 = Object.defineProperty;
 var __name2 = /* @__PURE__ */ __name((target, value) => __defProp2(target, "name", { value, configurable: true }), "__name");
 var __export = /* @__PURE__ */ __name((target, all) => {
@@ -5443,7 +5443,9 @@ var onRequestPost5 = /* @__PURE__ */ __name2(async (context) => {
 var outcomeSchema = external_exports.object({
   name: external_exports.string().min(1, "Outcome name is required"),
   ticker: external_exports.string().min(1, "Ticker is required"),
-  strike: external_exports.string().optional().default("")
+  strike: external_exports.string().optional().default(""),
+  outcome_id: external_exports.string().min(1).optional()
+  // Optional deterministic id (e.g. h2h: outcome-h2h-ALEX-AVAYOU) to avoid duplicates
 });
 var marketSuggestionSchema = external_exports.object({
   short_name: external_exports.string().min(1, "Market name is required"),
@@ -5558,7 +5560,7 @@ var onRequestPost6 = /* @__PURE__ */ __name2(async (context) => {
     }
     const outcomeIds = [];
     for (const outcome of validated.outcomes) {
-      const outcomeId = `outcome-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const outcomeId = outcome.outcome_id || `outcome-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       await dbRun(
         db,
         `INSERT INTO outcomes (outcome_id, name, ticker, market_id, strike, created_date)
@@ -7107,7 +7109,7 @@ var jsonError2 = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx
 }, "jsonError");
 var middleware_miniflare3_json_error_default2 = jsonError2;
 
-// .wrangler/tmp/bundle-pkMyLR/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-r9fija/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__2 = [
   middleware_ensure_req_body_drained_default2,
   middleware_miniflare3_json_error_default2
@@ -7139,7 +7141,7 @@ function __facade_invoke__2(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__2, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-pkMyLR/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-r9fija/middleware-loader.entry.ts
 var __Facade_ScheduledController__2 = class ___Facade_ScheduledController__2 {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;
@@ -7239,4 +7241,4 @@ export {
   __INTERNAL_WRANGLER_MIDDLEWARE__2 as __INTERNAL_WRANGLER_MIDDLEWARE__,
   middleware_loader_entry_default2 as default
 };
-//# sourceMappingURL=functionsWorker-0.06263036153675161.js.map
+//# sourceMappingURL=functionsWorker-0.7604161206261271.js.map

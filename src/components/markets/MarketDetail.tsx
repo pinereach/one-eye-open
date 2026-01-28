@@ -232,17 +232,16 @@ export function MarketDetail() {
     }
   }
 
-  // Calculate market stats
+  // Calculate market stats from executed trades only (open orders do not count as volume)
   const marketStats = (() => {
-    let totalVolume = 0;
-
-    Object.values(orderbookByOutcome || {}).forEach(({ bids = [], asks = [] }) => {
-      (bids || []).forEach(bid => totalVolume += (bid.contract_size || 0) * bid.price);
-      (asks || []).forEach(ask => totalVolume += (ask.contract_size || 0) * ask.price);
-    });
+    const totalVolume =
+      (trades || []).reduce(
+        (sum, t) => sum + (t.contracts || 0) * (t.price ?? 0),
+        0
+      ) / 100; // price in cents -> dollars
 
     return {
-      totalVolume: totalVolume / 100, // Convert cents to dollars
+      totalVolume,
     };
   })();
 
@@ -274,6 +273,18 @@ export function MarketDetail() {
     const outcomeLabel = position.outcome_ticker ?? position.outcome_name ?? outcomeMatch?.name ?? outcomeMatch?.ticker ?? position.outcome;
     return { marketName, outcomeLabel };
   }
+
+  // Map outcome_id -> position for current user (to show "±N @ $X.X" below outcome name)
+  const positionByOutcome = (positions || []).reduce<Record<string, { net_position: number; price_basis: number }>>((acc, p) => {
+    acc[p.outcome] = { net_position: p.net_position, price_basis: p.price_basis };
+    return acc;
+  }, {});
+
+  const formatPositionChip = (netPosition: number, priceBasisCents: number) => {
+    const sign = netPosition >= 0 ? '+' : '';
+    const priceStr = (priceBasisCents / 100).toFixed(1);
+    return `${sign}${netPosition} @ $${priceStr}`;
+  };
 
   if (loading) {
     return (
@@ -399,6 +410,15 @@ export function MarketDetail() {
                                   <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
                                     {outcome.name}
                                   </div>
+                                  {positionByOutcome[outcome.outcome_id] && (() => {
+                                    const { net_position } = positionByOutcome[outcome.outcome_id];
+                                    const isLong = net_position > 0;
+                                    return (
+                                      <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold ${isLong ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
+                                        {formatPositionChip(positionByOutcome[outcome.outcome_id].net_position, positionByOutcome[outcome.outcome_id].price_basis)}
+                                      </span>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             </td>
@@ -648,6 +668,15 @@ export function MarketDetail() {
                                   <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
                                     {outcome.name}
                                   </div>
+                                  {positionByOutcome[outcome.outcome_id] && (() => {
+                                    const { net_position } = positionByOutcome[outcome.outcome_id];
+                                    const isLong = net_position > 0;
+                                    return (
+                                      <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold ${isLong ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
+                                        {formatPositionChip(positionByOutcome[outcome.outcome_id].net_position, positionByOutcome[outcome.outcome_id].price_basis)}
+                                      </span>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             </td>
@@ -761,11 +790,15 @@ export function MarketDetail() {
                     className="w-full px-3 py-2.5 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 touch-manipulation"
                   >
                     <option value="">Select an outcome</option>
-                    {outcomes.map((outcome) => (
-                      <option key={outcome.id} value={outcome.outcome_id}>
-                        {outcome.name} ({outcome.ticker})
-                      </option>
-                    ))}
+                    {outcomes.map((outcome) => {
+                      const pos = positionByOutcome[outcome.outcome_id];
+                      const posSuffix = pos ? `  ${formatPositionChip(pos.net_position, pos.price_basis)}` : '';
+                      return (
+                        <option key={outcome.id} value={outcome.outcome_id}>
+                          {outcome.name} ({outcome.ticker}){posSuffix}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               )}
@@ -795,6 +828,19 @@ export function MarketDetail() {
                     Yes {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
                   </button>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Quantity</label>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  min="1"
+                  value={orderQty}
+                  onChange={(e) => setOrderQty(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 min-h-[44px]"
+                />
               </div>
 
               <div>
@@ -882,19 +928,6 @@ export function MarketDetail() {
                   )}
                 </div>
               )}
-
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Quantity</label>
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  min="1"
-                  value={orderQty}
-                  onChange={(e) => setOrderQty(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 min-h-[44px]"
-                />
-              </div>
 
               {/* Order Summary */}
               {orderPrice && orderQty && (
@@ -1072,11 +1105,15 @@ export function MarketDetail() {
                 className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 touch-manipulation min-h-[44px]"
               >
                 <option value="">Select an outcome</option>
-                {outcomes.map((outcome) => (
-                  <option key={outcome.outcome_id} value={outcome.outcome_id}>
-                    {outcome.name}
-                  </option>
-                ))}
+                {outcomes.map((outcome) => {
+                  const pos = positionByOutcome[outcome.outcome_id];
+                  const posSuffix = pos ? `  ${formatPositionChip(pos.net_position, pos.price_basis)}` : '';
+                  return (
+                    <option key={outcome.outcome_id} value={outcome.outcome_id}>
+                      {outcome.name}{posSuffix}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           )}
@@ -1106,6 +1143,20 @@ export function MarketDetail() {
                 Yes {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
               </button>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Quantity</label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              min="1"
+              value={orderQty}
+              onChange={(e) => setOrderQty(e.target.value)}
+              required
+              className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 min-h-[44px]"
+              placeholder="Enter quantity"
+            />
           </div>
 
           <div>
@@ -1188,20 +1239,6 @@ export function MarketDetail() {
               )}
             </div>
           )}
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Quantity</label>
-            <input
-              type="tel"
-              inputMode="numeric"
-              min="1"
-              value={orderQty}
-              onChange={(e) => setOrderQty(e.target.value)}
-              required
-              className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 min-h-[44px]"
-              placeholder="Enter quantity"
-            />
-          </div>
 
           {/* Order Summary */}
           {orderPrice && orderQty && (

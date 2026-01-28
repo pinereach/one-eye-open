@@ -7,6 +7,7 @@ const outcomeSchema = z.object({
   name: z.string().min(1, 'Outcome name is required'),
   ticker: z.string().min(1, 'Ticker is required'),
   strike: z.string().optional().default(''),
+  outcome_id: z.string().min(1).optional(), // Optional deterministic id (e.g. h2h: outcome-h2h-ALEX-AVAYOU) to avoid duplicates
 });
 
 const marketSuggestionSchema = z.object({
@@ -142,7 +143,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     // Insert outcomes
     const outcomeIds: string[] = [];
     for (const outcome of validated.outcomes) {
-      const outcomeId = `outcome-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const outcomeId = outcome.outcome_id || `outcome-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       await dbRun(
         db,
         `INSERT INTO outcomes (outcome_id, name, ticker, market_id, strike, created_date)

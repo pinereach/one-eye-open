@@ -112,7 +112,7 @@ export const api = {
     symbol: string;
     max_winners: number;
     min_winners: number;
-    outcomes: Array<{ name: string; ticker: string; strike?: string }>;
+    outcomes: Array<{ name: string; ticker: string; strike?: string; outcome_id?: string }>;
     round_number?: number;
   }) => {
     return apiRequest<{ success: boolean; market_id: string; outcome_ids: string[] }>('/markets/suggest', {
