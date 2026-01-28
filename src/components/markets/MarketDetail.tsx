@@ -9,6 +9,7 @@ import { Tabs } from '../ui/Tabs';
 import { Skeleton } from '../ui/Skeleton';
 import { Card, CardContent } from '../ui/Card';
 import { useAuth } from '../../hooks/useAuth';
+import { useIsDesktop } from '../../hooks/useIsDesktop';
 import type { Market, Order, Trade, Position, Outcome } from '../../types';
 import { format } from 'date-fns';
 
@@ -31,9 +32,10 @@ export function MarketDetail() {
   const [autoFilled, setAutoFilled] = useState<'price' | null>(null);
   const [bottomSheetOpen, setBottomSheetOpen] = useState(false);
   const [showOrderbookInForm, setShowOrderbookInForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<'outcomes' | 'orderbook' | 'trades' | 'positions'>('outcomes');
+  const [activeTab, setActiveTab] = useState<'outcomes' | 'orderbook' | 'orders' | 'trades' | 'positions'>('outcomes');
   const [cancelingOrderId, setCancelingOrderId] = useState<number | null>(null);
   const [cancelingAll, setCancelingAll] = useState(false);
+  const isDesktop = useIsDesktop();
 
   useEffect(() => {
     if (id) loadMarket();
@@ -255,9 +257,9 @@ export function MarketDetail() {
     return `${sign}${netPosition} @ $${priceStr}`;
   };
 
-  // My open orders for this market (from orderbook, filtered by current user)
+  // My open orders for this market (lazy: only when Open orders tab is active or desktop)
   const myOpenOrders = useMemo(() => {
-    if (!user?.id) return [];
+    if (!user?.id || !(activeTab === 'orders' || isDesktop)) return [];
     const list: Order[] = [];
     for (const ob of Object.values(orderbookByOutcome)) {
       for (const o of [...(ob.bids || []), ...(ob.asks || [])]) {
@@ -265,7 +267,7 @@ export function MarketDetail() {
       }
     }
     return list;
-  }, [orderbookByOutcome, user?.id]);
+  }, [activeTab, isDesktop, orderbookByOutcome, user?.id]);
 
   async function handleCancelOrder(orderId: number) {
     setCancelingOrderId(orderId);
@@ -355,65 +357,13 @@ export function MarketDetail() {
         </div>
       </div>
 
-      {/* Your open orders (this market only) */}
-      {myOpenOrders.length > 0 && (
-        <Card>
-          <CardContent>
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <h2 className="text-base sm:text-lg font-bold">Your open orders</h2>
-              <button
-                type="button"
-                onClick={handleCancelAllOrders}
-                disabled={cancelingAll}
-                className="px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded border border-red-300 dark:border-red-700 disabled:opacity-50"
-              >
-                {cancelingAll ? 'Canceling…' : 'Cancel all'}
-              </button>
-            </div>
-            <div className="space-y-2">
-              {myOpenOrders.map((order) => {
-                const outcomeName = outcomes?.find(o => o.outcome_id === order.outcome)?.name ?? order.outcome;
-                const sideLabel = order.side === 0 ? 'Bid' : 'Sell';
-                const size = order.remaining_size ?? order.contract_size ?? 0;
-                const isCanceling = cancelingOrderId === order.id;
-                return (
-                  <div
-                    key={order.id}
-                    className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                  >
-                    <span className="font-medium text-gray-900 dark:text-gray-100 truncate min-w-0 flex-1">
-                      {outcomeName}
-                    </span>
-                    <span className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-bold ${
-                      order.side === 0 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                    }`}>
-                      {sideLabel}
-                    </span>
-                    <span className="flex-shrink-0 text-gray-600 dark:text-gray-400">
-                      {formatPriceCents(order.price)} × {size}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleCancelOrder(order.id)}
-                      disabled={isCanceling}
-                      className="flex-shrink-0 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded disabled:opacity-50"
-                    >
-                      {isCanceling ? 'Canceling…' : 'Cancel'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Mobile Tabs */}
       <div className="md:hidden">
         <Tabs
           tabs={[
             { id: 'outcomes', label: 'Outcomes' },
             { id: 'orderbook', label: 'Orderbook' },
+            { id: 'orders', label: 'Open orders' },
             { id: 'trades', label: 'Trades' },
             { id: 'positions', label: 'Positions' },
           ]}
@@ -553,6 +503,64 @@ export function MarketDetail() {
             ) : (
               <div className="text-sm text-gray-500 dark:text-gray-400 py-8 text-center">
                 Select an outcome to view orderbook
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'orders' && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="text-base font-bold">Your open orders</h2>
+              {myOpenOrders.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleCancelAllOrders}
+                  disabled={cancelingAll}
+                  className="px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded border border-red-300 dark:border-red-700 disabled:opacity-50"
+                >
+                  {cancelingAll ? 'Canceling…' : 'Cancel all'}
+                </button>
+              )}
+            </div>
+            {myOpenOrders.length === 0 ? (
+              <div className="text-sm text-gray-500 dark:text-gray-400 py-8 text-center">
+                No open orders in this market. Place orders from the Outcomes or Orderbook tab.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {myOpenOrders.map((order) => {
+                  const outcomeName = outcomes?.find(o => o.outcome_id === order.outcome)?.name ?? order.outcome;
+                  const sideLabel = order.side === 0 ? 'Bid' : 'Sell';
+                  const size = order.remaining_size ?? order.contract_size ?? 0;
+                  const isCanceling = cancelingOrderId === order.id;
+                  return (
+                    <div
+                      key={order.id}
+                      className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
+                    >
+                      <span className="font-medium text-gray-900 dark:text-gray-100 truncate min-w-0 flex-1">
+                        {outcomeName}
+                      </span>
+                      <span className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-bold ${
+                        order.side === 0 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                      }`}>
+                        {sideLabel}
+                      </span>
+                      <span className="flex-shrink-0 text-gray-600 dark:text-gray-400">
+                        {formatPriceCents(order.price)} × {size}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCancelOrder(order.id)}
+                        disabled={isCanceling}
+                        className="flex-shrink-0 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded disabled:opacity-50"
+                      >
+                        {isCanceling ? 'Canceling…' : 'Cancel'}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1011,6 +1019,63 @@ export function MarketDetail() {
             </form>
           </div>
         </div>
+
+          {/* Your open orders (desktop) */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="text-lg sm:text-xl font-bold">Your open orders</h2>
+              {myOpenOrders.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleCancelAllOrders}
+                  disabled={cancelingAll}
+                  className="px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded border border-red-300 dark:border-red-700 disabled:opacity-50"
+                >
+                  {cancelingAll ? 'Canceling…' : 'Cancel all'}
+                </button>
+              )}
+            </div>
+            {myOpenOrders.length === 0 ? (
+              <div className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
+                No open orders in this market.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {myOpenOrders.map((order) => {
+                  const outcomeName = outcomes?.find(o => o.outcome_id === order.outcome)?.name ?? order.outcome;
+                  const sideLabel = order.side === 0 ? 'Bid' : 'Sell';
+                  const size = order.remaining_size ?? order.contract_size ?? 0;
+                  const isCanceling = cancelingOrderId === order.id;
+                  return (
+                    <div
+                      key={order.id}
+                      className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
+                    >
+                      <span className="font-medium text-gray-900 dark:text-gray-100 truncate min-w-0 flex-1">
+                        {outcomeName}
+                      </span>
+                      <span className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-bold ${
+                        order.side === 0 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                      }`}>
+                        {sideLabel}
+                      </span>
+                      <span className="flex-shrink-0 text-gray-600 dark:text-gray-400">
+                        {formatPriceCents(order.price)} × {size}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCancelOrder(order.id)}
+                        disabled={isCanceling}
+                        className="flex-shrink-0 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded disabled:opacity-50"
+                      >
+                        {isCanceling ? 'Canceling…' : 'Cancel'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Positions Section */}
           {positions && positions.length > 0 && (
