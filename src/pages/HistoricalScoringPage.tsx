@@ -307,8 +307,8 @@ export function HistoricalScoringPage() {
                     const cellKey = getCellKey(row.course, row.year as number, player);
                     const displayValue = editingCell?.key === cellKey ? editingCell.value : (score === null || score === undefined ? '' : String(score));
                     return (
-                      <div key={player} className="flex flex-col">
-                        <label className="text-xs text-gray-600 dark:text-gray-400 mb-1">{player}{handicap != null ? ` (${handicap})` : ''}</label>
+                      <div key={player} className="flex flex-col items-center">
+                        <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 w-full text-center">{player}</label>
                         <input
                           type="number"
                           value={displayValue}
@@ -330,6 +330,9 @@ export function HistoricalScoringPage() {
                           max="200"
                           inputMode="numeric"
                         />
+                        {handicap != null && (
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 text-center w-full mt-0.5" title="Handicap index">{handicap}</span>
+                        )}
                       </div>
                     );
                   })}
@@ -386,7 +389,7 @@ export function HistoricalScoringPage() {
                               max="200"
                             />
                             {handicap != null && (
-                              <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400" title="Handicap index">{handicap}</span>
+                              <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 text-center w-full" title="Handicap index">{handicap}</span>
                             )}
                           </div>
                         </td>

@@ -6,7 +6,7 @@ import type { Trade } from '../../types';
 
 const TAPE_LIMIT = 40;
 
-export function TradeTape() {
+export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,7 +29,7 @@ export function TradeTape() {
   if (loading) {
     return (
       <div className="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 p-4">
-        <h2 className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-3">Trade tape</h2>
+        {showTitle && <h2 className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-3">Trade tape</h2>}
         <div className="animate-pulse space-y-2">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 rounded" />
@@ -42,7 +42,7 @@ export function TradeTape() {
   if (trades.length === 0) {
     return (
       <div className="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 p-4">
-        <h2 className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-3">Trade tape</h2>
+        {showTitle && <h2 className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-3">Trade tape</h2>}
         <p className="text-sm text-gray-500 dark:text-gray-400">No recent trades</p>
       </div>
     );
@@ -50,8 +50,8 @@ export function TradeTape() {
 
   return (
     <div className="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 overflow-hidden">
-      <h2 className="text-sm font-bold text-gray-600 dark:text-gray-400 px-4 pt-3 pb-2">Trade tape</h2>
-      <div className="max-h-[280px] overflow-y-auto px-4 pb-3">
+      {showTitle && <h2 className="text-sm font-bold text-gray-600 dark:text-gray-400 px-4 pt-3 pb-2">Trade tape</h2>}
+      <div className={`max-h-[280px] overflow-y-auto px-4 pb-3 ${showTitle ? '' : 'pt-3'}`}>
         <div className="space-y-1.5">
           {trades.map((trade) => {
             const isBuy = trade.side === 0;

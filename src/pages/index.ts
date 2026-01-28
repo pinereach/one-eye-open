@@ -1,6 +1,7 @@
 export { LandingPage } from './LandingPage';
 export { HistoricalScoringPage } from './HistoricalScoringPage';
 export { MarketsPage } from './MarketsPage';
+export { TapePage } from './TapePage';
 export { OrdersPage } from './OrdersPage';
 export { TradesPage } from './TradesPage';
 export { PositionsPage } from './PositionsPage';
