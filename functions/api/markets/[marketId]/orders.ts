@@ -107,6 +107,9 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       return errorResponse('Failed to create order', 500);
     }
 
+    // Set order_id to this order's id (was -1 placeholder); keeps each order identifiable
+    await dbRun(db, 'UPDATE orders SET order_id = ? WHERE id = ?', [orderId, orderId]);
+
     // Get the created order with outcome info to get market_id
     const order = await dbFirst<{
       id: number;
