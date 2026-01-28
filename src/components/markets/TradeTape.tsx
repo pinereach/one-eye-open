@@ -70,29 +70,29 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
                 key={trade.id}
                 className="py-2.5 border-b border-gray-200 dark:border-gray-700 last:border-0 text-xs sm:text-sm"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span
-                      className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-bold uppercase ${sideClass}`}
-                      aria-label={sideLabel !== '—' ? sideLabel : 'Unknown side'}
-                    >
-                      {sideLabel}
-                    </span>
-                    <span className="text-gray-900 dark:text-gray-100 truncate" title={marketName}>
-                      {marketName}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-end gap-0.5 flex-shrink-0 text-right">
-                    <span className="text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">
-                      {trade.contracts} @ {formatPrice(trade.price)} · {formatNotionalBySide(trade.price, trade.contracts, trade.side ?? 0)}
-                    </span>
-                    <span className="text-gray-500 dark:text-gray-500 text-xs whitespace-nowrap">
-                      {trade.create_time ? format(new Date(trade.create_time * 1000), 'M/d h:mm a') : '—'}
-                    </span>
-                  </div>
+                <div className="mb-1">
+                  <span
+                    className={`inline-block px-2 py-0.5 rounded text-xs font-bold uppercase ${sideClass}`}
+                    aria-label={sideLabel !== '—' ? sideLabel : 'Unknown side'}
+                  >
+                    {sideLabel}
+                  </span>
                 </div>
-                <div className="mt-1 text-gray-600 dark:text-gray-400 truncate pl-0" title={outcomeName}>
-                  {outcomeName}
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-gray-900 dark:text-gray-100 truncate min-w-0" title={marketName}>
+                    {marketName}
+                  </span>
+                  <span className="text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap flex-shrink-0">
+                    {trade.contracts} @ {formatPrice(trade.price)} · {formatNotionalBySide(trade.price, trade.contracts, trade.side ?? 0)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3 mt-0.5">
+                  <span className="text-gray-600 dark:text-gray-400 truncate min-w-0" title={outcomeName}>
+                    {outcomeName}
+                  </span>
+                  <span className="text-gray-500 dark:text-gray-500 text-xs whitespace-nowrap flex-shrink-0">
+                    {trade.create_time ? format(new Date(trade.create_time * 1000), 'M/d h:mm a') : '—'}
+                  </span>
                 </div>
               </div>
             );
