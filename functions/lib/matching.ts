@@ -193,33 +193,52 @@ export async function createTrade(
   _makerOrderId: string | number,
   priceCents: number,
   qtyContracts: number,
-  outcomeId?: string // Optional outcome_id to link trade to outcome
+  outcomeId?: string, // Optional outcome_id to link trade to outcome
+  takerUserId?: number | null,
+  makerUserId?: number | null,
+  takerSide?: number | null // 0 = buy (bid), 1 = sell (ask) from taker's perspective
 ): Promise<number> {
   // Local DB uses token, price, contracts, create_time, outcome (not id, market_id, etc.)
   const token = crypto.randomUUID();
-  
-  // Try to insert with outcome column first (if migration has been run)
-  // If that fails, fall back to inserting without outcome column (backward compatibility)
+  const createTime = Math.floor(Date.now() / 1000);
+
+  // Try insert with taker_user_id/maker_user_id/taker_side first (migration 0033). maker_user_id can be null (e.g. system maker).
+  if (takerUserId != null && takerSide != null) {
+    try {
+      const result = await dbRun(
+        db,
+        `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, outcome, taker_user_id, maker_user_id, taker_side)
+         VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?, ?)`,
+        [token, priceCents, qtyContracts, createTime, outcomeId || null, takerUserId, makerUserId ?? null, takerSide]
+      );
+      const tradeId = result.meta.last_row_id || 0;
+      console.log(`[createTrade] Created trade id=${tradeId}, price=${priceCents}, contracts=${qtyContracts}, outcome=${outcomeId || 'null'}, taker_side=${takerSide}`);
+      return tradeId;
+    } catch (err: unknown) {
+      if (!(err as Error)?.message?.includes('no such column')) throw err;
+      // Fall through to insert without taker/maker columns
+    }
+  }
+
+  // Try to insert with outcome column (migration 0021)
   try {
     const result = await dbRun(
       db,
       `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, outcome)
        VALUES (?, ?, ?, ?, 0, 0, ?)`,
-      [token, priceCents, qtyContracts, Math.floor(Date.now() / 1000), outcomeId || null]
+      [token, priceCents, qtyContracts, createTime, outcomeId || null]
     );
     const tradeId = result.meta.last_row_id || 0;
     console.log(`[createTrade] Created trade id=${tradeId}, price=${priceCents}, contracts=${qtyContracts}, outcome=${outcomeId || 'null'}`);
     return tradeId;
-  } catch (error: any) {
-    console.error('[createTrade] Error creating trade with outcome column:', error);
-    // If outcome column doesn't exist, insert without it (backward compatibility)
-    if (error?.message?.includes('no such column: outcome')) {
-      console.log('[createTrade] Falling back to insert without outcome column');
+  } catch (error: unknown) {
+    const msg = (error as Error)?.message ?? '';
+    if (msg.includes('no such column: outcome')) {
       const result = await dbRun(
         db,
         `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff)
          VALUES (?, ?, ?, ?, 0, 0)`,
-        [token, priceCents, qtyContracts, Math.floor(Date.now() / 1000)]
+        [token, priceCents, qtyContracts, createTime]
       );
       return result.meta.last_row_id || 0;
     }
@@ -504,19 +523,7 @@ export async function executeMatching(
     // Update maker order
     await updateOrderStatus(db, fill.maker_order_id, fill.qty_contracts);
 
-    // Create trade - pass outcomeId to link trade to outcome
-    const tradeId = await createTrade(
-      db,
-      takerOrder.market_id,
-      takerOrder.id,
-      fill.maker_order_id,
-      fill.price_cents,
-      fill.qty_contracts,
-      outcomeId
-    );
-
-    // Update positions for both users
-    // Need to get outcome from maker order (local DB stores outcome, not market_id in orders table)
+    // Get maker order for position updates and for trade taker/maker/side (migration 0033)
     const makerOrderId = typeof fill.maker_order_id === 'string' ? parseInt(fill.maker_order_id, 10) : fill.maker_order_id;
     const makerOrderDb = await dbFirst<{
       id: number;
@@ -524,26 +531,44 @@ export async function executeMatching(
       outcome: string;
       side: number;
     }>(db, 'SELECT id, user_id, outcome, side FROM orders WHERE id = ?', [makerOrderId]);
-    
-    if (makerOrderDb) {
-      const takerUserId = typeof takerOrder.user_id === 'string' ? parseInt(takerOrder.user_id, 10) : parseInt(takerOrder.user_id, 10);
-      const makerUserId = makerOrderDb.user_id;
-      
-      // Taker position - use outcomeId since positions table uses outcome
-      await updatePosition(
-        db,
-        outcomeId, // Use outcomeId passed to executeMatching
-        takerUserId,
-        takerOrder.side,
-        fill.price_cents,
-        fill.qty_contracts
-      );
 
-      // Maker position (opposite side) - use same outcomeId
-      if (makerUserId) {
+    const takerUserId = typeof takerOrder.user_id === 'string' ? parseInt(takerOrder.user_id, 10) : Number(takerOrder.user_id);
+    const takerSideNum = takerOrder.side === 'bid' ? 0 : 1; // 0 = buy, 1 = sell
+    const makerUserId = makerOrderDb?.user_id ?? null;
+
+    // Create trade - pass outcomeId and taker/maker/side so UI can show Buy/Sell (migration 0033)
+    const tradeId = await createTrade(
+      db,
+      takerOrder.market_id,
+      takerOrder.id,
+      fill.maker_order_id,
+      fill.price_cents,
+      fill.qty_contracts,
+      outcomeId,
+      Number.isNaN(takerUserId) ? null : takerUserId,
+      makerUserId,
+      takerSideNum
+    );
+
+    // Update positions for both users
+    if (makerOrderDb) {
+      // Taker position - use outcomeId since positions table uses outcome
+      if (!Number.isNaN(takerUserId)) {
         await updatePosition(
           db,
-          outcomeId, // Use same outcomeId
+          outcomeId,
+          takerUserId,
+          takerOrder.side,
+          fill.price_cents,
+          fill.qty_contracts
+        );
+      }
+
+      // Maker position (opposite side)
+      if (makerUserId != null) {
+        await updatePosition(
+          db,
+          outcomeId,
           makerUserId,
           makerOrderDb.side === 0 ? 'bid' : 'ask',
           fill.price_cents,

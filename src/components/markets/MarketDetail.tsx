@@ -6,6 +6,7 @@ import { ToastContainer, useToast } from '../ui/Toast';
 import { BottomSheet } from '../ui/BottomSheet';
 import { Tabs } from '../ui/Tabs';
 import { Skeleton } from '../ui/Skeleton';
+import { Card, CardContent } from '../ui/Card';
 import { useAuth } from '../../hooks/useAuth';
 import type { Market, Order, Trade, Position, Outcome } from '../../types';
 import { format } from 'date-fns';
@@ -30,6 +31,7 @@ export function MarketDetail() {
   const [submitting, setSubmitting] = useState(false);
   const [autoFilled, setAutoFilled] = useState<'price' | null>(null);
   const [bottomSheetOpen, setBottomSheetOpen] = useState(false);
+  const [showOrderbookInForm, setShowOrderbookInForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'outcomes' | 'orderbook' | 'trades' | 'positions'>('outcomes');
 
   useEffect(() => {
@@ -186,7 +188,7 @@ export function MarketDetail() {
 
   function handleBidClick(outcomeId: string, price: number | null) {
     setSelectedOutcomeId(outcomeId);
-    setOrderSide('bid');
+    setOrderSide('ask'); // Clicking on a bid = sell to that bid → opens "No" (ask)
     if (price) {
       const priceDollars = Math.round(price / 100);
       // Clamp to 1-99 range
@@ -195,11 +197,13 @@ export function MarketDetail() {
       setAutoFilled('price');
       setTimeout(() => setAutoFilled(null), 2000);
     }
+    // Open bottom sheet for order form
+    setBottomSheetOpen(true);
   }
 
   function handleAskClick(outcomeId: string, price: number | null) {
     setSelectedOutcomeId(outcomeId);
-    setOrderSide('ask');
+    setOrderSide('bid'); // Clicking on an ask = buy at that ask → opens "Yes" (bid)
     if (price) {
       const priceDollars = Math.round(price / 100);
       // Clamp to 1-99 range
@@ -208,22 +212,24 @@ export function MarketDetail() {
       setAutoFilled('price');
       setTimeout(() => setAutoFilled(null), 2000);
     }
+    // Open bottom sheet for order form
+    setBottomSheetOpen(true);
   }
 
-  function handleQuickQuantity(qty: number) {
-    setOrderQty(qty.toString());
-  }
-
-  function getChanceColor(chance: number): string {
-    if (chance >= 70) return 'text-green-600 dark:text-green-400';
-    if (chance >= 40) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-red-600 dark:text-red-400';
-  }
-
-  function getChanceBgColor(chance: number): string {
-    if (chance >= 70) return 'bg-green-100 dark:bg-green-900/30';
-    if (chance >= 40) return 'bg-yellow-100 dark:bg-yellow-900/30';
-    return 'bg-red-100 dark:bg-red-900/30';
+  function handleSideChange(newSide: 'bid' | 'ask') {
+    setOrderSide(newSide);
+    // Auto-update price based on selected side
+    if (selectedOrderbook) {
+      if (newSide === 'bid' && bestBid) {
+        const priceDollars = Math.round(bestBid.price / 100);
+        const clampedPrice = Math.max(1, Math.min(99, priceDollars));
+        setOrderPrice(clampedPrice.toString());
+      } else if (newSide === 'ask' && bestAsk) {
+        const priceDollars = Math.round(bestAsk.price / 100);
+        const clampedPrice = Math.max(1, Math.min(99, priceDollars));
+        setOrderPrice(clampedPrice.toString());
+      }
+    }
   }
 
   // Calculate market stats
@@ -244,8 +250,13 @@ export function MarketDetail() {
   const orderSummary = (() => {
     const price = parseInt(orderPrice, 10) || 0;
     const qty = parseInt(orderQty, 10) || 0;
+    // For buy (Yes/bid side): cost = price * quantity
+    // For sell (No/ask side): cost = quantity * (100 - price)
+    const totalCost = orderSide === 'bid' 
+      ? price * qty 
+      : qty * (100 - price);
     return {
-      totalCost: price * qty,
+      totalCost,
       price,
       qty,
     };
@@ -255,6 +266,14 @@ export function MarketDetail() {
   const selectedOrderbook = selectedOutcomeId ? (orderbookByOutcome?.[selectedOutcomeId] || null) : null;
   const bestBid = selectedOrderbook?.bids?.[0];
   const bestAsk = selectedOrderbook?.asks?.[0];
+
+  // Resolve position display names (API may not return market_name/outcome_name for market-scoped positions)
+  function getPositionDisplayNames(position: Position) {
+    const marketName = position.market_name ?? market?.short_name ?? 'N/A';
+    const outcomeMatch = outcomes?.find(o => o.outcome_id === position.outcome);
+    const outcomeLabel = position.outcome_ticker ?? position.outcome_name ?? outcomeMatch?.name ?? outcomeMatch?.ticker ?? position.outcome;
+    return { marketName, outcomeLabel };
+  }
 
   if (loading) {
     return (
@@ -347,10 +366,10 @@ export function MarketDetail() {
                 <table className="w-full min-w-[320px] sm:min-w-[640px]">
                   <thead>
                     <tr className="border-b border-gray-300 dark:border-gray-600">
-                      <th className="py-2 px-2 sm:py-3 sm:px-4 text-left text-xs font-bold text-gray-600 dark:text-gray-400">Team</th>
-                      <th className="py-2 px-1 sm:py-3 sm:px-4 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Chance</th>
-                      <th className="py-2 px-1 sm:py-3 sm:px-4 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Bid</th>
-                      <th className="py-2 px-1 sm:py-3 sm:px-4 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Ask</th>
+                      <th className="py-1.5 px-2 sm:py-2 sm:px-3 text-left text-xs font-bold text-gray-600 dark:text-gray-400">Team</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Chance</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Bid</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Ask</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -371,47 +390,44 @@ export function MarketDetail() {
                             }`}
                             onClick={() => setSelectedOutcomeId(outcome.outcome_id)}
                           >
-                            <td className="py-2 px-2 sm:py-3 sm:px-4">
-                              <div className="flex items-center gap-1 sm:gap-3">
-                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-4 sm:w-8 flex-shrink-0">
+                            <td className="py-1.5 px-2 sm:py-2 sm:px-3">
+                              <div className="flex items-center gap-1 sm:gap-2">
+                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-4 sm:w-6 flex-shrink-0">
                                   {index + 1}
                                 </span>
                                 <div className="min-w-0 flex-1">
-                                  <div className="font-medium text-xs sm:text-base text-gray-900 dark:text-gray-100 truncate">
+                                  <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
                                     {outcome.name}
                                   </div>
                                 </div>
                               </div>
                             </td>
-                            <td className="py-2 px-1 sm:py-3 sm:px-4 text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${getChanceBgColor(chance).replace('bg-', 'bg-').split(' ')[0]}`} style={{ backgroundColor: chance >= 70 ? '#22c55e' : chance >= 40 ? '#eab308' : '#ef4444' }}></div>
-                                <span className={`font-medium text-xs sm:text-base ${getChanceColor(chance)}`}>
-                                  {chance}%
-                                </span>
-                              </div>
+                            <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
+                              <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100">
+                                {chance}%
+                              </span>
                             </td>
-                            <td className="py-2 px-1 sm:py-3 sm:px-4 text-center">
+                            <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                               <div className="flex justify-center">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleBidClick(outcome.outcome_id, yesPrice);
                                   }}
-                                  className="w-[70px] sm:w-[120px] px-1 sm:px-3 py-1.5 sm:py-2 rounded text-xs sm:text-sm font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation h-[36px] sm:h-[44px] flex items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation h-[32px] sm:h-[38px] flex items-center justify-center transition-colors"
                                 >
                                   {yesPrice ? formatPriceCents(yesPrice) : '-'}
                                 </button>
                               </div>
                             </td>
-                            <td className="py-2 px-1 sm:py-3 sm:px-4 text-center">
+                            <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                               <div className="flex justify-center">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleAskClick(outcome.outcome_id, bestAsk?.price || null);
                                   }}
-                                  className="w-[70px] sm:w-[120px] px-1 sm:px-3 py-1.5 sm:py-2 rounded text-xs sm:text-sm font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation h-[36px] sm:h-[44px] flex items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation h-[32px] sm:h-[38px] flex items-center justify-center transition-colors"
                                 >
                                   {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
                                 </button>
@@ -480,31 +496,35 @@ export function MarketDetail() {
                   const isBuy = trade.side === 0;
                   const isSell = trade.side === 1;
                   const sideLabel = isBuy ? 'Buy' : isSell ? 'Sell' : '—';
-                  const sideColor = isBuy ? 'text-green-600 dark:text-green-400' : isSell ? 'text-red-600 dark:text-red-400' : '';
+                  const sidePillClass = isBuy
+                    ? 'bg-green-600 text-white dark:bg-green-500 dark:text-white'
+                    : isSell
+                    ? 'bg-red-600 text-white dark:bg-red-500 dark:text-white'
+                    : 'bg-gray-400 text-white dark:bg-gray-500 dark:text-white';
 
                   return (
                     <div
                       key={trade.id}
-                      className="flex items-center justify-between gap-2 p-3 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                      className="flex items-center gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded text-sm"
                     >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <span
+                        className={`flex-shrink-0 px-3 py-1 rounded-md text-sm font-bold uppercase ${sidePillClass}`}
+                        aria-label={sideLabel !== '—' ? sideLabel : 'Unknown side'}
+                      >
+                        {sideLabel}
+                      </span>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
                         {trade.outcome_ticker && (
                           <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
                             {trade.outcome_ticker}
                           </span>
                         )}
-                        <span className={`font-medium ${sideColor}`}>
-                          {sideLabel}
-                        </span>
-                        <span className="text-gray-600 dark:text-gray-400">
-                          {trade.contracts} contracts
-                        </span>
-                        <span className="font-medium text-gray-900 dark:text-gray-100">
-                          {formatPrice(trade.price)}
+                        <span className="text-gray-600 dark:text-gray-400 flex-shrink-0">
+                          {trade.contracts} @ {formatPrice(trade.price)}
                         </span>
                       </div>
-                      <span className="text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        {trade.create_time ? format(new Date(trade.create_time * 1000), 'h:mm:ss a') : '—'}
+                      <span className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap flex-shrink-0">
+                        {trade.create_time ? format(new Date(trade.create_time * 1000), 'M/d h:mm a') : '—'}
                       </span>
                     </div>
                   );
@@ -529,54 +549,54 @@ export function MarketDetail() {
             ) : (
               <div className="space-y-3">
                 {positions.map((position) => {
+                  const { marketName, outcomeLabel } = getPositionDisplayNames(position);
                   const currentPrice = position.current_price !== null && position.current_price !== undefined 
                     ? position.current_price 
                     : null;
-                  const positionValue = currentPrice !== null 
-                    ? position.net_position * (currentPrice - position.price_basis)
+                  const costCents = position.net_position * position.price_basis;
+                  const positionValueCents = currentPrice !== null 
+                    ? position.net_position * currentPrice 
+                    : null;
+                  const diffCents = positionValueCents !== null 
+                    ? positionValueCents - costCents 
                     : null;
 
                   return (
-                    <div key={position.id} className="p-4 border border-gray-300 dark:border-gray-600 rounded-lg">
-                      <div className="font-bold text-sm mb-2">{position.market_name || 'N/A'}</div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 mb-3">{position.outcome_ticker || position.outcome_name || position.outcome}</div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Net Position:</span>
-                          <span className="font-medium">{position.net_position}</span>
+                    <Card key={position.id} className="mb-3">
+                      <CardContent>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0 pr-4">
+                            <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-1">
+                              {marketName}
+                            </h3>
+                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">
+                              {outcomeLabel}
+                            </p>
+                            <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-500">
+                              {position.net_position} shares at {formatPriceBasis(position.price_basis)}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end text-right">
+                            <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                              {positionValueCents !== null ? formatPriceDecimal(positionValueCents) : formatPriceDecimal(costCents)}
+                            </div>
+                            <div className={`text-sm sm:text-base font-semibold ${
+                              diffCents !== null
+                                ? diffCents > 0 ? 'text-green-600 dark:text-green-400' 
+                                  : diffCents < 0 ? 'text-red-600 dark:text-red-400' 
+                                  : 'text-gray-600 dark:text-gray-400'
+                                : 'text-gray-600 dark:text-gray-400'
+                            }`}>
+                              {diffCents !== null ? (
+                                <>{(diffCents > 0 ? '↑' : diffCents < 0 ? '↓' : '')} {formatPrice(Math.abs(diffCents))}</>
+                              ) : (
+                                '—'
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Price Basis:</span>
-                          <span>{formatPriceBasis(position.price_basis)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Current:</span>
-                          <span>{currentPrice !== null ? formatPriceDecimal(currentPrice) : '—'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Position Value:</span>
-                          <span className={`font-bold ${
-                            positionValue !== null 
-                              ? (positionValue > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')
-                              : ''
-                          }`}>
-                            {positionValue !== null ? formatPriceDecimal(positionValue) : '—'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Closed Profit:</span>
-                          <span className={`font-bold ${position.closed_profit > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                            {formatPrice(position.closed_profit)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Settled Profit:</span>
-                          <span className={`font-bold ${position.settled_profit > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                            {formatPrice(position.settled_profit)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                      </CardContent>
+                    </Card>
                   );
                 })}
               </div>
@@ -595,10 +615,10 @@ export function MarketDetail() {
                 <table className="w-full min-w-[320px] sm:min-w-[640px]">
                   <thead>
                     <tr className="border-b border-gray-300 dark:border-gray-600">
-                      <th className="py-2 px-2 sm:py-3 sm:px-4 text-left text-xs font-bold text-gray-600 dark:text-gray-400">Team</th>
-                      <th className="py-2 px-1 sm:py-3 sm:px-4 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Chance</th>
-                      <th className="py-2 px-1 sm:py-3 sm:px-4 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Bid</th>
-                      <th className="py-2 px-1 sm:py-3 sm:px-4 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Ask</th>
+                      <th className="py-1.5 px-2 sm:py-2 sm:px-3 text-left text-xs font-bold text-gray-600 dark:text-gray-400">Team</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Chance</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Bid</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Ask</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -619,47 +639,44 @@ export function MarketDetail() {
                             }`}
                             onClick={() => setSelectedOutcomeId(outcome.outcome_id)}
                           >
-                            <td className="py-2 px-2 sm:py-3 sm:px-4">
-                              <div className="flex items-center gap-1 sm:gap-3">
-                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-4 sm:w-8 flex-shrink-0">
+                            <td className="py-1.5 px-2 sm:py-2 sm:px-3">
+                              <div className="flex items-center gap-1 sm:gap-2">
+                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-4 sm:w-6 flex-shrink-0">
                                   {index + 1}
                                 </span>
                                 <div className="min-w-0 flex-1">
-                                  <div className="font-medium text-xs sm:text-base text-gray-900 dark:text-gray-100 truncate">
+                                  <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
                                     {outcome.name}
                                   </div>
                                 </div>
                               </div>
                             </td>
-                            <td className="py-2 px-1 sm:py-3 sm:px-4 text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${getChanceBgColor(chance).replace('bg-', 'bg-').split(' ')[0]}`} style={{ backgroundColor: chance >= 70 ? '#22c55e' : chance >= 40 ? '#eab308' : '#ef4444' }}></div>
-                                <span className={`font-medium text-xs sm:text-base ${getChanceColor(chance)}`}>
-                                  {chance}%
-                                </span>
-                              </div>
+                            <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
+                              <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100">
+                                {chance}%
+                              </span>
                             </td>
-                            <td className="py-2 px-1 sm:py-3 sm:px-4 text-center">
+                            <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                               <div className="flex justify-center">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleBidClick(outcome.outcome_id, yesPrice);
                                   }}
-                                  className="w-[70px] sm:w-[120px] px-1 sm:px-3 py-1.5 sm:py-2 rounded text-xs sm:text-sm font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation h-[36px] sm:h-[44px] flex items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation h-[32px] sm:h-[38px] flex items-center justify-center transition-colors"
                                 >
                                   {yesPrice ? formatPriceCents(yesPrice) : '-'}
                                 </button>
                               </div>
                             </td>
-                            <td className="py-2 px-1 sm:py-3 sm:px-4 text-center">
+                            <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                               <div className="flex justify-center">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleAskClick(outcome.outcome_id, bestAsk?.price || null);
                                   }}
-                                  className="w-[70px] sm:w-[120px] px-1 sm:px-3 py-1.5 sm:py-2 rounded text-xs sm:text-sm font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation h-[36px] sm:h-[44px] flex items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation h-[32px] sm:h-[38px] flex items-center justify-center transition-colors"
                                 >
                                   {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
                                 </button>
@@ -757,51 +774,68 @@ export function MarketDetail() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setOrderSide('bid')}
-                    className={`flex-1 py-3 px-4 rounded font-medium text-sm sm:text-base min-h-[44px] touch-manipulation ${
-                      orderSide === 'bid'
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-                    }`}
-                  >
-                    Bid (Buy)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOrderSide('ask')}
+                    onClick={() => handleSideChange('ask')}
                     className={`flex-1 py-3 px-4 rounded font-medium text-sm sm:text-base min-h-[44px] touch-manipulation ${
                       orderSide === 'ask'
                         ? 'bg-red-600 text-white'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                     }`}
                   >
-                    Ask (Sell)
+                    No {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSideChange('bid')}
+                    className={`flex-1 py-3 px-4 rounded font-medium text-sm sm:text-base min-h-[44px] touch-manipulation ${
+                      orderSide === 'bid'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                    }`}
+                  >
+                    Yes {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
                   </button>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1.5">Price ($)</label>
-            <input
-              type="tel"
-              inputMode="numeric"
-              step="1"
-              min="1"
-              max="99"
-              value={orderPrice}
-              onChange={(e) => {
-                const value = e.target.value;
-                // Only allow whole numbers 1-99
-                if (value === '' || (parseInt(value, 10) >= 1 && parseInt(value, 10) <= 99)) {
-                  setOrderPrice(value);
-                  setAutoFilled(null);
-                }
-              }}
-              required
-              className={`w-full px-4 py-3 text-base border rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 min-h-[44px] ${
-                autoFilled === 'price' ? 'border-primary-500 ring-2 ring-primary-200 dark:ring-primary-800' : 'border-gray-300 dark:border-gray-600'
-              }`}
-            />
+                {selectedOrderbook && (bestBid || bestAsk) && (
+                  <div className="mb-2 text-xs text-gray-600 dark:text-gray-400 flex gap-4">
+                    {bestBid && (
+                      <span>
+                        Bid: <span className="font-medium text-red-600 dark:text-red-400">{formatPriceCents(bestBid.price)}</span>
+                      </span>
+                    )}
+                    {bestAsk && (
+                      <span>
+                        Ask: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceCents(bestAsk.price)}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400">$</span>
+              <input
+                type="tel"
+                inputMode="numeric"
+                step="1"
+                min="1"
+                max="99"
+                value={orderPrice}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Only allow whole numbers 1-99
+                  if (value === '' || (parseInt(value, 10) >= 1 && parseInt(value, 10) <= 99)) {
+                    setOrderPrice(value);
+                    setAutoFilled(null);
+                  }
+                }}
+                required
+                className={`w-full pl-8 pr-4 py-3 text-base border rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 min-h-[44px] ${
+                  autoFilled === 'price' ? 'border-primary-500 ring-2 ring-primary-200 dark:ring-primary-800' : 'border-gray-300 dark:border-gray-600'
+                }`}
+              />
+            </div>
                 {autoFilled === 'price' && (
                   <div className="text-xs text-primary-600 dark:text-primary-400 mt-1">
                     Auto-filled from table
@@ -809,20 +843,48 @@ export function MarketDetail() {
                 )}
               </div>
 
+              {/* View orderbook toggle */}
+              {selectedOutcomeId && selectedOrderbook && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowOrderbookInForm((v) => !v)}
+                    className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1"
+                  >
+                    {showOrderbookInForm ? 'Hide orderbook' : 'View orderbook'}
+                    <svg className={`w-4 h-4 transition-transform ${showOrderbookInForm ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {showOrderbookInForm && (
+                    <div className="mt-2 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800/50 max-h-[200px] overflow-y-auto">
+                      <Orderbook
+                        bids={selectedOrderbook.bids}
+                        asks={selectedOrderbook.asks}
+                        userId={user?.id}
+                        onPriceClick={(price, side) => {
+                          const priceDollars = Math.round(price / 100);
+                          const clampedPrice = Math.max(1, Math.min(99, priceDollars));
+                          setOrderPrice(clampedPrice.toString());
+                          setOrderSide(side);
+                        }}
+                        onCancelOrder={async (orderId) => {
+                          try {
+                            await api.cancelOrder(orderId);
+                            showToast('Order canceled successfully', 'success');
+                            await loadMarket();
+                          } catch (err: any) {
+                            showToast(err?.message || 'Failed to cancel order', 'error');
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium mb-1.5">Quantity</label>
-                <div className="flex gap-2 mb-2">
-                  {[1, 5, 10, 25].map((qty) => (
-                    <button
-                      key={qty}
-                      type="button"
-                      onClick={() => handleQuickQuantity(qty)}
-                      className="flex-1 py-2 px-3 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 touch-manipulation"
-                    >
-                      {qty}
-                    </button>
-                  ))}
-                </div>
                 <input
                   type="tel"
                   inputMode="numeric"
@@ -872,54 +934,54 @@ export function MarketDetail() {
               ) : (
                 <div className="space-y-3">
                   {positions.map((position) => {
+                    const { marketName, outcomeLabel } = getPositionDisplayNames(position);
                     const currentPrice = position.current_price !== null && position.current_price !== undefined 
                       ? position.current_price 
                       : null;
-                    const positionValue = currentPrice !== null 
-                      ? position.net_position * (currentPrice - position.price_basis)
+                    const costCents = position.net_position * position.price_basis;
+                    const positionValueCents = currentPrice !== null 
+                      ? position.net_position * currentPrice 
                       : null;
-                    
+                    const diffCents = positionValueCents !== null 
+                      ? positionValueCents - costCents 
+                      : null;
+
                     return (
-                      <div key={position.id} className="p-4 border border-gray-300 dark:border-gray-600 rounded-lg">
-                        <div className="font-bold text-sm mb-2">{position.market_name || 'N/A'}</div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400 mb-3">{position.outcome_ticker || position.outcome_name || position.outcome}</div>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Net Position:</span>
-                            <span className="font-medium">{position.net_position}</span>
+                      <Card key={position.id} className="mb-3">
+                        <CardContent>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0 pr-4">
+                              <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-1">
+                                {marketName}
+                              </h3>
+                              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                {outcomeLabel}
+                              </p>
+                              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-500">
+                                {position.net_position} shares at {formatPriceBasis(position.price_basis)}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end text-right">
+                              <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                                {positionValueCents !== null ? formatPriceDecimal(positionValueCents) : formatPriceDecimal(costCents)}
+                              </div>
+                              <div className={`text-sm sm:text-base font-semibold ${
+                                diffCents !== null
+                                  ? diffCents > 0 ? 'text-green-600 dark:text-green-400' 
+                                    : diffCents < 0 ? 'text-red-600 dark:text-red-400' 
+                                    : 'text-gray-600 dark:text-gray-400'
+                                  : 'text-gray-600 dark:text-gray-400'
+                              }`}>
+                                {diffCents !== null ? (
+                                  <>{(diffCents > 0 ? '↑' : diffCents < 0 ? '↓' : '')} {formatPrice(Math.abs(diffCents))}</>
+                                ) : (
+                                  '—'
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Price Basis:</span>
-                            <span>{formatPriceBasis(position.price_basis)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Current:</span>
-                            <span>{currentPrice !== null ? formatPriceDecimal(currentPrice) : '—'}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Position Value:</span>
-                            <span className={`font-bold ${
-                              positionValue !== null 
-                                ? (positionValue > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')
-                                : ''
-                            }`}>
-                              {positionValue !== null ? formatPriceDecimal(positionValue) : '—'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Closed Profit:</span>
-                            <span className={`font-bold ${position.closed_profit > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                              {formatPrice(position.closed_profit)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Settled Profit:</span>
-                            <span className={`font-bold ${position.settled_profit > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                              {formatPrice(position.settled_profit)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
+                        </CardContent>
+                      </Card>
                     );
                   })}
                 </div>
@@ -946,31 +1008,35 @@ export function MarketDetail() {
                   const isBuy = trade.side === 0;
                   const isSell = trade.side === 1;
                   const sideLabel = isBuy ? 'Buy' : isSell ? 'Sell' : '—';
-                  const sideColor = isBuy ? 'text-green-600 dark:text-green-400' : isSell ? 'text-red-600 dark:text-red-400' : '';
-                  
+                  const sidePillClass = isBuy
+                    ? 'bg-green-600 text-white dark:bg-green-500 dark:text-white'
+                    : isSell
+                    ? 'bg-red-600 text-white dark:bg-red-500 dark:text-white'
+                    : 'bg-gray-400 text-white dark:bg-gray-500 dark:text-white';
+
                   return (
                     <div
                       key={trade.id}
-                      className="flex items-center justify-between gap-2 p-2 sm:p-3 border border-gray-300 dark:border-gray-600 rounded text-xs sm:text-sm"
+                      className="flex items-center gap-3 p-2 sm:p-3 border border-gray-300 dark:border-gray-600 rounded text-xs sm:text-sm"
                     >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <span
+                        className={`flex-shrink-0 px-3 py-1 rounded-md text-xs sm:text-sm font-bold uppercase ${sidePillClass}`}
+                        aria-label={sideLabel !== '—' ? sideLabel : 'Unknown side'}
+                      >
+                        {sideLabel}
+                      </span>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
                         {trade.outcome_ticker && (
                           <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
                             {trade.outcome_ticker}
                           </span>
                         )}
-                        <span className={`font-medium ${sideColor}`}>
-                          {sideLabel}
-                        </span>
-                        <span className="text-gray-600 dark:text-gray-400">
-                          {trade.contracts} contracts
-                        </span>
-                        <span className="font-medium text-gray-900 dark:text-gray-100">
-                          {formatPrice(trade.price)}
+                        <span className="text-gray-600 dark:text-gray-400 flex-shrink-0">
+                          {trade.contracts} @ {formatPrice(trade.price)}
                         </span>
                       </div>
-                      <span className="text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        {trade.create_time ? format(new Date(trade.create_time * 1000), 'h:mm:ss a') : '—'}
+                      <span className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap flex-shrink-0">
+                        {trade.create_time ? format(new Date(trade.create_time * 1000), 'M/d h:mm a') : '—'}
                       </span>
                     </div>
                   );
@@ -988,6 +1054,7 @@ export function MarketDetail() {
           setBottomSheetOpen(false);
           setOrderPrice('');
           setOrderQty('');
+          setShowOrderbookInForm(false);
         }}
         title="Place Order"
       >
@@ -1018,97 +1085,112 @@ export function MarketDetail() {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setOrderSide('bid')}
-                className={`flex-1 py-3 px-4 rounded font-medium text-base min-h-[44px] touch-manipulation ${
-                  orderSide === 'bid'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-                }`}
-              >
-                Bid (Buy)
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrderSide('ask')}
+                onClick={() => handleSideChange('ask')}
                 className={`flex-1 py-3 px-4 rounded font-medium text-base min-h-[44px] touch-manipulation ${
                   orderSide === 'ask'
                     ? 'bg-red-600 text-white'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                 }`}
               >
-                Ask (Sell)
+                No {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSideChange('bid')}
+                className={`flex-1 py-3 px-4 rounded font-medium text-base min-h-[44px] touch-manipulation ${
+                  orderSide === 'bid'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                }`}
+              >
+                Yes {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
               </button>
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-2">Price ($)</label>
-            {bestBid && orderSide === 'bid' && (
-              <button
-                type="button"
-                onClick={() => {
-                  const priceDollars = Math.round(bestBid.price / 100);
-                  const clampedPrice = Math.max(1, Math.min(99, priceDollars));
-                  setOrderPrice(clampedPrice.toString());
-                  setAutoFilled('price');
-                  setTimeout(() => setAutoFilled(null), 2000);
-                }}
-                className="mb-2 text-xs text-primary-600 dark:text-primary-400 hover:underline"
-              >
-                Use Best Bid: ${Math.round(bestBid.price / 100)}
-              </button>
+            {selectedOrderbook && (bestBid || bestAsk) && (
+              <div className="mb-2 text-xs text-gray-600 dark:text-gray-400 flex gap-4">
+                {bestBid && (
+                  <span>
+                    Bid: <span className="font-medium text-red-600 dark:text-red-400">{formatPriceCents(bestBid.price)}</span>
+                  </span>
+                )}
+                {bestAsk && (
+                  <span>
+                    Ask: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceCents(bestAsk.price)}</span>
+                  </span>
+                )}
+              </div>
             )}
-            {bestAsk && orderSide === 'ask' && (
-              <button
-                type="button"
-                onClick={() => {
-                  const priceDollars = Math.round(bestAsk.price / 100);
-                  const clampedPrice = Math.max(1, Math.min(99, priceDollars));
-                  setOrderPrice(clampedPrice.toString());
-                  setAutoFilled('price');
-                  setTimeout(() => setAutoFilled(null), 2000);
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400">$</span>
+              <input
+                type="tel"
+                inputMode="numeric"
+                step="1"
+                min="1"
+                max="99"
+                value={orderPrice}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === '' || (parseInt(value, 10) >= 1 && parseInt(value, 10) <= 99)) {
+                    setOrderPrice(value);
+                    setAutoFilled(null);
+                  }
                 }}
-                className="mb-2 text-xs text-primary-600 dark:text-primary-400 hover:underline"
-              >
-                Use Best Ask: ${Math.round(bestAsk.price / 100)}
-              </button>
-            )}
-            <input
-              type="tel"
-              inputMode="numeric"
-              step="1"
-              min="1"
-              max="99"
-              value={orderPrice}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value === '' || (parseInt(value, 10) >= 1 && parseInt(value, 10) <= 99)) {
-                  setOrderPrice(value);
-                  setAutoFilled(null);
-                }
-              }}
-              required
-              className={`w-full px-4 py-3 text-base border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 min-h-[44px] ${
-                autoFilled === 'price' ? 'border-primary-500 ring-2 ring-primary-500' : 'border-gray-300 dark:border-gray-600'
-              }`}
-              placeholder="1-99"
-            />
+                required
+                className={`w-full pl-8 pr-4 py-3 text-base border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 min-h-[44px] ${
+                  autoFilled === 'price' ? 'border-primary-500 ring-2 ring-primary-500' : 'border-gray-300 dark:border-gray-600'
+                }`}
+                placeholder="1-99"
+              />
+            </div>
           </div>
+
+          {/* View orderbook toggle */}
+          {selectedOutcomeId && selectedOrderbook && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowOrderbookInForm((v) => !v)}
+                className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1"
+              >
+                {showOrderbookInForm ? 'Hide orderbook' : 'View orderbook'}
+                <svg className={`w-4 h-4 transition-transform ${showOrderbookInForm ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showOrderbookInForm && (
+                <div className="mt-2 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800/50 max-h-[200px] overflow-y-auto">
+                  <Orderbook
+                    bids={selectedOrderbook.bids}
+                    asks={selectedOrderbook.asks}
+                    userId={user?.id}
+                    onPriceClick={(price, side) => {
+                      const priceDollars = Math.round(price / 100);
+                      const clampedPrice = Math.max(1, Math.min(99, priceDollars));
+                      setOrderPrice(clampedPrice.toString());
+                      setOrderSide(side);
+                    }}
+                    onCancelOrder={async (orderId) => {
+                      try {
+                        await api.cancelOrder(orderId);
+                        showToast('Order canceled successfully', 'success');
+                        await loadMarket();
+                      } catch (err: any) {
+                        showToast(err?.message || 'Failed to cancel order', 'error');
+                      }
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium mb-2">Quantity</label>
-            <div className="grid grid-cols-4 gap-2 mb-2">
-              {[1, 5, 10, 25].map((qty) => (
-                <button
-                  key={qty}
-                  type="button"
-                  onClick={() => handleQuickQuantity(qty)}
-                  className="py-2 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 touch-manipulation min-h-[44px]"
-                >
-                  {qty}
-                </button>
-              ))}
-            </div>
             <input
               type="tel"
               inputMode="numeric"

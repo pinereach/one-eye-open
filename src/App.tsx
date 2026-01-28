@@ -120,7 +120,7 @@ function Layout({ children }: { children: React.ReactNode }) {
                         location.pathname === '/settings' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''
                       }`}
                     >
-                      {user?.username || 'dev-user'}
+                      {user?.username || 'User'}
                     </Link>
                     {!isDevelopment && (
                       <button
@@ -205,6 +205,15 @@ function Layout({ children }: { children: React.ReactNode }) {
                 Positions
               </Link>
               <Link
+                to="/market-suggestions"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
+                  location.pathname === '/market-suggestions' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''
+                }`}
+              >
+                Market Suggestions
+              </Link>
+              <Link
                 to="/settings"
                 onClick={() => setMobileMenuOpen(false)}
                 className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${
@@ -274,6 +283,9 @@ function HistoricalScoringPage() {
   const [selectedYear, setSelectedYear] = useState<string>('all');
   const [scores, setScores] = useState<Array<{ id: number; course: string; year: number; player: string; score: number | null; index_number: number | null }>>([]);
   const [loading, setLoading] = useState(true);
+  const [averagesExpanded, setAveragesExpanded] = useState(false);
+  const [averagesByYearExpanded, setAveragesByYearExpanded] = useState(false);
+  const [averagesByCourseExpanded, setAveragesByCourseExpanded] = useState(false);
 
   const players = ['Loop', 'Boose', 'Krass', 'TK', 'CTH', 'Avayou', 'Alex', 'Huffman', 'Jon', 'Tim', 'Doc', 'Will'];
 
@@ -347,6 +359,50 @@ function HistoricalScoringPage() {
     return { player, avg, count: scores.length };
   });
 
+  // Average scores by year (all players)
+  const averagesByYear = (() => {
+    const byYear = new Map<number, number[]>();
+    filteredData.forEach(row => {
+      players.forEach(player => {
+        const s = row[player] as number | null;
+        if (s != null) {
+          const year = row.year as number;
+          if (!byYear.has(year)) byYear.set(year, []);
+          byYear.get(year)!.push(s);
+        }
+      });
+    });
+    return Array.from(byYear.entries())
+      .map(([year, scores]) => ({
+        year,
+        avg: scores.reduce((a, b) => a + b, 0) / scores.length,
+        count: scores.length,
+      }))
+      .sort((a, b) => b.year - a.year);
+  })();
+
+  // Average scores by course (all players)
+  const averagesByCourse = (() => {
+    const byCourse = new Map<string, number[]>();
+    filteredData.forEach(row => {
+      const course = row.course as string;
+      players.forEach(player => {
+        const s = row[player] as number | null;
+        if (s != null) {
+          if (!byCourse.has(course)) byCourse.set(course, []);
+          byCourse.get(course)!.push(s);
+        }
+      });
+    });
+    return Array.from(byCourse.entries())
+      .map(([course, scores]) => ({
+        course,
+        avg: scores.reduce((a, b) => a + b, 0) / scores.length,
+        count: scores.length,
+      }))
+      .sort((a, b) => a.course.localeCompare(b.course));
+  })();
+
   // Handler to update a score value
   const updateScore = async (course: string, year: number | null, player: string, value: string) => {
     if (year === null) return; // Can't update if year is null
@@ -407,22 +463,114 @@ function HistoricalScoringPage() {
         </div>
       </div>
 
-      {/* Player Averages */}
+      {/* Player Averages - Collapsible */}
       {filteredData.length > 0 && (
-        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-          <h2 className="text-sm font-bold mb-3">Average Scores</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {playerAverages
-              .filter(p => p.count > 0)
-              .sort((a, b) => (a.avg || 0) - (b.avg || 0))
-              .map(({ player, avg, count }) => (
-                <div key={player} className="text-center">
-                  <div className="text-xs text-gray-600 dark:text-gray-400">{player}</div>
-                  <div className="text-lg font-semibold">{avg?.toFixed(1)}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-500">({count} rounds)</div>
-                </div>
-              ))}
-          </div>
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setAveragesExpanded(prev => !prev)}
+            className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+            aria-expanded={averagesExpanded}
+          >
+            <h2 className="text-sm font-bold">Average Scores</h2>
+            <svg
+              className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform ${averagesExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {averagesExpanded && (
+            <div className="px-4 pb-4 pt-0">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {playerAverages
+                  .filter(p => p.count > 0)
+                  .sort((a, b) => (a.avg || 0) - (b.avg || 0))
+                  .map(({ player, avg, count }) => (
+                    <div key={player} className="text-center">
+                      <div className="text-xs text-gray-600 dark:text-gray-400">{player}</div>
+                      <div className="text-lg font-semibold">{avg?.toFixed(1)}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-500">({count} rounds)</div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Average Scores by Year - Collapsible */}
+      {filteredData.length > 0 && averagesByYear.length > 0 && (
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setAveragesByYearExpanded(prev => !prev)}
+            className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+            aria-expanded={averagesByYearExpanded}
+          >
+            <h2 className="text-sm font-bold">Average Scores by Year</h2>
+            <svg
+              className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform ${averagesByYearExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {averagesByYearExpanded && (
+            <div className="px-4 pb-4 pt-0">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {averagesByYear.map(({ year, avg, count }) => (
+                  <div key={year} className="text-center">
+                    <div className="text-xs text-gray-600 dark:text-gray-400">{year}</div>
+                    <div className="text-lg font-semibold">{avg.toFixed(1)}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500">({count} rounds)</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Average Scores by Course - Collapsible */}
+      {filteredData.length > 0 && averagesByCourse.length > 0 && (
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setAveragesByCourseExpanded(prev => !prev)}
+            className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+            aria-expanded={averagesByCourseExpanded}
+          >
+            <h2 className="text-sm font-bold">Average Scores by Course</h2>
+            <svg
+              className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform ${averagesByCourseExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {averagesByCourseExpanded && (
+            <div className="px-4 pb-4 pt-0">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {averagesByCourse.map(({ course, avg, count }) => (
+                  <div key={course} className="text-center">
+                    <div className="text-xs text-gray-600 dark:text-gray-400">{course}</div>
+                    <div className="text-lg font-semibold">{avg.toFixed(1)}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500">({count} rounds)</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -615,80 +763,103 @@ function OrdersPage() {
   }
 
   const formatPrice = (cents: number) => `$${Math.round(cents / 100)}`;
+  const formatPricePercent = (cents: number) => `${(cents / 100).toFixed(1)}%`;
 
   // Separate orders into active and completed
   const activeOrders = orders.filter(order => order.status === 'open' || order.status === 'partial');
   const completedOrders = orders.filter(order => order.status === 'filled' || order.status === 'canceled');
 
+  async function handleCancelAll() {
+    if (!confirm('Are you sure you want to cancel all open orders?')) {
+      return;
+    }
+
+    try {
+      const cancelPromises = activeOrders.map(order => api.cancelOrder(order.id));
+      await Promise.all(cancelPromises);
+      showToast('All orders canceled successfully', 'success');
+      await loadOrders();
+    } catch (err: any) {
+      console.error('Failed to cancel orders:', err);
+      showToast(err.message || 'Failed to cancel all orders', 'error');
+    }
+  }
+
   const renderOrderCard = (order: any) => {
+    const isSell = order.side === 1;
+    const orderType = isSell ? 'SELL ORDER' : 'BUY ORDER';
+    // Match exact colors from image: yellow rgb(255, 204, 0) and green rgb(0, 204, 0)
+    const orderTypeColor = isSell ? 'text-[#FFCC00]' : 'text-[#00CC00]';
+    
+    const originalSize = order.original_size !== undefined && order.original_size !== null 
+      ? order.original_size 
+      : order.contract_size || 0;
+    const remainingSize = order.remaining_size !== undefined && order.remaining_size !== null 
+      ? order.remaining_size 
+      : (order.status === 'filled' ? 0 : originalSize);
+    const filledSize = Math.max(0, originalSize - remainingSize);
+    
+    const pricePercent = order.price ? formatPricePercent(order.price) : '0.0%';
+    const actionText = isSell 
+      ? `Sell ${originalSize} shares for ${pricePercent}`
+      : `Buy ${originalSize} shares for ${pricePercent}`;
+    
+    // Format fill status - show fractional if partially filled, whole number if filled
+    const fillStatus = order.status === 'filled' 
+      ? `${originalSize} of ${originalSize} filled`
+      : filledSize > 0 && filledSize < originalSize
+      ? `${filledSize.toFixed(4)} of ${originalSize} filled`
+      : `${filledSize} of ${originalSize} filled`;
+    
+    const timestamp = order.create_time 
+      ? format(new Date(order.create_time * 1000), 'MM/dd/yy, h:mm:ss a')
+      : '—';
+
     const cardContent = (
-      <Card className="mb-3">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 truncate">
-              {order.market_name || 'N/A'}
-            </h3>
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {order.outcome_name || order.outcome}
-            </p>
-          </div>
-          <span className={`text-xs sm:text-sm font-medium px-2 py-1 rounded ml-2 ${
-            order.status === 'filled' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' :
-            order.status === 'open' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' :
-            order.status === 'partial' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' :
-            'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-          }`}>
-            {order.status}
-          </span>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2 text-xs sm:text-sm">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600 dark:text-gray-400">Side:</span>
-            <span className={`font-medium ${
-              order.side === 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-            }`}>
-              {order.side === 0 ? 'Buy' : 'Sell'}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600 dark:text-gray-400">Price:</span>
-            <span className="font-medium">{order.price ? formatPrice(order.price) : '—'}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600 dark:text-gray-400">Qty:</span>
-            <span className="font-medium">
-              {order.original_size !== undefined && order.original_size !== null ? order.original_size : order.contract_size || 0}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600 dark:text-gray-400">Remaining:</span>
-            <span className="font-medium">
-              {order.remaining_size !== undefined && order.remaining_size !== null ? order.remaining_size : (order.status === 'filled' ? 0 : order.contract_size || 0)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600 dark:text-gray-400">Time:</span>
-            <span className="text-gray-900 dark:text-gray-100">
-              {order.create_time ? format(new Date(order.create_time * 1000), 'MMM d, h:mm a') : '—'}
-            </span>
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-3 border border-gray-300 dark:border-gray-600">
+        {/* Top row: order type (left) and X (right) for open/partial */}
+        <div className="flex items-center justify-between gap-4 mb-2">
+          <div className={`font-bold text-sm ${orderTypeColor}`}>
+            {orderType}
           </div>
           {(order.status === 'open' || order.status === 'partial') && (
-            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-              <button
-                onClick={() => handleCancelOrder(order.id)}
-                className="w-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 font-medium py-2 px-4 rounded-md text-sm touch-manipulation min-h-[44px] focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                aria-label={`Cancel order for ${order.market_name || 'market'}`}
-              >
-                Cancel Order
-              </button>
-            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCancelOrder(order.id);
+              }}
+              className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-xl font-bold p-1 touch-manipulation flex-shrink-0"
+              title="Cancel order"
+              aria-label="Cancel order"
+            >
+              ×
+            </button>
           )}
         </div>
-      </CardContent>
-    </Card>
+        <div className="flex items-stretch gap-4">
+          {/* Left Section: market, outcome name, action summary */}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-1">
+              {order.market_name || 'N/A'}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+              {order.outcome_name || order.outcome}
+            </p>
+            <p className="text-sm text-gray-900 dark:text-gray-100">
+              {actionText}
+            </p>
+          </div>
+          {/* Right Section: fill status and time */}
+          <div className="flex flex-col items-end text-right flex-shrink-0">
+            <p className="text-sm text-gray-900 dark:text-gray-100 mb-1">
+              {fillStatus}
+            </p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">
+              {timestamp}
+            </p>
+          </div>
+        </div>
+      </div>
     );
 
     // Wrap in SwipeableCard only for mobile and only for active orders
@@ -806,13 +977,23 @@ function OrdersPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <h1 className="text-xl sm:text-2xl font-bold">Orders</h1>
       
       {/* Active Orders Section */}
       <div className="space-y-3 sm:space-y-4">
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
-          Active Orders
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
+            Open Orders
+          </h2>
+          {activeOrders.length > 0 && (
+            <button
+              onClick={handleCancelAll}
+              className="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-full text-sm touch-manipulation transition-colors"
+              aria-label="Cancel all orders"
+            >
+              Cancel All
+            </button>
+          )}
+        </div>
         {/* Mobile Card Layout */}
         <div className="md:hidden space-y-3">
           {activeOrders.length === 0 ? (
@@ -822,7 +1003,7 @@ function OrdersPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                 </svg>
               }
-              title="No Active Orders"
+              title="No Open Orders"
               message="You don't have any open orders at the moment. Place an order from a market to get started."
             />
           ) : (
@@ -831,7 +1012,7 @@ function OrdersPage() {
         </div>
         {/* Desktop Table Layout */}
         <div className="hidden md:block">
-          {renderOrderTable(activeOrders, 'No active orders')}
+          {renderOrderTable(activeOrders, 'No open orders')}
         </div>
       </div>
 
@@ -884,6 +1065,7 @@ function TradesPage() {
   }
 
   const formatPrice = (cents: number) => `$${Math.round(cents / 100)}`;
+  const formatPricePercent = (cents: number) => `${(cents / 100).toFixed(1)}%`;
   const formatNotional = (price: number, contracts: number) => {
     const totalCents = price * contracts;
     return `$${Math.round(totalCents / 100)}`;
@@ -899,55 +1081,55 @@ function TradesPage() {
     return Math.round(value);
   };
 
-  const renderTradeCard = (trade: any) => (
-    <Card key={trade.id} className="mb-3">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 truncate">
-              {trade.market_short_name || trade.market_id || '—'}
-            </h3>
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {trade.outcome_name || '—'}
+  const renderTradeCard = (trade: any) => {
+    const isSell = trade.side === 1;
+    const tradeType = isSell ? 'Sell' : 'Buy';
+    const pricePercent = trade.price ? formatPricePercent(trade.price) : '0.0%';
+    const unit = trade.contracts === 1 ? 'share' : 'shares';
+    const actionText = isSell
+      ? `Sold ${trade.contracts} ${unit} at ${pricePercent}`
+      : `Bought ${trade.contracts} ${unit} at ${pricePercent}`;
+    const purchaseCost = formatNotional(trade.price, trade.contracts);
+    const timePurchased = trade.create_time
+      ? format(new Date(trade.create_time * 1000), 'M/d, h:mm a')
+      : '—';
+
+    return (
+      <div
+        key={trade.id}
+        className="bg-white dark:bg-gray-800 rounded-lg p-3 mb-2 border border-gray-300 dark:border-gray-600"
+      >
+        <span
+          className={`inline-block font-bold text-xs sm:text-sm uppercase tracking-wide mb-1.5 px-2 py-0.5 rounded-md ${isSell ? 'bg-[#FFCC00] text-gray-900' : 'bg-[#00CC00] text-white'}`}
+          aria-label={`${tradeType} trade`}
+        >
+          {tradeType}
+        </span>
+        {/* Market name and cost on same row */}
+        <div className="flex items-center justify-between gap-4 mb-1">
+          <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100">
+            {trade.market_short_name || trade.market_id || '—'}
+          </h3>
+          <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 flex-shrink-0">
+            {purchaseCost}
+          </p>
+        </div>
+        <div className="flex flex-col">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-0.5">
+            {trade.outcome_name || trade.outcome || '—'}
+          </p>
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-gray-900 dark:text-gray-100">
+              {actionText}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 flex-shrink-0">
+              {timePurchased}
             </p>
           </div>
-          <span className="font-medium text-sm sm:text-base ml-2">
-            {formatPrice(trade.price)}
-          </span>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2 text-xs sm:text-sm">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600 dark:text-gray-400">Notional Value:</span>
-            <span className="font-medium">{formatNotional(trade.price, trade.contracts)}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600 dark:text-gray-400">Contracts:</span>
-            <span className="font-medium">{trade.contracts}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600 dark:text-gray-400">If 0:</span>
-            <span className={`font-bold ${formatIf0(trade.price, trade.contracts) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-              ${formatIf0(trade.price, trade.contracts)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600 dark:text-gray-400">If 100:</span>
-            <span className={`font-bold ${formatIf100(trade.price, trade.contracts) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-              ${formatIf100(trade.price, trade.contracts)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
-            <span className="text-gray-600 dark:text-gray-400">Time:</span>
-            <span className="text-gray-900 dark:text-gray-100">
-              {trade.create_time ? format(new Date(trade.create_time * 1000), 'MMM d, h:mm a') : '—'}
-            </span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+      </div>
+    );
+  };
 
   if (loading) {
     return <div className="text-center py-8">Loading trades...</div>;
@@ -957,7 +1139,7 @@ function TradesPage() {
     <div className="space-y-4 sm:space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold">Trades</h1>
       {/* Mobile Card Layout */}
-      <div className="md:hidden space-y-3">
+      <div className="md:hidden space-y-2">
         {trades.length === 0 ? (
           <EmptyState
             icon={
@@ -1048,16 +1230,30 @@ function PositionsPage() {
   const formatPriceBasis = (cents: number) => `$${(cents / 100).toFixed(1)}`;
   const formatPriceDecimal = (cents: number) => `$${(cents / 100).toFixed(1)}`;
 
+  // Total position value: sum of (+/- P&L) for each position (unrealized gain/loss)
+  const totalPositionValueCents = positions.reduce((sum, position) => {
+    const currentPrice = position.current_price !== null && position.current_price !== undefined
+      ? position.current_price
+      : null;
+    const costCents = position.net_position * position.price_basis;
+    const positionValueCents = currentPrice !== null
+      ? position.net_position * currentPrice
+      : null;
+    const diffCents = positionValueCents !== null ? positionValueCents - costCents : 0;
+    return sum + diffCents;
+  }, 0);
+
   const renderPositionCard = (position: any) => {
     const currentPrice = position.current_price !== null && position.current_price !== undefined 
       ? position.current_price 
       : null;
-    const positionValue = currentPrice !== null 
-      ? position.net_position * (currentPrice - position.price_basis)
+    const costCents = position.net_position * position.price_basis;
+    const positionValueCents = currentPrice !== null 
+      ? position.net_position * currentPrice 
       : null;
-    
-    // Calculate total P&L (closed + settled)
-    const totalPnL = position.closed_profit + position.settled_profit;
+    const diffCents = positionValueCents !== null 
+      ? positionValueCents - costCents 
+      : null;
 
     return (
       <Card key={position.id} className="mb-3">
@@ -1065,14 +1261,14 @@ function PositionsPage() {
           <div className="flex items-start justify-between">
             {/* Left Side */}
             <div className="flex-1 min-w-0 pr-4">
-              {/* Market - Large, Bold */}
+              {/* Outcome - Large, Bold */}
               <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-1">
-                {position.market_name || 'N/A'}
+                {position.outcome_ticker || position.outcome_name || position.outcome}
               </h3>
               
-              {/* Outcome - Smaller, Lighter */}
+              {/* Market - Smaller, Lighter */}
               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">
-                {position.outcome_ticker || position.outcome_name || position.outcome}
+                {position.market_name || 'N/A'}
               </p>
               
               {/* Shares and Price Basis */}
@@ -1083,20 +1279,24 @@ function PositionsPage() {
 
             {/* Right Side */}
             <div className="flex flex-col items-end text-right">
-              {/* Position Value - Large, Bold */}
+              {/* Position Value or Cost - Large, Bold */}
               <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                {positionValue !== null ? formatPriceDecimal(Math.abs(positionValue)) : '—'}
+                {positionValueCents !== null ? formatPriceDecimal(positionValueCents) : formatPriceDecimal(costCents)}
               </div>
               
-              {/* Profit/Loss with +/- indicator */}
+              {/* Difference (position value - cost) */}
               <div className={`text-sm sm:text-base font-semibold ${
-                totalPnL > 0 
-                  ? 'text-green-600 dark:text-green-400' 
-                  : totalPnL < 0 
-                  ? 'text-red-600 dark:text-red-400' 
+                diffCents !== null
+                  ? diffCents > 0 ? 'text-green-600 dark:text-green-400' 
+                    : diffCents < 0 ? 'text-red-600 dark:text-red-400' 
+                    : 'text-gray-600 dark:text-gray-400'
                   : 'text-gray-600 dark:text-gray-400'
               }`}>
-                {totalPnL > 0 ? '↑' : totalPnL < 0 ? '↓' : ''} {formatPrice(Math.abs(totalPnL))}
+                {diffCents !== null ? (
+                  <>{diffCents > 0 ? '↑' : diffCents < 0 ? '↓' : ''} {formatPrice(Math.abs(diffCents))}</>
+                ) : (
+                  '—'
+                )}
               </div>
             </div>
           </div>
@@ -1124,6 +1324,23 @@ function PositionsPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold">Positions</h1>
+      {positions.length > 0 && (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm text-gray-600 dark:text-gray-400">Portfolio value</span>
+          <span
+            className={`text-lg sm:text-xl font-bold ${
+              totalPositionValueCents > 0
+                ? 'text-green-600 dark:text-green-400'
+                : totalPositionValueCents < 0
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-gray-900 dark:text-gray-100'
+            }`}
+          >
+            {totalPositionValueCents > 0 ? '+' : ''}
+            {formatPrice(totalPositionValueCents)}
+          </span>
+        </div>
+      )}
       {/* Mobile Card Layout */}
       <div className="md:hidden space-y-3">
         {positions.length === 0 ? (
@@ -1158,6 +1375,7 @@ function PositionsPage() {
 
 function MarketSuggestionsPage() {
   const [submitting, setSubmitting] = useState(false);
+  const [tbSubmitting, setTbSubmitting] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
 
   // Round O/U specific state
@@ -1167,6 +1385,11 @@ function MarketSuggestionsPage() {
   const [participants, setParticipants] = useState<Array<{ id: string; name: string }>>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
   const [outcomes, setOutcomes] = useState<Array<{ name: string; ticker: string; strike: string }>>([]);
+
+  // Total Birdies specific state (round-agnostic, whole event)
+  const [tbParticipant, setTbParticipant] = useState<string>('');
+  const [tbStrike, setTbStrike] = useState<string>('');
+  const [tbOutcomes, setTbOutcomes] = useState<Array<{ name: string; ticker: string; strike: string }>>([]);
 
   // Load participants on mount
   useEffect(() => {
@@ -1211,6 +1434,24 @@ function MarketSuggestionsPage() {
       setOutcomes([]);
     }
   }, [selectedParticipant, roundNumber, strike, participants]);
+
+  // Generate Total Birdies outcome when participant and strike are filled (no round)
+  useEffect(() => {
+    if (tbParticipant && tbStrike.trim()) {
+      const participant = participants.find(p => p.id === tbParticipant);
+      if (participant) {
+        const participantName = participant.name;
+        const overName = `${participantName} Over ${tbStrike.trim()} - Total Birdies`;
+        const initials = participantName.split(' ').map(n => n[0]).join('').toUpperCase();
+        const overTicker = `${initials}-OV-${tbStrike.trim().replace('.', '_')}`;
+        setTbOutcomes([
+          { name: overName, ticker: overTicker, strike: tbStrike.trim() },
+        ]);
+      }
+    } else {
+      setTbOutcomes([]);
+    }
+  }, [tbParticipant, tbStrike, participants]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1268,12 +1509,55 @@ function MarketSuggestionsPage() {
     }
   };
 
+  const handleSubmitTotalBirdies = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTbSubmitting(true);
+    if (!tbParticipant || !tbStrike.trim()) {
+      showToast('Please fill in Participant and Strike', 'error');
+      setTbSubmitting(false);
+      return;
+    }
+    if (tbOutcomes.length !== 1) {
+      showToast('Please ensure outcome is generated correctly', 'error');
+      setTbSubmitting(false);
+      return;
+    }
+    const participant = participants.find(p => p.id === tbParticipant);
+    if (!participant) {
+      showToast('Invalid participant selected', 'error');
+      setTbSubmitting(false);
+      return;
+    }
+    try {
+      await api.suggestMarket({
+        short_name: 'Total Birdies',
+        symbol: 'BIRDIES',
+        max_winners: 1,
+        min_winners: 1,
+        outcomes: tbOutcomes.map(o => ({
+          name: o.name.trim(),
+          ticker: o.ticker.trim(),
+          strike: o.strike.trim() || undefined,
+        })),
+      });
+      showToast('Total Birdies suggestion submitted successfully!', 'success');
+      setTbParticipant('');
+      setTbStrike('');
+      setTbOutcomes([]);
+    } catch (err: any) {
+      console.error('Failed to submit Total Birdies suggestion:', err);
+      showToast(err.message || 'Failed to submit suggestion', 'error');
+    } finally {
+      setTbSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       <h1 className="text-xl sm:text-2xl font-bold">Market Suggestions</h1>
       <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
-        Create a Round Over/Under market by selecting a participant, round, and strike.
+        Create Round Over/Under or Total Birdies outcomes by selecting participant and strike.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
@@ -1281,7 +1565,7 @@ function MarketSuggestionsPage() {
         <div className="bg-gray-50 dark:bg-gray-800 p-4 sm:p-6 rounded-lg space-y-4">
           <h2 className="text-lg sm:text-xl font-bold">Round Over/Under Market</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Create a Round Over/Under market by selecting a participant, round, and strike.
+            Create a Round Over/Under outcome by selecting a participant, round, and strike.
           </p>
           
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1355,14 +1639,80 @@ function MarketSuggestionsPage() {
           )}
         </div>
 
-        {/* Submit Button */}
         <div className="flex justify-end">
           <button
             type="submit"
             disabled={submitting}
             className="px-4 sm:px-6 py-2 sm:py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base font-medium touch-manipulation"
           >
-            {submitting ? 'Submitting...' : 'Submit Market Suggestion'}
+            {submitting ? 'Submitting...' : 'Submit Round O/U'}
+          </button>
+        </div>
+      </form>
+
+      {/* Total Birdies (round-agnostic, whole event) */}
+      <form onSubmit={handleSubmitTotalBirdies} className="space-y-4 sm:space-y-6">
+        <div className="bg-gray-50 dark:bg-gray-800 p-4 sm:p-6 rounded-lg space-y-4">
+          <h2 className="text-lg sm:text-xl font-bold">Total Birdies Market</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Create a Total Birdies outcome for the whole event (all rounds). Select participant and strike.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="tb_participant" className="block text-sm font-medium mb-1.5">
+                Participant <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="tb_participant"
+                value={tbParticipant}
+                onChange={(e) => setTbParticipant(e.target.value)}
+                required
+                disabled={loadingParticipants}
+                className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 min-h-[44px] touch-manipulation disabled:opacity-50"
+              >
+                <option value="">Select participant...</option>
+                {participants.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="tb_strike" className="block text-sm font-medium mb-1.5">
+                Strike (birdies) <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="tb_strike"
+                type="text"
+                value={tbStrike}
+                onChange={(e) => setTbStrike(e.target.value)}
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
+                placeholder="e.g., 3"
+              />
+            </div>
+          </div>
+          {tbParticipant && tbStrike.trim() && tbOutcomes.length === 1 && (
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+                Generated Outcome:
+              </p>
+              <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                {tbOutcomes.map((outcome, idx) => (
+                  <li key={idx}>• {outcome.name} ({outcome.ticker})</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={tbSubmitting}
+            className="px-4 sm:px-6 py-2 sm:py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base font-medium touch-manipulation"
+          >
+            {tbSubmitting ? 'Submitting...' : 'Submit Total Birdies'}
           </button>
         </div>
       </form>

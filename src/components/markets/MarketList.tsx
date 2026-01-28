@@ -61,18 +61,35 @@ function getMarketIcon(marketId: string) {
 export function MarketList({ tripId }: { tripId?: string }) {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     loadMarkets();
   }, [tripId]);
 
-  async function loadMarkets() {
-    setLoading(true);
+  async function loadMarkets(retry = false) {
+    if (!retry) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const { markets } = await api.getMarkets();
       setMarkets(markets);
-    } catch (err) {
+      setError(null);
+      setRetryCount(0);
+    } catch (err: any) {
       console.error('Failed to load markets:', err);
+      const errorMessage = err?.message || 'Failed to load markets';
+      setError(errorMessage);
+      
+      // Auto-retry once after 2 seconds if this is the first failure
+      if (retryCount === 0) {
+        setTimeout(() => {
+          setRetryCount(1);
+          loadMarkets(true);
+        }, 2000);
+      }
     } finally {
       setLoading(false);
     }
@@ -109,40 +126,57 @@ export function MarketList({ tripId }: { tripId?: string }) {
   const unknownTypes = Object.keys(marketsByType).filter(type => !typeOrder.includes(type) && marketsByType[type]?.length > 0);
   const sortedTypes = [...knownTypes, ...unknownTypes];
 
-  if (loading) {
+  if (loading && markets.length === 0) {
     return <div className="text-center py-8">Loading markets...</div>;
   }
 
+  if (error && markets.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <div className="text-red-600 dark:text-red-400 mb-4">
+          <p className="font-semibold">Error loading markets</p>
+          <p className="text-sm mt-2">{error}</p>
+        </div>
+        <button
+          onClick={() => loadMarkets()}
+          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="space-y-4 sm:space-y-6">
       {sortedTypes.map((type) => {
         const typeMarkets = marketsByType[type];
         const typeLabel = getMarketTypeLabel(type);
         
         return (
-          <div key={type} className="space-y-3 sm:space-y-4">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 border-b border-gray-300 dark:border-gray-600 pb-2">
+          <div key={type} className="space-y-2 sm:space-y-3">
+            <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 border-b border-gray-300 dark:border-gray-600 pb-1.5">
               {typeLabel}
             </h2>
-            <div className="grid gap-3 sm:gap-4">
+            <div className="grid gap-2 sm:gap-3">
               {typeMarkets.map((market) => (
                 <Link
                   key={market.id}
                   to={`/markets/${market.market_id}`}
-                  className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-primary-500 dark:hover:border-primary-400 hover:shadow-md transition-all cursor-pointer touch-manipulation active:bg-gray-100 dark:active:bg-gray-700 active:scale-[0.98]"
+                  className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-primary-500 dark:hover:border-primary-400 hover:shadow-md transition-all cursor-pointer touch-manipulation active:bg-gray-100 dark:active:bg-gray-700 active:scale-[0.98]"
                 >
                   <div className="flex-shrink-0 text-primary-600 dark:text-primary-400">
-                    <div className="w-10 h-10 sm:w-8 sm:h-8">
+                    <div className="w-8 h-8 sm:w-7 sm:h-7">
                       {getMarketIcon(market.market_id)}
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 truncate">
+                    <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 truncate">
                       {market.short_name}
                     </h3>
                   </div>
                   <div className="flex-shrink-0">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </div>

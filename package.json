@@ -24,7 +24,12 @@
     "update-markets": "wrangler d1 execute golf-trip-db --local --file=./migrations/0025_add_market_type.sql && wrangler d1 execute golf-trip-db --local --file=./migrations/0024_update_all_markets.sql",
     "update-markets-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0025_add_market_type.sql && wrangler d1 execute golf-trip-db --remote --file=./migrations/0024_update_all_markets.sql",
     "add-market-type": "wrangler d1 execute golf-trip-db --local --file=./migrations/0025_add_market_type.sql",
-    "add-market-type-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0025_add_market_type.sql"
+    "add-market-type-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0025_add_market_type.sql",
+    "migrate-markets-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0030_migrate_existing_markets.sql",
+    "clear-trading-data-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0031_clear_trading_data.sql",
+    "update-orders-schema-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0032_update_orders_schema_production.sql",
+    "add-trade-side-users": "wrangler d1 execute golf-trip-db --local --file=./migrations/0033_add_trade_side_users.sql",
+    "add-trade-side-users-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0033_add_trade_side_users.sql"
   },
   "dependencies": {
     "date-fns": "^2.30.0",

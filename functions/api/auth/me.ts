@@ -2,20 +2,10 @@ import type { OnRequest } from '@cloudflare/pages';
 import { type Env } from '../../lib/db';
 import { getUserFromToken, getCookieValue } from '../../lib/auth';
 import { getDb } from '../../lib/db';
-import { jsonResponse, isAuthRequired } from '../../middleware';
+import { jsonResponse } from '../../middleware';
 
 export const onRequestGet: OnRequest<Env> = async (context) => {
   const { request, env } = context;
-
-  // Return mock user in development
-  if (!isAuthRequired(env, request)) {
-    return jsonResponse({ 
-      user: {
-        id: 1,
-        username: 'dev-user',
-      }
-    });
-  }
 
   // Try to get user, but don't require authentication
   // This endpoint is public and returns null if not authenticated

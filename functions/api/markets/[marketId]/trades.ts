@@ -1,6 +1,7 @@
 import type { OnRequest } from '@cloudflare/pages';
 import { getDb, dbQuery, type Env } from '../../../lib/db';
 import { jsonResponse } from '../../../middleware';
+import { getCookieValue, getUserFromToken } from '../../../lib/auth';
 
 export const onRequestGet: OnRequest<Env> = async (context) => {
   const { request, env, params } = context;
@@ -10,24 +11,37 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
 
   const db = getDb(env);
 
-  // Get trades for this specific market by joining with outcomes
-  // Try to determine buy/sell by matching with orders
-  // Handle case where trades table might have different schema (missing create_time column)
-  let tradesDb: any[] = [];
-  
+  // Optional auth: get current user so we can return "your" side (buy/sell) per trade
+  let currentUserId: number | null = null;
   try {
-    // Query basic columns that should exist, order by id (most recent first)
-    // Use id as proxy for time ordering since create_time column may not exist
+    const cookieHeader = request.headers.get('Cookie');
+    const token = getCookieValue(cookieHeader, 'session');
+    if (token) {
+      const user = await getUserFromToken(db, token, env);
+      if (user?.id) currentUserId = typeof user.id === 'number' ? user.id : parseInt(String(user.id), 10);
+    }
+  } catch {
+    // Ignore auth errors; we just won't have my_side
+  }
+
+  // Try extended query first (needs migration 0033: taker_user_id, maker_user_id, taker_side) so we can show Buy/Sell.
+  // If schema is older, fall back to minimal query; data still returns but side will be null.
+  let tradesDb: any[] = [];
+  try {
     tradesDb = await dbQuery<{
       id: number;
       token: string;
       price: number;
       contracts: number;
+      create_time?: number;
       risk_off_contracts: number;
       risk_off_price_diff: number;
       outcome: string | null;
       outcome_name: string | null;
       outcome_ticker: string | null;
+      taker_user_id?: number | null;
+      maker_user_id?: number | null;
+      taker_side?: number | null;
     }>(
       db,
       `SELECT 
@@ -35,9 +49,13 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
          trades.token,
          trades.price,
          trades.contracts,
+         trades.create_time,
          trades.risk_off_contracts,
          trades.risk_off_price_diff,
          trades.outcome,
+         trades.taker_user_id,
+         trades.maker_user_id,
+         trades.taker_side,
          outcomes.name as outcome_name,
          outcomes.ticker as outcome_ticker
        FROM trades
@@ -47,53 +65,66 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
        LIMIT ?`,
       [marketId, limit]
     );
-    
-    // Add create_time (use id as proxy) and try side detection
-    for (const trade of tradesDb) {
-      // Use id as a proxy for create_time (higher id = more recent)
-      // This is approximate but works if create_time column doesn't exist
-      trade.create_time = trade.id * 1000; // Rough approximation
-      trade.side = null;
-      
-      // Try to detect side by matching with orders (simplified - match by price and contracts)
-      if (trade.outcome) {
-        try {
-          const sideResult = await dbQuery<{ side: number }>(
-            db,
-            `SELECT side 
-             FROM orders 
-             WHERE outcome = ? 
-               AND price = ?
-               AND contract_size = ?
-               AND status IN ('open', 'partial', 'filled')
-             ORDER BY create_time DESC
-             LIMIT 1`,
-            [trade.outcome, trade.price, trade.contracts]
-          );
-          trade.side = sideResult[0]?.side ?? null;
-        } catch {
-          // Side detection failed, leave as null
-        }
-      }
+  } catch (_err) {
+    try {
+      tradesDb = await dbQuery<{
+        id: number;
+        token: string;
+        price: number;
+        contracts: number;
+        create_time?: number;
+        risk_off_contracts: number;
+        risk_off_price_diff: number;
+        outcome: string | null;
+        outcome_name: string | null;
+        outcome_ticker: string | null;
+      }>(
+        db,
+        `SELECT 
+           trades.id,
+           trades.token,
+           trades.price,
+           trades.contracts,
+           trades.create_time,
+           trades.risk_off_contracts,
+           trades.risk_off_price_diff,
+           trades.outcome,
+           outcomes.name as outcome_name,
+           outcomes.ticker as outcome_ticker
+         FROM trades
+         LEFT JOIN outcomes ON trades.outcome = outcomes.outcome_id
+         WHERE outcomes.market_id = ?
+         ORDER BY trades.id DESC
+         LIMIT ?`,
+        [marketId, limit]
+      );
+    } catch (e2: unknown) {
+      console.warn('Could not query trades, returning empty list:', (e2 as Error).message);
+      tradesDb = [];
     }
-  } catch (error: any) {
-    console.warn('Could not query trades, returning empty list:', error.message);
-    tradesDb = [];
   }
 
-  // Convert to frontend Trade interface format
-  const trades = tradesDb.map(t => ({
-    id: t.id,
-    token: t.token,
-    price: t.price,
-    contracts: t.contracts,
-    create_time: t.create_time,
-    risk_off_contracts: t.risk_off_contracts,
-    risk_off_price_diff: t.risk_off_price_diff,
-    outcome_name: t.outcome_name,
-    outcome_ticker: t.outcome_ticker,
-    side: t.side, // 0 = buy/bid, 1 = sell/ask
-  }));
+  // Build response: create_time (real or id proxy), side = "my side" when authenticated (taker_side present; maker_user_id can be null)
+  const trades = tradesDb.map((t: any) => {
+    const createTime = t.create_time != null ? t.create_time : (t.id ?? 0) * 1000;
+    let side: number | null = null;
+    if (currentUserId != null && t.taker_side != null) {
+      if (t.taker_user_id === currentUserId) side = t.taker_side;
+      else if (t.maker_user_id != null && t.maker_user_id === currentUserId) side = t.taker_side === 0 ? 1 : 0; // maker has opposite side
+    }
+    return {
+      id: t.id,
+      token: t.token,
+      price: t.price,
+      contracts: t.contracts,
+      create_time: createTime,
+      risk_off_contracts: t.risk_off_contracts ?? 0,
+      risk_off_price_diff: t.risk_off_price_diff ?? 0,
+      outcome_name: t.outcome_name,
+      outcome_ticker: t.outcome_ticker,
+      side, // 0 = buy/bid, 1 = sell/ask (current user's side when authenticated)
+    };
+  });
 
   return jsonResponse({ trades });
 };

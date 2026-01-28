@@ -24,17 +24,6 @@ export async function requireAuth(
   request: Request,
   env: Env
 ): Promise<{ user: User; error?: never } | { user?: never; error: Response }> {
-  // Skip auth in development
-  if (!isAuthRequired(env, request)) {
-    // Return a mock user for development
-    return {
-      user: {
-        id: 1,
-        username: 'dev-user',
-      },
-    };
-  }
-
   const cookieHeader = request.headers.get('Cookie');
   const token = getCookieValue(cookieHeader, 'session');
 

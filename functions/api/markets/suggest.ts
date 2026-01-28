@@ -32,14 +32,41 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const body = await request.json();
     const validated = marketSuggestionSchema.parse(body);
 
-    // Determine market_type from short_name (if it contains "Round" and "Over/Under", it's round_ou)
+    // Determine market_type from short_name
     const isRoundOU = validated.short_name.includes('Round') && validated.short_name.includes('Over/Under');
-    const marketType = isRoundOU ? 'round_ou' : null;
+    const isTotalBirdies = validated.short_name.includes('Total Birdies');
+    const marketType = isRoundOU ? 'round_ou' : isTotalBirdies ? 'total_birdies' : null;
 
     let marketId: string;
 
+    // For Total Birdies (round-agnostic, one shared market), find or create market-total-birdies
+    if (isTotalBirdies) {
+      const existingMarket = await dbFirst<{ market_id: string }>(
+        db,
+        `SELECT market_id FROM markets WHERE market_id = 'market-total-birdies'`
+      );
+      if (existingMarket) {
+        marketId = existingMarket.market_id;
+      } else {
+        marketId = 'market-total-birdies';
+        await dbRun(
+          db,
+          `INSERT INTO markets (market_id, short_name, symbol, max_winners, min_winners, created_date, market_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            marketId,
+            'Total Birdies',
+            'BIRDIES',
+            validated.max_winners,
+            validated.min_winners,
+            Math.floor(Date.now() / 1000),
+            'total_birdies',
+          ]
+        );
+      }
+    }
     // For Round O/U markets, find or create the market for that round
-    if (isRoundOU && validated.round_number) {
+    else if (isRoundOU && validated.round_number) {
       // Extract round number from short_name or use provided round_number
       const roundMatch = validated.short_name.match(/Round (\d+)/);
       const roundNum = validated.round_number || (roundMatch ? parseInt(roundMatch[1], 10) : null);
