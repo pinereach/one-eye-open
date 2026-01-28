@@ -39,6 +39,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       player: string;
       score: number | null;
       index_number: number | null;
+      handicap_index: number | null;
       created_at: number;
       updated_at: number;
     }>(db, query, params);
@@ -68,6 +69,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
   const body = await request.json();
   const { course, year, player, score, index_number } = body;
+  // handicap_index is read-only; ignore if sent
 
   if (!course || !year || !player) {
     return errorResponse('course, year, and player are required', 400);
@@ -82,7 +84,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
   const db = getDb(env);
 
   try {
-    // Insert or update score
+    // Insert or update score (handicap_index is read-only, not written here)
     await dbRun(
       db,
       `INSERT INTO scores (course, year, player, score, index_number, updated_at)

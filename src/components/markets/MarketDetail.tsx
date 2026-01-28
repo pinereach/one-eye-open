@@ -32,7 +32,7 @@ export function MarketDetail() {
   const [autoFilled, setAutoFilled] = useState<'price' | null>(null);
   const [bottomSheetOpen, setBottomSheetOpen] = useState(false);
   const [showOrderbookInForm, setShowOrderbookInForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<'outcomes' | 'orderbook' | 'orders' | 'trades' | 'positions'>('outcomes');
+  const [activeTab, setActiveTab] = useState<'outcomes' | 'orders' | 'trades' | 'positions'>('outcomes');
   const [cancelingOrderId, setCancelingOrderId] = useState<number | null>(null);
   const [cancelingAll, setCancelingAll] = useState(false);
   const isDesktop = useIsDesktop();
@@ -362,8 +362,7 @@ export function MarketDetail() {
         <Tabs
           tabs={[
             { id: 'outcomes', label: 'Outcomes' },
-            { id: 'orderbook', label: 'Orderbook' },
-            { id: 'orders', label: 'Open orders' },
+            { id: 'orders', label: 'Orders' },
             { id: 'trades', label: 'Trades' },
             { id: 'positions', label: 'Positions' },
           ]}
@@ -473,41 +472,6 @@ export function MarketDetail() {
           </div>
         )}
 
-        {activeTab === 'orderbook' && (
-          <div className="mt-4">
-            {selectedOutcomeId && selectedOrderbook ? (
-              <Orderbook
-                bids={selectedOrderbook.bids}
-                asks={selectedOrderbook.asks}
-                userId={user?.id}
-                onPriceClick={(price, side) => {
-                  const priceDollars = Math.round(price / 100);
-                  const clampedPrice = Math.max(1, Math.min(99, priceDollars));
-                  setOrderPrice(clampedPrice.toString());
-                  setOrderSide(side);
-                  setAutoFilled('price');
-                  setTimeout(() => setAutoFilled(null), 2000);
-                  setBottomSheetOpen(true);
-                }}
-                onCancelOrder={async (orderId) => {
-                  try {
-                    await api.cancelOrder(orderId);
-                    showToast('Order canceled successfully', 'success');
-                    await loadMarket();
-                  } catch (err: any) {
-                    console.error('Failed to cancel order:', err);
-                    showToast(err.message || 'Failed to cancel order', 'error');
-                  }
-                }}
-              />
-            ) : (
-              <div className="text-sm text-gray-500 dark:text-gray-400 py-8 text-center">
-                Select an outcome to view orderbook
-              </div>
-            )}
-          </div>
-        )}
-
         {activeTab === 'orders' && (
           <div className="mt-4">
             <div className="flex items-center justify-between gap-2 mb-3">
@@ -525,7 +489,7 @@ export function MarketDetail() {
             </div>
             {myOpenOrders.length === 0 ? (
               <div className="text-sm text-gray-500 dark:text-gray-400 py-8 text-center">
-                No open orders in this market. Place orders from the Outcomes or Orderbook tab.
+                No open orders in this market. Place orders from the Outcomes tab.
               </div>
             ) : (
               <div className="space-y-2">

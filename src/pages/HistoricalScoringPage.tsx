@@ -6,7 +6,7 @@ import { api } from '../lib/api';
 export function HistoricalScoringPage() {
   const [selectedCourse, setSelectedCourse] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
-  const [scores, setScores] = useState<Array<{ id: number; course: string; year: number; player: string; score: number | null; index_number: number | null }>>([]);
+  const [scores, setScores] = useState<Array<{ id: number; course: string; year: number; player: string; score: number | null; index_number: number | null; handicap_index: number | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [averagesExpanded, setAveragesExpanded] = useState(false);
   const [averagesByYearExpanded, setAveragesByYearExpanded] = useState(false);
@@ -59,6 +59,17 @@ export function HistoricalScoringPage() {
     });
     return Array.from(rowMap.values());
   };
+
+  const yearPlayerToHandicap = (() => {
+    const map = new Map<string, number | null>();
+    scores.forEach(s => {
+      const key = `${s.year}-${s.player}`;
+      if (s.handicap_index != null) map.set(key, s.handicap_index);
+      else if (!map.has(key)) map.set(key, null);
+    });
+    return map;
+  })();
+  const getHandicap = (year: number, player: string) => yearPlayerToHandicap.get(`${year}-${player}`) ?? null;
 
   const historicalData = getRowData();
   const courses = Array.from(new Set(historicalData.map(d => d.course as string))).filter((c): c is string => typeof c === 'string');
@@ -292,11 +303,12 @@ export function HistoricalScoringPage() {
                 <div className="grid grid-cols-2 gap-3">
                   {players.map(player => {
                     const score = row[player] as number | null;
+                    const handicap = getHandicap(row.year as number, player);
                     const cellKey = getCellKey(row.course, row.year as number, player);
                     const displayValue = editingCell?.key === cellKey ? editingCell.value : (score === null || score === undefined ? '' : String(score));
                     return (
                       <div key={player} className="flex flex-col">
-                        <label className="text-xs text-gray-600 dark:text-gray-400 mb-1">{player}</label>
+                        <label className="text-xs text-gray-600 dark:text-gray-400 mb-1">{player}{handicap != null ? ` (${handicap})` : ''}</label>
                         <input
                           type="number"
                           value={displayValue}
@@ -330,7 +342,8 @@ export function HistoricalScoringPage() {
 
       <div className="hidden md:block overflow-x-auto -mx-3 sm:mx-0">
         <div className="inline-block min-w-full align-middle">
-          <table className="w-full min-w-[1000px] border-collapse">
+          <table className="w-full min-w-[1000px] border-collapse" aria-describedby="scores-table-caption">
+            <caption id="scores-table-caption" className="sr-only">Scores by course and year. Number under each score is handicap index for that year.</caption>
             <thead>
               <tr className="border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">
                 <th className="py-3 px-3 sm:px-4 text-left text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10">Course</th>
@@ -352,24 +365,30 @@ export function HistoricalScoringPage() {
                     <td className="py-3 px-2 sm:px-3 text-center text-xs sm:text-sm">{row.year}</td>
                     {players.map(player => {
                       const score = row[player] as number | null;
+                      const handicap = getHandicap(row.year as number, player);
                       const cellKey = getCellKey(row.course, row.year as number, player);
                       const displayValue = editingCell?.key === cellKey ? editingCell.value : (score === null || score === undefined ? '' : String(score));
                       const numForColor = displayValue === '' ? null : parseInt(displayValue, 10);
                       const colorClass = (numForColor === null || isNaN(numForColor)) && displayValue === '' ? 'text-gray-400 dark:text-gray-600' : numForColor !== null && !isNaN(numForColor) && numForColor < 85 ? 'text-green-600 dark:text-green-400 font-semibold' : numForColor !== null && !isNaN(numForColor) && numForColor < 95 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100';
                       return (
-                        <td key={player} className="py-1 px-1 sm:py-2 sm:px-2 text-center">
-                          <input
-                            type="number"
-                            value={displayValue}
-                            readOnly={isHistoricalYear(row.year as number)}
-                            onFocus={() => !isHistoricalYear(row.year as number) && setEditingCell({ key: cellKey, value: score === null || score === undefined ? '' : String(score) })}
-                            onChange={(e) => editingCell?.key === cellKey && setEditingCell(prev => prev ? { ...prev, value: e.target.value } : null)}
-                            onBlur={(e) => handleScoreBlur(row.course, row.year as number, player, e.target.value, score)}
-                            className={`w-full text-center text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded px-2 py-2 min-h-[44px] ${isHistoricalYear(row.year as number) ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed text-gray-500 dark:text-gray-400' : `focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white dark:bg-gray-700 ${colorClass}`}`}
-                            placeholder="—"
-                            min="0"
-                            max="200"
-                          />
+                        <td key={player} className="py-1 px-1 sm:py-2 sm:px-2 text-center align-top">
+                          <div className="flex flex-col items-center gap-0.5">
+                            <input
+                              type="number"
+                              value={displayValue}
+                              readOnly={isHistoricalYear(row.year as number)}
+                              onFocus={() => !isHistoricalYear(row.year as number) && setEditingCell({ key: cellKey, value: score === null || score === undefined ? '' : String(score) })}
+                              onChange={(e) => editingCell?.key === cellKey && setEditingCell(prev => prev ? { ...prev, value: e.target.value } : null)}
+                              onBlur={(e) => handleScoreBlur(row.course, row.year as number, player, e.target.value, score)}
+                              className={`w-full text-center text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded px-2 py-2 min-h-[44px] ${isHistoricalYear(row.year as number) ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed text-gray-500 dark:text-gray-400' : `focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white dark:bg-gray-700 ${colorClass}`}`}
+                              placeholder="—"
+                              min="0"
+                              max="200"
+                            />
+                            {handicap != null && (
+                              <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400" title="Handicap index">{handicap}</span>
+                            )}
+                          </div>
                         </td>
                       );
                     })}

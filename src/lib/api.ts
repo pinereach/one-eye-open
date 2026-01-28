@@ -121,7 +121,7 @@ export const api = {
     if (course) params.append('course', course);
     if (year) params.append('year', year);
     const query = params.toString() ? `?${params.toString()}` : '';
-    return apiRequest<{ scores: Array<{ id: number; course: string; year: number; player: string; score: number | null; index_number: number | null }> }>(`/scoring/scores${query}`);
+    return apiRequest<{ scores: Array<{ id: number; course: string; year: number; player: string; score: number | null; index_number: number | null; handicap_index: number | null }> }>(`/scoring/scores${query}`);
   },
 
   updateScoreValue: (data: { course: string; year: number; player: string; score: number | null; index_number?: number | null }) =>
