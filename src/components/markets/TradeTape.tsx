@@ -56,7 +56,7 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
           {trades.map((trade) => {
             const isBuy = trade.side === 0;
             const isSell = trade.side === 1;
-            const sideLabel = isBuy ? 'Taker buy' : isSell ? 'Taker sell' : '—';
+            const sideLabel = isBuy ? 'Buy' : isSell ? 'Sell' : '—';
             const sideClass = isBuy
               ? 'bg-green-600 text-white dark:bg-green-500 dark:text-white'
               : isSell
@@ -68,29 +68,30 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
             return (
               <div
                 key={trade.id}
-                className="flex items-center gap-2 py-1.5 border-b border-gray-200 dark:border-gray-700 last:border-0 text-xs sm:text-sm"
+                className="py-2.5 border-b border-gray-200 dark:border-gray-700 last:border-0 text-xs sm:text-sm"
               >
-                <span
-                  className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-bold uppercase ${sideClass}`}
-                  aria-label={sideLabel !== '—' ? sideLabel : 'Unknown side'}
-                >
-                  {sideLabel}
-                </span>
-                <span className="truncate min-w-0 text-gray-900 dark:text-gray-100" title={marketName}>
-                  {marketName}
-                </span>
-                <span className="truncate min-w-0 text-gray-600 dark:text-gray-400 flex-shrink" title={outcomeName}>
-                  {outcomeName}
-                </span>
-                <span className="flex-shrink-0 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                  {trade.contracts} @ {formatPrice(trade.price)}
-                </span>
-                <span className="flex-shrink-0 text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap" title="Trade cost">
-                  {formatNotionalBySide(trade.price, trade.contracts, trade.side ?? 0)}
-                </span>
-                <span className="flex-shrink-0 text-gray-500 dark:text-gray-500 text-xs whitespace-nowrap ml-auto">
-                  {trade.create_time ? format(new Date(trade.create_time * 1000), 'M/d h:mm a') : '—'}
-                </span>
+                <div className="flex items-start justify-between gap-3">
+                  <span
+                    className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-bold uppercase ${sideClass}`}
+                    aria-label={sideLabel !== '—' ? sideLabel : 'Unknown side'}
+                  >
+                    {sideLabel}
+                  </span>
+                  <div className="flex flex-col items-end gap-0.5 flex-shrink-0 text-right">
+                    <span className="text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">
+                      {trade.contracts} @ {formatPrice(trade.price)} · {formatNotionalBySide(trade.price, trade.contracts, trade.side ?? 0)}
+                    </span>
+                    <span className="text-gray-500 dark:text-gray-500 text-xs whitespace-nowrap">
+                      {trade.create_time ? format(new Date(trade.create_time * 1000), 'M/d h:mm a') : '—'}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-1.5 text-gray-600 dark:text-gray-400 truncate" title={marketName}>
+                  Market: {marketName}
+                </div>
+                <div className="mt-0.5 text-gray-600 dark:text-gray-400 truncate" title={outcomeName}>
+                  Outcome: {outcomeName}
+                </div>
               </div>
             );
           })}
