@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { formatPrice, formatPriceBasis, formatPriceDecimal, formatPriceCents } from '../../lib/format';
@@ -32,6 +32,8 @@ export function MarketDetail() {
   const [bottomSheetOpen, setBottomSheetOpen] = useState(false);
   const [showOrderbookInForm, setShowOrderbookInForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'outcomes' | 'orderbook' | 'trades' | 'positions'>('outcomes');
+  const [cancelingOrderId, setCancelingOrderId] = useState<number | null>(null);
+  const [cancelingAll, setCancelingAll] = useState(false);
 
   useEffect(() => {
     if (id) loadMarket();
@@ -253,6 +255,49 @@ export function MarketDetail() {
     return `${sign}${netPosition} @ $${priceStr}`;
   };
 
+  // My open orders for this market (from orderbook, filtered by current user)
+  const myOpenOrders = useMemo(() => {
+    if (!user?.id) return [];
+    const list: Order[] = [];
+    for (const ob of Object.values(orderbookByOutcome)) {
+      for (const o of [...(ob.bids || []), ...(ob.asks || [])]) {
+        if (o.user_id === user.id && (o.status === 'open' || o.status === 'partial')) list.push(o);
+      }
+    }
+    return list;
+  }, [orderbookByOutcome, user?.id]);
+
+  async function handleCancelOrder(orderId: number) {
+    setCancelingOrderId(orderId);
+    try {
+      await api.cancelOrder(orderId);
+      showToast('Order canceled successfully', 'success');
+      await loadMarket();
+    } catch (err: any) {
+      console.error('Failed to cancel order:', err);
+      showToast(err.message || 'Failed to cancel order', 'error');
+    } finally {
+      setCancelingOrderId(null);
+    }
+  }
+
+  async function handleCancelAllOrders() {
+    if (myOpenOrders.length === 0) return;
+    setCancelingAll(true);
+    try {
+      for (const order of myOpenOrders) {
+        await api.cancelOrder(order.id);
+      }
+      showToast('All orders in this market canceled', 'success');
+      await loadMarket();
+    } catch (err: any) {
+      console.error('Failed to cancel orders:', err);
+      showToast(err.message || 'Failed to cancel some orders', 'error');
+    } finally {
+      setCancelingAll(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-4 sm:space-y-6">
@@ -309,6 +354,59 @@ export function MarketDetail() {
           </div>
         </div>
       </div>
+
+      {/* Your open orders (this market only) */}
+      {myOpenOrders.length > 0 && (
+        <Card>
+          <CardContent>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="text-base sm:text-lg font-bold">Your open orders</h2>
+              <button
+                type="button"
+                onClick={handleCancelAllOrders}
+                disabled={cancelingAll}
+                className="px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded border border-red-300 dark:border-red-700 disabled:opacity-50"
+              >
+                {cancelingAll ? 'Canceling…' : 'Cancel all'}
+              </button>
+            </div>
+            <div className="space-y-2">
+              {myOpenOrders.map((order) => {
+                const outcomeName = outcomes?.find(o => o.outcome_id === order.outcome)?.name ?? order.outcome;
+                const sideLabel = order.side === 0 ? 'Bid' : 'Sell';
+                const size = order.remaining_size ?? order.contract_size ?? 0;
+                const isCanceling = cancelingOrderId === order.id;
+                return (
+                  <div
+                    key={order.id}
+                    className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
+                  >
+                    <span className="font-medium text-gray-900 dark:text-gray-100 truncate min-w-0 flex-1">
+                      {outcomeName}
+                    </span>
+                    <span className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-bold ${
+                      order.side === 0 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                    }`}>
+                      {sideLabel}
+                    </span>
+                    <span className="flex-shrink-0 text-gray-600 dark:text-gray-400">
+                      {formatPriceCents(order.price)} × {size}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCancelOrder(order.id)}
+                      disabled={isCanceling}
+                      className="flex-shrink-0 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded disabled:opacity-50"
+                    >
+                      {isCanceling ? 'Canceling…' : 'Cancel'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Mobile Tabs */}
       <div className="md:hidden">
