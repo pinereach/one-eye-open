@@ -151,7 +151,11 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     };
 
     // Execute matching - pass outcomeId for positions table
-    const { fills, trades } = await executeMatching(db, matchingOrder, validated.outcome_id);
+    let allFills: Awaited<ReturnType<typeof executeMatching>>['fills'];
+    let allTrades: Awaited<ReturnType<typeof executeMatching>>['trades'];
+    const firstMatch = await executeMatching(db, matchingOrder, validated.outcome_id);
+    allFills = firstMatch.fills;
+    allTrades = firstMatch.trades;
 
     // Get updated order with outcome info
     const updatedOrderDb = await dbFirst<{
@@ -177,7 +181,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     );
 
     // Convert to Order interface format
-    const updatedOrder: Order | null = updatedOrderDb ? {
+    let updatedOrder: Order | null = updatedOrderDb ? {
       id: updatedOrderDb.id.toString(),
       market_id: updatedOrderDb.market_id || marketId,
       user_id: updatedOrderDb.user_id?.toString() || '',
@@ -189,14 +193,12 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       created_at: updatedOrderDb.create_time,
     } : null;
 
-    // Validation: If order is still open/partial and price equals best opposite price, it should have matched
+    // If order is still open/partial but book would cross, matching may have missed — retry once with current state
     if (updatedOrder && (updatedOrder.status === 'open' || updatedOrder.status === 'partial')) {
       const orderPrice = updatedOrder.price_cents;
       const orderSide = updatedOrder.side;
-
-      // Get best opposite price from orderbook
+      let shouldRetry = false;
       if (orderSide === 'bid') {
-        // For a bid, check if there's an ask at this price or lower
         const bestAsk = await dbFirst<{ price: number }>(
           db,
           `SELECT price FROM orders 
@@ -205,21 +207,8 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
            LIMIT 1`,
           [validated.outcome_id]
         );
-        
-        if (bestAsk && bestAsk.price <= orderPrice) {
-          // Cancel the order and return error
-          await dbRun(
-            db,
-            'UPDATE orders SET status = ? WHERE id = ?',
-            ['canceled', orderId]
-          );
-          return errorResponse(
-            `Order price ($${Math.round(orderPrice / 100)}) equals or exceeds best ask price ($${Math.round(bestAsk.price / 100)}). Order must match immediately or be rejected.`,
-            400
-          );
-        }
+        shouldRetry = !!(bestAsk && bestAsk.price <= orderPrice);
       } else {
-        // For an ask, check if there's a bid at this price or higher
         const bestBid = await dbFirst<{ price: number }>(
           db,
           `SELECT price FROM orders 
@@ -228,18 +217,77 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
            LIMIT 1`,
           [validated.outcome_id]
         );
-        
-        if (bestBid && bestBid.price >= orderPrice) {
-          // Cancel the order and return error
-          await dbRun(
+        shouldRetry = !!(bestBid && bestBid.price >= orderPrice);
+      }
+      if (shouldRetry) {
+        const currentOrderDb = await dbFirst<{
+          id: number;
+          create_time: number;
+          user_id: number | null;
+          contract_size: number | null;
+          price: number;
+          status: string;
+          side: number;
+          market_id?: string;
+        }>(
+          db,
+          `SELECT o.id, o.create_time, o.user_id, o.contract_size, o.price, o.status, o.side, oc.market_id 
+           FROM orders o
+           JOIN outcomes oc ON o.outcome = oc.outcome_id
+           WHERE o.id = ?`,
+          [orderId]
+        );
+        if (currentOrderDb && (currentOrderDb.contract_size ?? 0) > 0) {
+          const retryOrder: Order = {
+            id: currentOrderDb.id.toString(),
+            market_id: currentOrderDb.market_id || marketId,
+            user_id: currentOrderDb.user_id?.toString() || '',
+            side: currentOrderDb.side === 0 ? 'bid' : 'ask',
+            price_cents: currentOrderDb.price,
+            qty_contracts: currentOrderDb.contract_size || 0,
+            qty_remaining: currentOrderDb.contract_size || 0,
+            status: currentOrderDb.status as 'open' | 'partial' | 'filled' | 'canceled',
+            created_at: currentOrderDb.create_time,
+          };
+          const retry = await executeMatching(db, retryOrder, validated.outcome_id);
+          allFills = [...allFills, ...retry.fills];
+          allTrades = [...allTrades, ...retry.trades];
+          const afterRetryDb = await dbFirst<{
+            id: number;
+            create_time: number;
+            user_id: number | null;
+            token: string;
+            order_id: number;
+            outcome: string;
+            price: number;
+            status: string;
+            tif: string;
+            side: number;
+            contract_size: number | null;
+            market_id?: string;
+          }>(
             db,
-            'UPDATE orders SET status = ? WHERE id = ?',
-            ['canceled', orderId]
+            `SELECT o.*, oc.market_id 
+             FROM orders o
+             JOIN outcomes oc ON o.outcome = oc.outcome_id
+             WHERE o.id = ?`,
+            [orderId]
           );
-          return errorResponse(
-            `Order price ($${Math.round(orderPrice / 100)}) equals or is below best bid price ($${Math.round(bestBid.price / 100)}). Order must match immediately or be rejected.`,
-            400
-          );
+          if (afterRetryDb) {
+            updatedOrder = {
+              id: afterRetryDb.id.toString(),
+              market_id: afterRetryDb.market_id || marketId,
+              user_id: afterRetryDb.user_id?.toString() || '',
+              side: afterRetryDb.side === 0 ? 'bid' : 'ask',
+              price_cents: afterRetryDb.price,
+              qty_contracts: afterRetryDb.contract_size || 0,
+              qty_remaining: afterRetryDb.contract_size || 0,
+              status: afterRetryDb.status as 'open' | 'partial' | 'filled' | 'canceled',
+              created_at: afterRetryDb.create_time,
+            };
+          }
+        } else {
+          console.warn(`[orders] Order ${orderId} still open/partial with crossing book but no remaining size to match`);
         }
       }
     }
@@ -247,8 +295,8 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     return jsonResponse(
       {
         order: updatedOrder,
-        fills,
-        trades,
+        fills: allFills,
+        trades: allTrades,
       },
       201
     );

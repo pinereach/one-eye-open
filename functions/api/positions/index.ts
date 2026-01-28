@@ -175,41 +175,33 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     }
   }
 
-  // Get best bid and ask for each outcome to calculate current midpoint
-  const positionsWithOrderbook = await Promise.all(
-    positionsDb.map(async (position) => {
-      // Get best bid (highest price, side = 0)
-      const bestBid = await dbQuery<{ price: number }>(
-        db,
-        `SELECT price FROM orders 
-         WHERE outcome = ? AND side = 0 AND status IN ('open', 'partial')
-         ORDER BY price DESC, create_time ASC
-         LIMIT 1`,
-        [position.outcome]
-      );
+  // Batched best bid/ask: 2 queries for all outcomes (no N+1)
+  let positionsWithOrderbook: any[] = positionsDb.map(p => ({ ...p, current_price: null as number | null }));
 
-      // Get best ask (lowest price, side = 1)
-      const bestAsk = await dbQuery<{ price: number }>(
-        db,
-        `SELECT price FROM orders 
-         WHERE outcome = ? AND side = 1 AND status IN ('open', 'partial')
-         ORDER BY price ASC, create_time ASC
-         LIMIT 1`,
-        [position.outcome]
-      );
-
-      const bidPrice = bestBid[0]?.price || null;
-      const askPrice = bestAsk[0]?.price || null;
-      const currentMidpoint = (bidPrice !== null && askPrice !== null) 
-        ? (bidPrice + askPrice) / 2 
-        : bidPrice || askPrice || null;
-
-      return {
-        ...position,
-        current_price: currentMidpoint,
-      };
-    })
-  );
+  if (positionsDb.length > 0) {
+    const posOutcomeIds = [...new Set(positionsDb.map(p => p.outcome))];
+    const ph = posOutcomeIds.map(() => '?').join(',');
+    const bidsRows = await dbQuery<{ outcome: string; price: number }>(
+      db,
+      `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 0 AND status IN ('open','partial') ORDER BY outcome, price DESC, create_time ASC`,
+      posOutcomeIds
+    );
+    const asksRows = await dbQuery<{ outcome: string; price: number }>(
+      db,
+      `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 1 AND status IN ('open','partial') ORDER BY outcome, price ASC, create_time ASC`,
+      posOutcomeIds
+    );
+    const bestBidByOutcome: Record<string, number> = {};
+    bidsRows.forEach(r => { if (bestBidByOutcome[r.outcome] == null) bestBidByOutcome[r.outcome] = r.price; });
+    const bestAskByOutcome: Record<string, number> = {};
+    asksRows.forEach(r => { if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price; });
+    positionsWithOrderbook = positionsDb.map(p => {
+      const bidPrice = bestBidByOutcome[p.outcome] ?? null;
+      const askPrice = bestAskByOutcome[p.outcome] ?? null;
+      const current_price = (bidPrice !== null && askPrice !== null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
+      return { ...p, current_price };
+    });
+  }
 
   return jsonResponse({ positions: positionsWithOrderbook });
 };

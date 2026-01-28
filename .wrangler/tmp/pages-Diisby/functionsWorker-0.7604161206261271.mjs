@@ -5,7 +5,7 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// ../.wrangler/tmp/bundle-bzBTT7/checked-fetch.js
+// ../.wrangler/tmp/bundle-SvoGP2/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -4832,7 +4832,11 @@ var onRequestPost = /* @__PURE__ */ __name(async (context) => {
       status: order.status,
       created_at: order.create_time
     };
-    const { fills, trades } = await executeMatching(db, matchingOrder, validated.outcome_id);
+    let allFills;
+    let allTrades;
+    const firstMatch = await executeMatching(db, matchingOrder, validated.outcome_id);
+    allFills = firstMatch.fills;
+    allTrades = firstMatch.trades;
     const updatedOrderDb = await dbFirst(
       db,
       `SELECT o.*, oc.market_id 
@@ -4841,7 +4845,7 @@ var onRequestPost = /* @__PURE__ */ __name(async (context) => {
        WHERE o.id = ?`,
       [orderId]
     );
-    const updatedOrder = updatedOrderDb ? {
+    let updatedOrder = updatedOrderDb ? {
       id: updatedOrderDb.id.toString(),
       market_id: updatedOrderDb.market_id || marketId,
       user_id: updatedOrderDb.user_id?.toString() || "",
@@ -4855,6 +4859,7 @@ var onRequestPost = /* @__PURE__ */ __name(async (context) => {
     if (updatedOrder && (updatedOrder.status === "open" || updatedOrder.status === "partial")) {
       const orderPrice = updatedOrder.price_cents;
       const orderSide = updatedOrder.side;
+      let shouldRetry = false;
       if (orderSide === "bid") {
         const bestAsk = await dbFirst(
           db,
@@ -4864,17 +4869,7 @@ var onRequestPost = /* @__PURE__ */ __name(async (context) => {
            LIMIT 1`,
           [validated.outcome_id]
         );
-        if (bestAsk && bestAsk.price <= orderPrice) {
-          await dbRun(
-            db,
-            "UPDATE orders SET status = ? WHERE id = ?",
-            ["canceled", orderId]
-          );
-          return errorResponse(
-            `Order price ($${Math.round(orderPrice / 100)}) equals or exceeds best ask price ($${Math.round(bestAsk.price / 100)}). Order must match immediately or be rejected.`,
-            400
-          );
-        }
+        shouldRetry = !!(bestAsk && bestAsk.price <= orderPrice);
       } else {
         const bestBid = await dbFirst(
           db,
@@ -4884,24 +4879,63 @@ var onRequestPost = /* @__PURE__ */ __name(async (context) => {
            LIMIT 1`,
           [validated.outcome_id]
         );
-        if (bestBid && bestBid.price >= orderPrice) {
-          await dbRun(
+        shouldRetry = !!(bestBid && bestBid.price >= orderPrice);
+      }
+      if (shouldRetry) {
+        const currentOrderDb = await dbFirst(
+          db,
+          `SELECT o.id, o.create_time, o.user_id, o.contract_size, o.price, o.status, o.side, oc.market_id 
+           FROM orders o
+           JOIN outcomes oc ON o.outcome = oc.outcome_id
+           WHERE o.id = ?`,
+          [orderId]
+        );
+        if (currentOrderDb && (currentOrderDb.contract_size ?? 0) > 0) {
+          const retryOrder = {
+            id: currentOrderDb.id.toString(),
+            market_id: currentOrderDb.market_id || marketId,
+            user_id: currentOrderDb.user_id?.toString() || "",
+            side: currentOrderDb.side === 0 ? "bid" : "ask",
+            price_cents: currentOrderDb.price,
+            qty_contracts: currentOrderDb.contract_size || 0,
+            qty_remaining: currentOrderDb.contract_size || 0,
+            status: currentOrderDb.status,
+            created_at: currentOrderDb.create_time
+          };
+          const retry = await executeMatching(db, retryOrder, validated.outcome_id);
+          allFills = [...allFills, ...retry.fills];
+          allTrades = [...allTrades, ...retry.trades];
+          const afterRetryDb = await dbFirst(
             db,
-            "UPDATE orders SET status = ? WHERE id = ?",
-            ["canceled", orderId]
+            `SELECT o.*, oc.market_id 
+             FROM orders o
+             JOIN outcomes oc ON o.outcome = oc.outcome_id
+             WHERE o.id = ?`,
+            [orderId]
           );
-          return errorResponse(
-            `Order price ($${Math.round(orderPrice / 100)}) equals or is below best bid price ($${Math.round(bestBid.price / 100)}). Order must match immediately or be rejected.`,
-            400
-          );
+          if (afterRetryDb) {
+            updatedOrder = {
+              id: afterRetryDb.id.toString(),
+              market_id: afterRetryDb.market_id || marketId,
+              user_id: afterRetryDb.user_id?.toString() || "",
+              side: afterRetryDb.side === 0 ? "bid" : "ask",
+              price_cents: afterRetryDb.price,
+              qty_contracts: afterRetryDb.contract_size || 0,
+              qty_remaining: afterRetryDb.contract_size || 0,
+              status: afterRetryDb.status,
+              created_at: afterRetryDb.create_time
+            };
+          }
+        } else {
+          console.warn(`[orders] Order ${orderId} still open/partial with crossing book but no remaining size to match`);
         }
       }
     }
     return jsonResponse(
       {
         order: updatedOrder,
-        fills,
-        trades
+        fills: allFills,
+        trades: allTrades
       },
       201
     );
@@ -4941,24 +4975,45 @@ var onRequestGet = /* @__PURE__ */ __name(async (context) => {
      WHERE o.market_id = ? AND p.user_id = ?`,
     [marketId, userId]
   );
-  const positionsWithPrice = await Promise.all(
-    positionsDb.map(async (p) => {
-      const bestBid = await dbQuery(
-        db,
-        `SELECT price FROM orders 
-         WHERE outcome = ? AND side = 0 AND status IN ('open', 'partial')
-         ORDER BY price DESC, create_time ASC LIMIT 1`,
-        [p.outcome]
-      );
-      const bestAsk = await dbQuery(
-        db,
-        `SELECT price FROM orders 
-         WHERE outcome = ? AND side = 1 AND status IN ('open', 'partial')
-         ORDER BY price ASC, create_time ASC LIMIT 1`,
-        [p.outcome]
-      );
-      const bidPrice = bestBid[0]?.price ?? null;
-      const askPrice = bestAsk[0]?.price ?? null;
+  let positionsWithPrice = positionsDb.map((p) => ({
+    id: p.id,
+    user_id: p.user_id,
+    outcome: p.outcome,
+    create_time: p.create_time,
+    closed_profit: p.closed_profit,
+    settled_profit: p.settled_profit,
+    net_position: p.net_position,
+    price_basis: p.price_basis,
+    is_settled: p.is_settled,
+    market_name: p.market_name,
+    outcome_name: p.outcome_name,
+    outcome_ticker: p.outcome_ticker,
+    current_price: null
+  }));
+  if (positionsDb.length > 0) {
+    const posOutcomeIds = [...new Set(positionsDb.map((p) => p.outcome))];
+    const ph = posOutcomeIds.map(() => "?").join(",");
+    const bidsRows = await dbQuery(
+      db,
+      `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 0 AND status IN ('open','partial') ORDER BY outcome, price DESC, create_time ASC`,
+      posOutcomeIds
+    );
+    const asksRows = await dbQuery(
+      db,
+      `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 1 AND status IN ('open','partial') ORDER BY outcome, price ASC, create_time ASC`,
+      posOutcomeIds
+    );
+    const bestBidByOutcome = {};
+    bidsRows.forEach((r) => {
+      if (bestBidByOutcome[r.outcome] == null) bestBidByOutcome[r.outcome] = r.price;
+    });
+    const bestAskByOutcome = {};
+    asksRows.forEach((r) => {
+      if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price;
+    });
+    positionsWithPrice = positionsDb.map((p) => {
+      const bidPrice = bestBidByOutcome[p.outcome] ?? null;
+      const askPrice = bestAskByOutcome[p.outcome] ?? null;
       const current_price = bidPrice !== null && askPrice !== null ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
       return {
         id: p.id,
@@ -4975,8 +5030,8 @@ var onRequestGet = /* @__PURE__ */ __name(async (context) => {
         outcome_ticker: p.outcome_ticker,
         current_price
       };
-    })
-  );
+    });
+  }
   return jsonResponse({ positions: positionsWithPrice });
 }, "onRequestGet");
 
@@ -5523,7 +5578,13 @@ var onRequestGet5 = /* @__PURE__ */ __name(async (context) => {
     }
     query += " ORDER BY course, year, player";
     const scores = await dbQuery(db, query, params);
-    return jsonResponse({ scores });
+    const response = jsonResponse({ scores });
+    const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
+    const requestedYear = year && year !== "all" ? parseInt(year, 10) : null;
+    if (requestedYear != null && !Number.isNaN(requestedYear) && requestedYear < currentYear) {
+      response.headers.set("Cache-Control", "public, max-age=604800");
+    }
+    return response;
   } catch (err) {
     console.error("[scores GET] Error:", err);
     return errorResponse(err.message || "Failed to fetch scores", 500);
@@ -5571,6 +5632,16 @@ var onRequestGet6 = /* @__PURE__ */ __name(async (context) => {
   const { request, env, params } = context;
   const marketId = params.marketId;
   const db = getDb(env);
+  let currentUserId = null;
+  try {
+    const cookieHeader = request.headers.get("Cookie");
+    const token = getCookieValue(cookieHeader, "session");
+    if (token) {
+      const user = await getUserFromToken(db, token, env);
+      if (user?.id) currentUserId = typeof user.id === "number" ? user.id : parseInt(String(user.id), 10);
+    }
+  } catch {
+  }
   const market = await dbFirst(db, "SELECT * FROM markets WHERE market_id = ?", [marketId]);
   if (!market) {
     return errorResponse("Market not found", 404);
@@ -5581,22 +5652,40 @@ var onRequestGet6 = /* @__PURE__ */ __name(async (context) => {
     [market.market_id]
   );
   const orderbookByOutcome = {};
-  for (const outcome of outcomes) {
+  const outcomeIds = outcomes.map((o) => o.outcome_id);
+  outcomes.forEach((o) => {
+    orderbookByOutcome[o.outcome_id] = { bids: [], asks: [] };
+  });
+  if (outcomeIds.length > 0) {
+    const placeholders = outcomeIds.map(() => "?").join(",");
+    const orderRow = {
+      id: 0,
+      create_time: 0,
+      user_id: null,
+      token: "",
+      order_id: 0,
+      outcome: "",
+      price: 0,
+      status: "",
+      tif: "",
+      side: 0,
+      contract_size: null
+    };
     const bidsDb = await dbQuery(
       db,
       `SELECT * FROM orders 
-       WHERE outcome = ? AND side = 0 AND status IN ('open', 'partial')
-       ORDER BY price DESC, create_time ASC`,
-      [outcome.outcome_id]
+       WHERE outcome IN (${placeholders}) AND side = 0 AND status IN ('open', 'partial')
+       ORDER BY outcome, price DESC, create_time ASC`,
+      outcomeIds
     );
     const asksDb = await dbQuery(
       db,
       `SELECT * FROM orders 
-       WHERE outcome = ? AND side = 1 AND status IN ('open', 'partial')
-       ORDER BY price ASC, create_time ASC`,
-      [outcome.outcome_id]
+       WHERE outcome IN (${placeholders}) AND side = 1 AND status IN ('open', 'partial')
+       ORDER BY outcome, price ASC, create_time ASC`,
+      outcomeIds
     );
-    const bids = bidsDb.map((o) => ({
+    const mapOrder = /* @__PURE__ */ __name((o) => ({
       id: o.id,
       create_time: o.create_time,
       user_id: o.user_id,
@@ -5604,42 +5693,131 @@ var onRequestGet6 = /* @__PURE__ */ __name(async (context) => {
       order_id: o.order_id,
       outcome: o.outcome,
       price: o.price,
-      // Price in cents, as expected by frontend
       status: o.status,
       tif: o.tif,
       side: o.side,
-      // 0 = bid, 1 = ask
       contract_size: o.contract_size
-    }));
-    const asks = asksDb.map((o) => ({
-      id: o.id,
-      create_time: o.create_time,
-      user_id: o.user_id,
-      token: o.token,
-      order_id: o.order_id,
-      outcome: o.outcome,
-      price: o.price,
-      // Price in cents, as expected by frontend
-      status: o.status,
-      tif: o.tif,
-      side: o.side,
-      // 0 = bid, 1 = ask
-      contract_size: o.contract_size
-    }));
-    orderbookByOutcome[outcome.outcome_id] = { bids, asks };
+    }), "mapOrder");
+    bidsDb.forEach((o) => {
+      orderbookByOutcome[o.outcome].bids.push(mapOrder(o));
+    });
+    asksDb.forEach((o) => {
+      orderbookByOutcome[o.outcome].asks.push(mapOrder(o));
+    });
   }
-  const trades = await dbQuery(
-    db,
-    `SELECT * FROM trades 
-     ORDER BY create_time DESC
-     LIMIT 50`,
-    []
-  );
+  const tradesLimit = 20;
+  let tradesDb = [];
+  try {
+    tradesDb = await dbQuery(
+      db,
+      `SELECT 
+         trades.id, trades.token, trades.price, trades.contracts, trades.create_time,
+         trades.risk_off_contracts, trades.risk_off_price_diff, trades.outcome,
+         trades.taker_user_id, trades.maker_user_id, trades.taker_side,
+         outcomes.name as outcome_name, outcomes.ticker as outcome_ticker
+       FROM trades
+       LEFT JOIN outcomes ON trades.outcome = outcomes.outcome_id
+       WHERE outcomes.market_id = ?
+       ORDER BY trades.id DESC
+       LIMIT ?`,
+      [marketId, tradesLimit]
+    );
+  } catch (_err) {
+    try {
+      tradesDb = await dbQuery(
+        db,
+        `SELECT trades.id, trades.token, trades.price, trades.contracts, trades.create_time,
+                trades.risk_off_contracts, trades.risk_off_price_diff, trades.outcome,
+                outcomes.name as outcome_name, outcomes.ticker as outcome_ticker
+         FROM trades LEFT JOIN outcomes ON trades.outcome = outcomes.outcome_id
+         WHERE outcomes.market_id = ? ORDER BY trades.id DESC LIMIT ?`,
+        [marketId, tradesLimit]
+      );
+    } catch {
+      tradesDb = [];
+    }
+  }
+  const trades = tradesDb.map((t) => {
+    const createTime = t.create_time != null ? t.create_time : (t.id ?? 0) * 1e3;
+    let side = null;
+    if (currentUserId != null && t.taker_side != null) {
+      if (t.taker_user_id === currentUserId) side = t.taker_side;
+      else if (t.maker_user_id != null && t.maker_user_id === currentUserId) side = t.taker_side === 0 ? 1 : 0;
+    }
+    return {
+      id: t.id,
+      token: t.token,
+      price: t.price,
+      contracts: t.contracts,
+      create_time: createTime,
+      risk_off_contracts: t.risk_off_contracts ?? 0,
+      risk_off_price_diff: t.risk_off_price_diff ?? 0,
+      outcome_name: t.outcome_name,
+      outcome_ticker: t.outcome_ticker,
+      side
+    };
+  });
+  let positions = [];
+  if (currentUserId != null) {
+    const positionsDb = await dbQuery(
+      db,
+      `SELECT p.*, o.name as outcome_name, o.ticker as outcome_ticker, m.short_name as market_name
+       FROM positions p
+       JOIN outcomes o ON p.outcome = o.outcome_id
+       JOIN markets m ON o.market_id = m.market_id
+       WHERE o.market_id = ? AND p.user_id = ?
+       ORDER BY p.create_time DESC`,
+      [marketId, currentUserId]
+    );
+    if (positionsDb.length > 0) {
+      const posOutcomeIds = [...new Set(positionsDb.map((p) => p.outcome))];
+      const ph = posOutcomeIds.map(() => "?").join(",");
+      const bidsRows = await dbQuery(
+        db,
+        `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 0 AND status IN ('open','partial') ORDER BY outcome, price DESC, create_time ASC`,
+        posOutcomeIds
+      );
+      const asksRows = await dbQuery(
+        db,
+        `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 1 AND status IN ('open','partial') ORDER BY outcome, price ASC, create_time ASC`,
+        posOutcomeIds
+      );
+      const bestBidByOutcome = {};
+      bidsRows.forEach((r) => {
+        if (bestBidByOutcome[r.outcome] == null) bestBidByOutcome[r.outcome] = r.price;
+      });
+      const bestAskByOutcome = {};
+      asksRows.forEach((r) => {
+        if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price;
+      });
+      positions = positionsDb.map((p) => {
+        const bidPrice = bestBidByOutcome[p.outcome] ?? null;
+        const askPrice = bestAskByOutcome[p.outcome] ?? null;
+        const current_price = bidPrice != null && askPrice != null ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
+        return {
+          id: p.id,
+          user_id: p.user_id,
+          outcome: p.outcome,
+          create_time: p.create_time,
+          closed_profit: p.closed_profit,
+          settled_profit: p.settled_profit,
+          net_position: p.net_position,
+          price_basis: p.price_basis,
+          is_settled: p.is_settled,
+          market_name: p.market_name,
+          outcome_name: p.outcome_name,
+          outcome_ticker: p.outcome_ticker,
+          current_price
+        };
+      });
+    }
+  }
   return jsonResponse({
     market,
     outcomes,
     orderbook: orderbookByOutcome,
-    recentTrades: trades
+    trades,
+    positions
   });
 }, "onRequestGet");
 
@@ -5733,23 +5911,28 @@ var onRequestGet8 = /* @__PURE__ */ __name(async (context) => {
     const { request, env } = context;
     const url = new URL(request.url);
     const db = getDb(env);
-    const sql = "SELECT * FROM markets ORDER BY created_date DESC";
-    const markets = await dbQuery(db, sql, []);
-    const marketsWithOutcomes = await Promise.all(
-      markets.map(async (market) => {
-        try {
-          const outcomes = await dbQuery(
-            db,
-            "SELECT * FROM outcomes WHERE market_id = ? ORDER BY created_date ASC",
-            [market.market_id]
-          );
-          return { ...market, outcomes };
-        } catch (err) {
-          console.error(`Error fetching outcomes for market ${market.market_id}:`, err);
-          return { ...market, outcomes: [] };
-        }
-      })
-    );
+    const markets = await dbQuery(db, "SELECT * FROM markets ORDER BY created_date DESC", []);
+    const marketIds = markets.map((m) => m.market_id);
+    let allOutcomes = [];
+    if (marketIds.length > 0) {
+      const placeholders = marketIds.map(() => "?").join(",");
+      allOutcomes = await dbQuery(
+        db,
+        `SELECT * FROM outcomes WHERE market_id IN (${placeholders}) ORDER BY market_id, created_date ASC`,
+        marketIds
+      );
+    }
+    const outcomesByMarket = {};
+    marketIds.forEach((id) => {
+      outcomesByMarket[id] = [];
+    });
+    allOutcomes.forEach((o) => {
+      if (outcomesByMarket[o.market_id]) outcomesByMarket[o.market_id].push(o);
+    });
+    const marketsWithOutcomes = markets.map((market) => ({
+      ...market,
+      outcomes: outcomesByMarket[market.market_id] || []
+    }));
     return jsonResponse({ markets: marketsWithOutcomes });
   } catch (error) {
     console.error("Error in /api/markets:", error);
@@ -5783,129 +5966,88 @@ var onRequestGet9 = /* @__PURE__ */ __name(async (context) => {
      LIMIT ?`,
     [userId, limit]
   );
-  const orders = await Promise.all(
-    ordersDb.map(async (o) => {
-      let displaySize = o.contract_size || 0;
-      if (o.status === "filled") {
-        if (o.original_contract_size !== null && o.original_contract_size !== void 0 && o.original_contract_size > 0) {
-          displaySize = o.original_contract_size;
-        } else {
-          try {
-            const trade = await dbQuery(
-              db,
-              `SELECT contracts
-               FROM trades
-               WHERE outcome = ? 
-                 AND price = ?
-               ORDER BY id DESC
-               LIMIT 1`,
-              [o.outcome, o.price]
-            );
-            if (trade && trade[0] && trade[0].contracts > 0) {
-              displaySize = trade[0].contracts;
-            } else {
-              console.warn(`No matching trade found for filled order ${o.id} (outcome: ${o.outcome}, price: ${o.price})`);
-              displaySize = 0;
-            }
-          } catch (error) {
-            console.warn(`Error calculating filled size from trades for order ${o.id}:`, error.message);
-            displaySize = 0;
-          }
-        }
-      } else if (o.status === "partial") {
-        if (o.original_contract_size !== null && o.original_contract_size !== void 0 && o.original_contract_size > 0) {
-          const remaining = o.contract_size || 0;
-          displaySize = o.original_contract_size - remaining;
-        } else {
-          try {
-            const tradesSum = await dbQuery(
-              db,
-              `SELECT COALESCE(SUM(contracts), 0) as total_contracts
-               FROM trades
-               WHERE outcome = ? 
-                 AND price = ?`,
-              [o.outcome, o.price]
-            );
-            const filled = tradesSum[0]?.total_contracts || 0;
-            const remaining = o.contract_size || 0;
-            displaySize = filled > 0 ? filled : Math.max(0, remaining);
-          } catch {
-            displaySize = o.contract_size || 0;
-          }
-        }
-      }
-      let originalSize = o.original_contract_size;
-      if (originalSize === null || originalSize === void 0 || originalSize === 0) {
-        if (o.status === "open" || o.status === "canceled") {
-          originalSize = o.contract_size || 0;
-        } else if (o.status === "filled") {
-          try {
-            const trade = await dbQuery(
-              db,
-              `SELECT contracts
-               FROM trades
-               WHERE outcome = ? 
-                 AND price = ?
-               ORDER BY id DESC
-               LIMIT 1`,
-              [o.outcome, o.price]
-            );
-            if (trade && trade[0] && trade[0].contracts > 0) {
-              originalSize = trade[0].contracts;
-            } else {
-              console.warn(`Cannot determine original size for filled order ${o.id}, using 0`);
-              originalSize = 0;
-            }
-          } catch (error) {
-            console.warn(`Error calculating original size from trades for order ${o.id}:`, error.message);
-            originalSize = 0;
-          }
-        } else if (o.status === "partial") {
-          const remaining = o.contract_size || 0;
-          try {
-            const tradesSum = await dbQuery(
-              db,
-              `SELECT COALESCE(SUM(contracts), 0) as total_contracts
-               FROM trades
-               WHERE outcome = ? 
-                 AND price = ?`,
-              [o.outcome, o.price]
-            );
-            const filled = tradesSum[0]?.total_contracts || 0;
-            originalSize = remaining + filled;
-          } catch {
-            originalSize = o.contract_size || 0;
-          }
-        } else {
-          originalSize = o.contract_size || 0;
-        }
-      }
-      const remainingSize = o.contract_size || 0;
-      return {
-        id: o.id,
-        create_time: o.create_time,
-        user_id: o.user_id,
-        token: o.token,
-        order_id: o.order_id,
-        outcome: o.outcome,
-        price: o.price,
-        // Price in cents, as expected by frontend
-        status: o.status,
-        tif: o.tif,
-        side: o.side,
-        // 0 = bid, 1 = ask
-        contract_size: displaySize,
-        // Show filled/original size for display compatibility
-        original_size: originalSize,
-        // Original order size
-        remaining_size: remainingSize,
-        // Remaining quantity to fill
-        // Additional fields for display
-        outcome_name: o.outcome_name,
-        market_name: o.market_name
-      };
-    })
+  const needsTradeFallback = ordersDb.filter(
+    (o) => (o.status === "filled" || o.status === "partial") && (o.original_contract_size == null || o.original_contract_size === 0)
   );
+  const uniquePairs = Array.from(
+    new Set(needsTradeFallback.map((o) => `${o.outcome}\0${o.price}`))
+  ).map((key2) => {
+    const [outcome, price] = key2.split("\0");
+    return { outcome, price: parseInt(price, 10) };
+  });
+  let tradeRows = [];
+  if (uniquePairs.length > 0) {
+    const conditions = uniquePairs.map(() => "(outcome = ? AND price = ?)").join(" OR ");
+    const params = uniquePairs.flatMap((p) => [p.outcome, p.price]);
+    tradeRows = await dbQuery(
+      db,
+      `SELECT outcome, price, contracts, id FROM trades WHERE ${conditions} ORDER BY id DESC`,
+      params
+    );
+  }
+  const key = /* @__PURE__ */ __name((outcome, price) => `${outcome}\0${price}`, "key");
+  const byPair = {};
+  uniquePairs.forEach((p) => {
+    byPair[key(p.outcome, p.price)] = { latestContracts: 0, sumContracts: 0 };
+  });
+  tradeRows.forEach((r) => {
+    const k = key(r.outcome, r.price);
+    if (byPair[k]) {
+      if (byPair[k].latestContracts === 0) byPair[k].latestContracts = r.contracts;
+      byPair[k].sumContracts += r.contracts;
+    }
+  });
+  const orders = ordersDb.map((o) => {
+    let displaySize = o.contract_size || 0;
+    if (o.status === "filled") {
+      if (o.original_contract_size != null && o.original_contract_size > 0) {
+        displaySize = o.original_contract_size;
+      } else {
+        const fallback = byPair[key(o.outcome, o.price)];
+        displaySize = fallback?.latestContracts ?? 0;
+      }
+    } else if (o.status === "partial") {
+      if (o.original_contract_size != null && o.original_contract_size > 0) {
+        displaySize = o.original_contract_size - (o.contract_size || 0);
+      } else {
+        const fallback = byPair[key(o.outcome, o.price)];
+        displaySize = fallback?.sumContracts ?? 0;
+      }
+    }
+    let originalSize = o.original_contract_size;
+    if (originalSize == null || originalSize === 0) {
+      if (o.status === "open" || o.status === "canceled") {
+        originalSize = o.contract_size || 0;
+      } else if (o.status === "filled") {
+        const fallback = byPair[key(o.outcome, o.price)];
+        originalSize = fallback?.latestContracts ?? 0;
+      } else if (o.status === "partial") {
+        const remaining = o.contract_size || 0;
+        const fallback = byPair[key(o.outcome, o.price)];
+        originalSize = fallback?.sumContracts != null ? remaining + fallback.sumContracts : o.contract_size || 0;
+      } else {
+        originalSize = o.contract_size || 0;
+      }
+    }
+    const remainingSize = o.contract_size || 0;
+    return {
+      id: o.id,
+      create_time: o.create_time,
+      user_id: o.user_id,
+      token: o.token,
+      order_id: o.order_id,
+      outcome: o.outcome,
+      price: o.price,
+      status: o.status,
+      tif: o.tif,
+      side: o.side,
+      contract_size: displaySize,
+      original_size: originalSize,
+      remaining_size: remainingSize,
+      outcome_name: o.outcome_name,
+      market_name: o.market_name
+    };
+  });
   return jsonResponse({ orders });
 }, "onRequestGet");
 
@@ -6056,33 +6198,35 @@ var onRequestGet11 = /* @__PURE__ */ __name(async (context) => {
       }
     }
   }
-  const positionsWithOrderbook = await Promise.all(
-    positionsDb.map(async (position) => {
-      const bestBid = await dbQuery(
-        db,
-        `SELECT price FROM orders 
-         WHERE outcome = ? AND side = 0 AND status IN ('open', 'partial')
-         ORDER BY price DESC, create_time ASC
-         LIMIT 1`,
-        [position.outcome]
-      );
-      const bestAsk = await dbQuery(
-        db,
-        `SELECT price FROM orders 
-         WHERE outcome = ? AND side = 1 AND status IN ('open', 'partial')
-         ORDER BY price ASC, create_time ASC
-         LIMIT 1`,
-        [position.outcome]
-      );
-      const bidPrice = bestBid[0]?.price || null;
-      const askPrice = bestAsk[0]?.price || null;
-      const currentMidpoint = bidPrice !== null && askPrice !== null ? (bidPrice + askPrice) / 2 : bidPrice || askPrice || null;
-      return {
-        ...position,
-        current_price: currentMidpoint
-      };
-    })
-  );
+  let positionsWithOrderbook = positionsDb.map((p) => ({ ...p, current_price: null }));
+  if (positionsDb.length > 0) {
+    const posOutcomeIds = [...new Set(positionsDb.map((p) => p.outcome))];
+    const ph = posOutcomeIds.map(() => "?").join(",");
+    const bidsRows = await dbQuery(
+      db,
+      `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 0 AND status IN ('open','partial') ORDER BY outcome, price DESC, create_time ASC`,
+      posOutcomeIds
+    );
+    const asksRows = await dbQuery(
+      db,
+      `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 1 AND status IN ('open','partial') ORDER BY outcome, price ASC, create_time ASC`,
+      posOutcomeIds
+    );
+    const bestBidByOutcome = {};
+    bidsRows.forEach((r) => {
+      if (bestBidByOutcome[r.outcome] == null) bestBidByOutcome[r.outcome] = r.price;
+    });
+    const bestAskByOutcome = {};
+    asksRows.forEach((r) => {
+      if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price;
+    });
+    positionsWithOrderbook = positionsDb.map((p) => {
+      const bidPrice = bestBidByOutcome[p.outcome] ?? null;
+      const askPrice = bestAskByOutcome[p.outcome] ?? null;
+      const current_price = bidPrice !== null && askPrice !== null ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
+      return { ...p, current_price };
+    });
+  }
   return jsonResponse({ positions: positionsWithOrderbook });
 }, "onRequestGet");
 
@@ -6800,7 +6944,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// ../.wrangler/tmp/bundle-bzBTT7/middleware-insertion-facade.js
+// ../.wrangler/tmp/bundle-SvoGP2/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -6832,7 +6976,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// ../.wrangler/tmp/bundle-bzBTT7/middleware-loader.entry.ts
+// ../.wrangler/tmp/bundle-SvoGP2/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

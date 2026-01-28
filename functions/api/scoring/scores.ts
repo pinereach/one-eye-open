@@ -43,7 +43,14 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       updated_at: number;
     }>(db, query, params);
 
-    return jsonResponse({ scores });
+    const response = jsonResponse({ scores });
+    // Cache historical scoring (not this year) for 1 week — it doesn't change
+    const currentYear = new Date().getFullYear();
+    const requestedYear = year && year !== 'all' ? parseInt(year, 10) : null;
+    if (requestedYear != null && !Number.isNaN(requestedYear) && requestedYear < currentYear) {
+      response.headers.set('Cache-Control', 'public, max-age=604800'); // 1 week
+    }
+    return response;
   } catch (err: any) {
     console.error('[scores GET] Error:', err);
     return errorResponse(err.message || 'Failed to fetch scores', 500);

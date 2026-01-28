@@ -35,11 +35,7 @@ export function MarketDetail() {
   const [activeTab, setActiveTab] = useState<'outcomes' | 'orderbook' | 'trades' | 'positions'>('outcomes');
 
   useEffect(() => {
-    if (id) {
-      loadMarket();
-      loadTrades();
-      loadPositions();
-    }
+    if (id) loadMarket();
   }, [id]);
 
   async function loadMarket() {
@@ -50,7 +46,9 @@ export function MarketDetail() {
       setMarket(data?.market || null);
       setOutcomes(data?.outcomes || []);
       setOrderbookByOutcome(data?.orderbook || {});
-      
+      setTrades(data?.trades ?? []);
+      setPositions(data?.positions ?? []);
+
       // Sort outcomes by chance and select the highest chance outcome
       if (data.outcomes && data.outcomes.length > 0 && data.orderbook) {
         const sorted = [...data.outcomes].sort((a, b) => {
@@ -60,13 +58,13 @@ export function MarketDetail() {
           const bestAskA = orderbookA?.asks?.[0];
           const bestBidB = orderbookB?.bids?.[0];
           const bestAskB = orderbookB?.asks?.[0];
-          
+
           const avgPriceA = bestBidA && bestAskA ? (bestBidA.price + bestAskA.price) / 2 : (bestBidA?.price || 0);
           const avgPriceB = bestBidB && bestAskB ? (bestBidB.price + bestAskB.price) / 2 : (bestBidB?.price || 0);
-          
+
           return avgPriceB - avgPriceA; // Descending
         });
-        
+
         if (!selectedOutcomeId && sorted.length > 0) {
           setSelectedOutcomeId(sorted[0].outcome_id);
         }
@@ -176,8 +174,6 @@ export function MarketDetail() {
       // Refresh all data to show new order in orderbook
       await Promise.all([
         loadMarket(),
-        loadTrades(),
-        loadPositions(),
       ]);
     } catch (err: any) {
       showToast(err.message || 'Failed to place order', 'error');

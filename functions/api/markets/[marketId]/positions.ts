@@ -43,29 +43,44 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     [marketId, userId]
   );
 
-  // Get best bid/ask for each outcome to compute current_price
-  const positionsWithPrice = await Promise.all(
-    positionsDb.map(async (p) => {
-      const bestBid = await dbQuery<{ price: number }>(
-        db,
-        `SELECT price FROM orders 
-         WHERE outcome = ? AND side = 0 AND status IN ('open', 'partial')
-         ORDER BY price DESC, create_time ASC LIMIT 1`,
-        [p.outcome]
-      );
-      const bestAsk = await dbQuery<{ price: number }>(
-        db,
-        `SELECT price FROM orders 
-         WHERE outcome = ? AND side = 1 AND status IN ('open', 'partial')
-         ORDER BY price ASC, create_time ASC LIMIT 1`,
-        [p.outcome]
-      );
-      const bidPrice = bestBid[0]?.price ?? null;
-      const askPrice = bestAsk[0]?.price ?? null;
-      const current_price = (bidPrice !== null && askPrice !== null)
-        ? (bidPrice + askPrice) / 2
-        : bidPrice ?? askPrice ?? null;
+  // Batched best bid/ask: 2 queries for all outcomes (no N+1)
+  let positionsWithPrice = positionsDb.map(p => ({
+    id: p.id,
+    user_id: p.user_id,
+    outcome: p.outcome,
+    create_time: p.create_time,
+    closed_profit: p.closed_profit,
+    settled_profit: p.settled_profit,
+    net_position: p.net_position,
+    price_basis: p.price_basis,
+    is_settled: p.is_settled,
+    market_name: p.market_name,
+    outcome_name: p.outcome_name,
+    outcome_ticker: p.outcome_ticker,
+    current_price: null as number | null,
+  }));
 
+  if (positionsDb.length > 0) {
+    const posOutcomeIds = [...new Set(positionsDb.map(p => p.outcome))];
+    const ph = posOutcomeIds.map(() => '?').join(',');
+    const bidsRows = await dbQuery<{ outcome: string; price: number }>(
+      db,
+      `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 0 AND status IN ('open','partial') ORDER BY outcome, price DESC, create_time ASC`,
+      posOutcomeIds
+    );
+    const asksRows = await dbQuery<{ outcome: string; price: number }>(
+      db,
+      `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 1 AND status IN ('open','partial') ORDER BY outcome, price ASC, create_time ASC`,
+      posOutcomeIds
+    );
+    const bestBidByOutcome: Record<string, number> = {};
+    bidsRows.forEach(r => { if (bestBidByOutcome[r.outcome] == null) bestBidByOutcome[r.outcome] = r.price; });
+    const bestAskByOutcome: Record<string, number> = {};
+    asksRows.forEach(r => { if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price; });
+    positionsWithPrice = positionsDb.map(p => {
+      const bidPrice = bestBidByOutcome[p.outcome] ?? null;
+      const askPrice = bestAskByOutcome[p.outcome] ?? null;
+      const current_price = (bidPrice !== null && askPrice !== null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
       return {
         id: p.id,
         user_id: p.user_id,
@@ -81,8 +96,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
         outcome_ticker: p.outcome_ticker,
         current_price,
       };
-    })
-  );
+    });
+  }
 
   return jsonResponse({ positions: positionsWithPrice });
 };

@@ -64,7 +64,7 @@ export const api = {
   },
 
   getMarket: (id: string) =>
-    apiRequest<{ market: any; outcomes: any[]; orderbook: Record<string, { bids: any[]; asks: any[] }>; recentTrades: any[] }>(`/markets/${id}`),
+    apiRequest<{ market: any; outcomes: any[]; orderbook: Record<string, { bids: any[]; asks: any[] }>; trades?: any[]; positions?: any[] }>(`/markets/${id}`),
 
   placeOrder: (marketId: string, data: { outcome_id: string; side: 'bid' | 'ask'; price: number; contract_size: number; tif?: string; token?: string }) =>
     apiRequest<{ order: any; fills: any[]; trades: any[] }>(`/markets/${marketId}/orders`, {

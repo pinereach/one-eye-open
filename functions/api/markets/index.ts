@@ -8,27 +8,29 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     const url = new URL(request.url);
 
     const db = getDb(env);
-    const sql = 'SELECT * FROM markets ORDER BY created_date DESC';
+    const markets = await dbQuery(db, 'SELECT * FROM markets ORDER BY created_date DESC', []);
 
-    const markets = await dbQuery(db, sql, []);
+    // Single query for all outcomes (no N+1)
+    const marketIds = markets.map((m: { market_id: string }) => m.market_id);
+    let allOutcomes: any[] = [];
+    if (marketIds.length > 0) {
+      const placeholders = marketIds.map(() => '?').join(',');
+      allOutcomes = await dbQuery(
+        db,
+        `SELECT * FROM outcomes WHERE market_id IN (${placeholders}) ORDER BY market_id, created_date ASC`,
+        marketIds
+      );
+    }
+    const outcomesByMarket: Record<string, any[]> = {};
+    marketIds.forEach((id: string) => { outcomesByMarket[id] = []; });
+    allOutcomes.forEach((o: { market_id: string }) => {
+      if (outcomesByMarket[o.market_id]) outcomesByMarket[o.market_id].push(o);
+    });
 
-    // Get outcomes for each market
-    const marketsWithOutcomes = await Promise.all(
-      markets.map(async (market: any) => {
-        try {
-          const outcomes = await dbQuery(
-            db,
-            'SELECT * FROM outcomes WHERE market_id = ? ORDER BY created_date ASC',
-            [market.market_id]
-          );
-          return { ...market, outcomes };
-        } catch (err: any) {
-          console.error(`Error fetching outcomes for market ${market.market_id}:`, err);
-          // Return market without outcomes if query fails
-          return { ...market, outcomes: [] };
-        }
-      })
-    );
+    const marketsWithOutcomes = markets.map((market: any) => ({
+      ...market,
+      outcomes: outcomesByMarket[market.market_id] || [],
+    }));
 
     return jsonResponse({ markets: marketsWithOutcomes });
   } catch (error: any) {
