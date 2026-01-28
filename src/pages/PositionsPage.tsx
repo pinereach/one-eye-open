@@ -32,11 +32,20 @@ export function PositionsPage() {
     return sum + diffCents;
   }, 0);
 
+  const getPositionValueCents = (position: any, currentPrice: number | null) => {
+    if (currentPrice === null) return null;
+    if (position.net_position < 0) {
+      return -position.net_position * (currentPrice - position.price_basis);
+    }
+    return position.net_position * currentPrice;
+  };
+
   const renderPositionCard = (position: any) => {
     const currentPrice = position.current_price !== null && position.current_price !== undefined ? position.current_price : null;
     const costCents = position.net_position * position.price_basis;
-    const positionValueCents = currentPrice !== null ? position.net_position * currentPrice : null;
-    const diffCents = positionValueCents !== null ? positionValueCents - costCents : null;
+    const positionValueCents = getPositionValueCents(position, currentPrice);
+    const positionValueForDiffCents = currentPrice !== null ? position.net_position * currentPrice : null;
+    const diffCents = positionValueForDiffCents !== null ? positionValueForDiffCents - costCents : null;
 
     return (
       <Card key={position.id} className="mb-3">

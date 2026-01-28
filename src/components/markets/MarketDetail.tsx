@@ -257,6 +257,14 @@ export function MarketDetail() {
     return `${sign}${netPosition} @ $${priceStr}`;
   };
 
+  const getPositionValueCents = (position: Position, currentPrice: number | null) => {
+    if (currentPrice === null) return null;
+    if (position.net_position < 0) {
+      return -position.net_position * (currentPrice - position.price_basis);
+    }
+    return position.net_position * currentPrice;
+  };
+
   // My open orders for this market (lazy: only when Open orders tab is active or desktop)
   const myOpenOrders = useMemo(() => {
     if (!user?.id || !(activeTab === 'orders' || isDesktop)) return [];
@@ -609,11 +617,10 @@ export function MarketDetail() {
                     ? position.current_price 
                     : null;
                   const costCents = position.net_position * position.price_basis;
-                  const positionValueCents = currentPrice !== null 
-                    ? position.net_position * currentPrice 
-                    : null;
-                  const diffCents = positionValueCents !== null 
-                    ? positionValueCents - costCents 
+                  const positionValueCents = getPositionValueCents(position, currentPrice);
+                  const positionValueForDiffCents = currentPrice !== null ? position.net_position * currentPrice : null;
+                  const diffCents = positionValueForDiffCents !== null 
+                    ? positionValueForDiffCents - costCents 
                     : null;
 
                   return (
@@ -1066,11 +1073,10 @@ export function MarketDetail() {
                       ? position.current_price 
                       : null;
                     const costCents = position.net_position * position.price_basis;
-                    const positionValueCents = currentPrice !== null 
-                      ? position.net_position * currentPrice 
-                      : null;
-                    const diffCents = positionValueCents !== null 
-                      ? positionValueCents - costCents 
+                    const positionValueCents = getPositionValueCents(position, currentPrice);
+                    const positionValueForDiffCents = currentPrice !== null ? position.net_position * currentPrice : null;
+                    const diffCents = positionValueForDiffCents !== null 
+                      ? positionValueForDiffCents - costCents 
                       : null;
 
                     return (
