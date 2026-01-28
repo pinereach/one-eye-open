@@ -28,10 +28,11 @@ one-eye-open/
 │   └── _middleware.ts     # Pages Functions middleware
 ├── src/
 │   ├── components/       # React components
-│   ├── lib/              # Core utilities (db, auth, matching, settlement)
+│   ├── pages/            # Route page components (Landing, Markets, Orders, etc.)
+│   ├── lib/              # Core utilities (db, auth, format, env, api)
 │   ├── hooks/            # React hooks
 │   ├── types/            # TypeScript types
-│   └── App.tsx           # Main app component
+│   └── App.tsx           # Layout, routing, ProtectedRoute
 ├── migrations/           # D1 database migrations
 └── public/              # Static assets
 ```
@@ -178,19 +179,18 @@ The database includes the following tables:
 - `GET /api/markets/:id/positions` - Get user positions
 
 ### Scoring
-- `GET /api/scoring/rounds` - List rounds (query: `?tripId=...&roundId=...`)
-- `POST /api/scoring/rounds?roundId=...` - Update score
+- `GET /api/scoring/scores` - Historical scores (query: `?course=...&year=...`)
+- `POST /api/scoring/scores` - Update score value
+- `GET /api/scoring/rounds` - Stub (returns empty; rounds tables removed). Use `/scoring/scores` for scoring.
 
 ### Settlement
-- `POST /api/trips/:tripId/markets/:marketId/settle` - Settle market (admin only)
-
-### Ledger
-- `GET /api/ledger` - Get ledger entries (query: `?tripId=...`)
+- `POST /api/markets/:marketId/settle` - Settle market (body: `{ "settle_value": 0 | 10000 }`, auth required)
 
 ### Export
-- `GET /api/export?type=scores&tripId=...` - Export scores as CSV
-- `GET /api/export?type=trades&tripId=...` - Export trades as CSV
-- `GET /api/export?type=ledger&tripId=...` - Export ledger as CSV
+- `GET /api/export?type=trades` - Export trades as CSV (auth required). Only `type=trades` is implemented.
+
+### Debug (optional)
+- `GET /api/debug/schema?key=YOUR_SECRET` - Returns DB schema for key tables. Set `DEBUG_SCHEMA_KEY` in Cloudflare env; if unset, endpoint returns 404.
 
 ## Matching Engine
 

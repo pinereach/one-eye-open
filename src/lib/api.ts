@@ -100,12 +100,6 @@ export const api = {
     });
   },
 
-  // Scoring
-  getScoringRounds: (roundId?: string) => {
-    const query = roundId ? `?roundId=${roundId}` : '';
-    return apiRequest<{ rounds: any[]; roundScores: any[] }>(`/scoring/rounds${query}`);
-  },
-
   // Market Suggestions
   suggestMarket: (data: {
     short_name: string;
@@ -120,12 +114,6 @@ export const api = {
       body: JSON.stringify(data),
     });
   },
-
-  updateScore: (roundId: string, data: { cross_score?: number; net_score?: number }) =>
-    apiRequest<{ success: boolean }>(`/scoring/rounds?roundId=${roundId}`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
 
   // Scores (historical scoring data)
   getScores: (course?: string, year?: string) => {

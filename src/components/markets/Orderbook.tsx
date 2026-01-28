@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Order } from '../../types';
+import { formatPrice } from '../../lib/format';
 
 interface OrderbookProps {
   bids: Order[];
@@ -25,7 +26,6 @@ interface CancelDialogProps {
 }
 
 function CancelDialog({ isOpen, orders, price, onClose, onCancel }: CancelDialogProps) {
-  const formatPrice = (price: number) => `$${Math.round(price / 100)}`;
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
     return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
@@ -101,8 +101,6 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
     orders: [],
     price: 0,
   });
-
-  const formatPrice = (price: number) => `$${Math.round(price / 100)}`;
 
   // Group orders by price level
   const groupByPrice = (orders: Order[]): PriceLevel[] => {

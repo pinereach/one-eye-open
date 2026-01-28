@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
+import { formatPrice, formatPriceBasis, formatPriceDecimal, formatPriceCents } from '../../lib/format';
 import { Orderbook } from './Orderbook';
 import { ToastContainer, useToast } from '../ui/Toast';
 import { BottomSheet } from '../ui/BottomSheet';
@@ -265,17 +266,6 @@ export function MarketDetail() {
     return <div className="text-center py-8">Market not found</div>;
   }
 
-  const formatPrice = (cents: number) => `$${Math.round(cents / 100)}`;
-  const formatPriceBasis = (cents: number) => `$${(cents / 100).toFixed(1)}`;
-  const formatPriceDecimal = (cents: number) => `$${(cents / 100).toFixed(1)}`;
-  const formatPriceCents = (cents: number) => {
-    const dollars = cents / 100;
-    if (dollars < 1) {
-      return `${Math.round(cents / 10)}¢`;
-    }
-    return `$${Math.round(dollars)}`;
-  };
-
   // Sort outcomes by chance (descending) before rendering
   const sortedOutcomes = (outcomes || []).length > 0 ? [...(outcomes || [])].sort((a, b) => {
     const orderbookA = orderbookByOutcome?.[a.outcome_id];
@@ -345,8 +335,8 @@ export function MarketDetail() {
                     <tr className="border-b border-gray-300 dark:border-gray-600">
                       <th className="py-1.5 px-2 sm:py-2 sm:px-3 text-left text-xs font-bold text-gray-600 dark:text-gray-400">Team</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Chance</th>
-                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Bid</th>
-                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Ask</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Bid/Sell</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Ask/Buy</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -400,9 +390,12 @@ export function MarketDetail() {
                                     e.stopPropagation();
                                     handleBidClick(outcome.outcome_id, yesPrice);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation h-[32px] sm:h-[38px] flex items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
                                 >
                                   {yesPrice ? formatPriceCents(yesPrice) : '-'}
+                                  {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
+                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestBid.contract_size}</span>
+                                  )}
                                 </button>
                               </div>
                             </td>
@@ -413,9 +406,12 @@ export function MarketDetail() {
                                     e.stopPropagation();
                                     handleAskClick(outcome.outcome_id, bestAsk?.price || null);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation h-[32px] sm:h-[38px] flex items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
                                 >
                                   {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
+                                  {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
+                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestAsk.contract_size}</span>
+                                  )}
                                 </button>
                               </div>
                             </td>
@@ -603,8 +599,8 @@ export function MarketDetail() {
                     <tr className="border-b border-gray-300 dark:border-gray-600">
                       <th className="py-1.5 px-2 sm:py-2 sm:px-3 text-left text-xs font-bold text-gray-600 dark:text-gray-400">Team</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Chance</th>
-                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Bid</th>
-                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Ask</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Bid/Sell</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Ask/Buy</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -658,9 +654,12 @@ export function MarketDetail() {
                                     e.stopPropagation();
                                     handleBidClick(outcome.outcome_id, yesPrice);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation h-[32px] sm:h-[38px] flex items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
                                 >
                                   {yesPrice ? formatPriceCents(yesPrice) : '-'}
+                                  {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
+                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestBid.contract_size}</span>
+                                  )}
                                 </button>
                               </div>
                             </td>
@@ -671,9 +670,12 @@ export function MarketDetail() {
                                     e.stopPropagation();
                                     handleAskClick(outcome.outcome_id, bestAsk?.price || null);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation h-[32px] sm:h-[38px] flex items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
                                 >
                                   {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
+                                  {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
+                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestAsk.contract_size}</span>
+                                  )}
                                 </button>
                               </div>
                             </td>
@@ -756,15 +758,11 @@ export function MarketDetail() {
                     className="w-full px-3 py-2.5 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 touch-manipulation"
                   >
                     <option value="">Select an outcome</option>
-                    {outcomes.map((outcome) => {
-                      const pos = positionByOutcome[outcome.outcome_id];
-                      const posSuffix = pos ? `  ${formatPositionChip(pos.net_position, pos.price_basis)}` : '';
-                      return (
-                        <option key={outcome.id} value={outcome.outcome_id}>
-                          {outcome.name} ({outcome.ticker}){posSuffix}
-                        </option>
-                      );
-                    })}
+                    {outcomes.map((outcome) => (
+                      <option key={outcome.id} value={outcome.outcome_id}>
+                        {outcome.ticker ?? outcome.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               )}
@@ -780,7 +778,7 @@ export function MarketDetail() {
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                     }`}
                   >
-                    No {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
+                    Bid/Sell {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
                   </button>
                   <button
                     type="button"
@@ -791,7 +789,7 @@ export function MarketDetail() {
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                     }`}
                   >
-                    Yes {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
+                    Yes/Buy {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
                   </button>
                 </div>
               </div>
@@ -815,12 +813,12 @@ export function MarketDetail() {
                   <div className="mb-2 text-xs text-gray-600 dark:text-gray-400 flex gap-4">
                     {bestBid && (
                       <span>
-                        Bid: <span className="font-medium text-red-600 dark:text-red-400">{formatPriceCents(bestBid.price)}</span>
+                        Yes/Buy: <span className="font-medium text-red-600 dark:text-red-400">{formatPriceCents(bestBid.price)}</span>
                       </span>
                     )}
                     {bestAsk && (
                       <span>
-                        Ask: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceCents(bestAsk.price)}</span>
+                        Bid/Sell: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceCents(bestAsk.price)}</span>
                       </span>
                     )}
                   </div>
@@ -1071,15 +1069,11 @@ export function MarketDetail() {
                 className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 touch-manipulation min-h-[44px]"
               >
                 <option value="">Select an outcome</option>
-                {outcomes.map((outcome) => {
-                  const pos = positionByOutcome[outcome.outcome_id];
-                  const posSuffix = pos ? `  ${formatPositionChip(pos.net_position, pos.price_basis)}` : '';
-                  return (
-                    <option key={outcome.outcome_id} value={outcome.outcome_id}>
-                      {outcome.name}{posSuffix}
-                    </option>
-                  );
-                })}
+                {outcomes.map((outcome) => (
+                  <option key={outcome.outcome_id} value={outcome.outcome_id}>
+                    {outcome.ticker ?? outcome.name}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -1131,17 +1125,17 @@ export function MarketDetail() {
               <div className="mb-2 text-xs text-gray-600 dark:text-gray-400 flex gap-4">
                 {bestBid && (
                   <span>
-                    Bid: <span className="font-medium text-red-600 dark:text-red-400">{formatPriceCents(bestBid.price)}</span>
+                    Yes/Buy: <span className="font-medium text-red-600 dark:text-red-400">{formatPriceCents(bestBid.price)}</span>
                   </span>
                 )}
                 {bestAsk && (
                   <span>
-                    Ask: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceCents(bestAsk.price)}</span>
+                    Bid/Sell: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceCents(bestAsk.price)}</span>
                   </span>
                 )}
               </div>
             )}
-            <div className="relative">
+          <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400">$</span>
               <input
                 type="tel"
