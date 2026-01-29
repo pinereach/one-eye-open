@@ -6,6 +6,7 @@ export interface User {
   view_scores: boolean;
   view_market_maker: boolean;
   view_market_creation: boolean;
+  admin: boolean;
 }
 
 interface TokenPayload {
@@ -117,9 +118,9 @@ export async function getUserFromToken(
   }
 
   // Verify user still exists and get latest data (view_* default to 0 if column missing)
-  const row = await dbFirst<{ id: number; username: string; view_scores: number; view_market_maker: number; view_market_creation: number }>(
+  const row = await dbFirst<{ id: number; username: string; view_scores: number; view_market_maker: number; view_market_creation: number; admin: number }>(
     db,
-    `SELECT id, username, view_scores, view_market_maker, view_market_creation FROM users WHERE id = ?`,
+    `SELECT id, username, view_scores, view_market_maker, view_market_creation, admin FROM users WHERE id = ?`,
     [payload.userId]
   );
 
@@ -131,6 +132,7 @@ export async function getUserFromToken(
     view_scores: Boolean(row.view_scores),
     view_market_maker: Boolean(row.view_market_maker),
     view_market_creation: Boolean(row.view_market_creation),
+    admin: Boolean(row.admin),
   };
 }
 

@@ -51,10 +51,10 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       return errorResponse('Failed to create user', 500);
     }
 
-    // Get created user (new users get default view_* = 0)
-    const row = await dbFirst<{ id: number; username: string; view_scores: number; view_market_maker: number; view_market_creation: number }>(
+    // Get created user (new users get default view_* = 0, admin = 0)
+    const row = await dbFirst<{ id: number; username: string; view_scores: number; view_market_maker: number; view_market_creation: number; admin: number }>(
       db,
-      'SELECT id, username, view_scores, view_market_maker, view_market_creation FROM users WHERE id = ?',
+      'SELECT id, username, view_scores, view_market_maker, view_market_creation, admin FROM users WHERE id = ?',
       [result.meta.last_row_id]
     );
 
@@ -68,6 +68,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       view_scores: Boolean(row.view_scores),
       view_market_maker: Boolean(row.view_market_maker),
       view_market_creation: Boolean(row.view_market_creation),
+      admin: Boolean(row.admin),
     };
 
     // Create token

@@ -4,6 +4,7 @@ export interface User {
   view_scores?: boolean;
   view_market_maker?: boolean;
   view_market_creation?: boolean;
+  admin?: boolean;
 }
 
 export interface Participant {

@@ -26,9 +26,10 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       view_scores: number;
       view_market_maker: number;
       view_market_creation: number;
+      admin: number;
     }>(
       db,
-      'SELECT id, username, password, view_scores, view_market_maker, view_market_creation FROM users WHERE username = ?',
+      'SELECT id, username, password, view_scores, view_market_maker, view_market_creation, admin FROM users WHERE username = ?',
       [validated.username]
     );
 
@@ -58,6 +59,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       view_scores: Boolean(rest.view_scores),
       view_market_maker: Boolean(rest.view_market_maker),
       view_market_creation: Boolean(rest.view_market_creation),
+      admin: Boolean(rest.admin),
     };
 
     const response = jsonResponse({ user: userWithoutPassword });
