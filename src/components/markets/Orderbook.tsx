@@ -225,7 +225,7 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
                   return (
                     <div
                       key={level.price}
-                      className={`relative flex items-center justify-between text-xs sm:text-sm p-2 rounded transition-colors touch-manipulation min-h-[44px] ${
+                      className={`relative flex items-center justify-between text-xs sm:text-sm p-2 rounded transition-colors touch-manipulation h-12 ${
                         hasUserOrders
                           ? 'bg-green-100 dark:bg-green-900/40 border-2 border-primary-500 dark:border-primary-400'
                           : 'bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 cursor-pointer'
@@ -307,7 +307,7 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
                   return (
                     <div
                       key={level.price}
-                      className={`relative flex items-center justify-between text-xs sm:text-sm p-2 rounded transition-colors touch-manipulation min-h-[44px] ${
+                      className={`relative flex items-center justify-between text-xs sm:text-sm p-2 rounded transition-colors touch-manipulation h-12 ${
                         hasUserOrders
                           ? 'bg-red-100 dark:bg-red-900/40 border-2 border-primary-500 dark:border-primary-400'
                           : 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 cursor-pointer'
