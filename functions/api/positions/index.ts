@@ -4,6 +4,14 @@ import { getDb, dbQuery, dbRun, type Env } from '../../lib/db';
 import { requireAuth, jsonResponse } from '../../middleware';
 import type { Position } from '../../lib/matching';
 
+/** Valid price_basis range in cents ($1–$99). Clamp so we never return invalid values. */
+const PRICE_BASIS_MIN_CENTS = 100;
+const PRICE_BASIS_MAX_CENTS = 9900;
+function clampPriceBasis(cents: number): number {
+  if (cents <= 0) return cents;
+  return Math.max(PRICE_BASIS_MIN_CENTS, Math.min(PRICE_BASIS_MAX_CENTS, cents));
+}
+
 // Helper function to recalculate price_basis from order history
 async function recalculatePriceBasis(
   db: D1Database,
@@ -103,8 +111,8 @@ async function recalculatePriceBasis(
       totalQty += contract.qty;
     }
     if (totalQty > 0 && Math.abs(totalQty - currentNetPosition) <= 1) {
-      // Allow small rounding differences
-      return Math.round(totalValue / totalQty);
+      // Allow small rounding differences; clamp to valid range
+      return clampPriceBasis(Math.round(totalValue / totalQty));
     }
   } else if (currentNetPosition < 0 && shortContracts.length > 0) {
     // Short position: weighted average of remaining short contracts
@@ -115,8 +123,8 @@ async function recalculatePriceBasis(
       totalQty += contract.qty;
     }
     if (totalQty > 0 && Math.abs(totalQty - Math.abs(currentNetPosition)) <= 1) {
-      // Allow small rounding differences
-      return Math.round(totalValue / totalQty);
+      // Allow small rounding differences; clamp to valid range
+      return clampPriceBasis(Math.round(totalValue / totalQty));
     }
   }
 
@@ -176,7 +184,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   }
 
   // Batched best bid/ask: 2 queries for all outcomes (no N+1)
-  let positionsWithOrderbook: any[] = positionsDb.map(p => ({ ...p, current_price: null as number | null }));
+  const clampBasis = (p: typeof positionsDb[0]) => p.net_position !== 0 && p.price_basis > 0 ? clampPriceBasis(p.price_basis) : p.price_basis;
+  let positionsWithOrderbook: any[] = positionsDb.map(p => ({ ...p, price_basis: clampBasis(p), current_price: null as number | null }));
 
   if (positionsDb.length > 0) {
     const posOutcomeIds = [...new Set(positionsDb.map(p => p.outcome))];
@@ -199,7 +208,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       const bidPrice = bestBidByOutcome[p.outcome] ?? null;
       const askPrice = bestAskByOutcome[p.outcome] ?? null;
       const current_price = (bidPrice !== null && askPrice !== null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
-      return { ...p, current_price };
+      return { ...p, price_basis: clampBasis(p), current_price };
     });
   }
 

@@ -18,10 +18,10 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
     const db = getDb(env);
 
-    // Check if username already exists
+    // Check if username already exists (case-insensitive)
     const existing = await dbFirst(
       db,
-      'SELECT id FROM users WHERE username = ?',
+      'SELECT id FROM users WHERE LOWER(username) = LOWER(?)',
       [validated.username]
     );
 

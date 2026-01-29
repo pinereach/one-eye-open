@@ -40,13 +40,13 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
         admin: number;
       }>(
         db,
-        'SELECT id, username, password, view_scores, view_market_maker, view_market_creation, admin FROM users WHERE username = ?',
+        'SELECT id, username, password, view_scores, view_market_maker, view_market_creation, admin FROM users WHERE LOWER(username) = LOWER(?)',
         [validated.username]
       );
     } catch {
       user = await dbFirst<{ id: number; username: string; password: string }>(
         db,
-        'SELECT id, username, password FROM users WHERE username = ?',
+        'SELECT id, username, password FROM users WHERE LOWER(username) = LOWER(?)',
         [validated.username]
       );
     }

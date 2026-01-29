@@ -1,6 +1,10 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import { dbQuery, dbFirst, dbRun } from './db';
 
+/** Valid price_basis range in cents ($1–$99). Used to clamp position cost basis. */
+const PRICE_BASIS_MIN_CENTS = 100;
+const PRICE_BASIS_MAX_CENTS = 9900;
+
 export interface Order {
   id: string;
   market_id: string;
@@ -356,15 +360,9 @@ export async function updatePosition(
       }
       
       if (remainingQty > 0) {
-        // Go long with remaining
+        // Go long with remaining (we closed short; new long's basis is this fill price only)
         newNetPosition = newNetPosition + remainingQty;
-        // Calculate weighted average price
-        if (currentPriceBasis > 0 && currentNetPosition < 0) {
-          const totalValue = Math.abs(currentNetPosition) * currentPriceBasis + remainingQty * priceCents;
-          newPriceBasis = Math.round(totalValue / newNetPosition);
-        } else {
-          newPriceBasis = priceCents;
-        }
+        newPriceBasis = priceCents;
       } else if (newNetPosition === 0) {
         // Fully closed short (net position is now 0), price_basis resets
         newPriceBasis = 0;
@@ -399,15 +397,9 @@ export async function updatePosition(
       }
       
       if (remainingQty > 0) {
-        // Go short with remaining
+        // Go short with remaining (we closed long; new short's basis is this fill price only)
         newNetPosition = newNetPosition - remainingQty;
-        // Calculate weighted average price for short
-        if (currentPriceBasis > 0 && currentNetPosition > 0) {
-          const totalValue = currentNetPosition * currentPriceBasis + remainingQty * priceCents;
-          newPriceBasis = Math.round(totalValue / Math.abs(newNetPosition));
-        } else {
-          newPriceBasis = priceCents;
-        }
+        newPriceBasis = priceCents;
       } else if (newNetPosition === 0) {
         // Fully closed long (net position is now 0), price_basis resets
         newPriceBasis = 0;
@@ -426,6 +418,11 @@ export async function updatePosition(
         newPriceBasis = priceCents;
       }
     }
+  }
+
+  // Clamp price_basis to valid range ($1–$99) so we never persist invalid values
+  if (newNetPosition !== 0 && newPriceBasis > 0) {
+    newPriceBasis = Math.max(PRICE_BASIS_MIN_CENTS, Math.min(PRICE_BASIS_MAX_CENTS, newPriceBasis));
   }
 
   // Create position if it doesn't exist
@@ -559,8 +556,11 @@ export async function executeMatching(
       takerSideNum
     );
 
-    // Update positions for both users
-    if (makerOrderDb) {
+    // Update positions for both users (skip when same user is both taker and maker — net effect is zero)
+    const makerUserIdNum = makerUserId != null ? (typeof makerUserId === 'string' ? parseInt(makerUserId, 10) : makerUserId) : null;
+    const sameUserBothSides = makerOrderDb && makerUserIdNum != null && !Number.isNaN(takerUserId) && takerUserId === makerUserIdNum;
+
+    if (makerOrderDb && !sameUserBothSides) {
       // Taker position - use outcomeId since positions table uses outcome
       if (!Number.isNaN(takerUserId)) {
         await updatePosition(
