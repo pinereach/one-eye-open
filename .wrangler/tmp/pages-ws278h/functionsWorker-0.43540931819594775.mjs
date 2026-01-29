@@ -5,7 +5,7 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// ../.wrangler/tmp/bundle-uSLC8d/checked-fetch.js
+// ../.wrangler/tmp/bundle-qOHWwJ/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -6407,8 +6407,107 @@ var onRequestGet12 = /* @__PURE__ */ __name(async (context) => {
   return jsonResponse({ positions: positionsWithOrderbook });
 }, "onRequestGet");
 
-// api/trades/index.ts
+// api/tape/index.ts
 var onRequestGet13 = /* @__PURE__ */ __name(async (context) => {
+  const { request, env } = context;
+  const url = new URL(request.url);
+  const limit = Math.min(parseInt(url.searchParams.get("limit") || "40", 10), 100);
+  const authResult = await requireAuth(request, env);
+  if ("error" in authResult) {
+    return authResult.error;
+  }
+  const db = getDb(env);
+  await dbRun(
+    db,
+    `UPDATE trades 
+     SET outcome = (
+       SELECT o.outcome 
+       FROM orders o 
+       WHERE ABS(o.create_time - trades.create_time) <= 2 
+         AND ABS(o.price - trades.price) <= 50
+       LIMIT 1
+     )
+     WHERE outcome IS NULL 
+       AND EXISTS (
+         SELECT 1 FROM orders o 
+         WHERE ABS(o.create_time - trades.create_time) <= 2 
+           AND ABS(o.price - trades.price) <= 50
+       )`
+  );
+  let tradesRows = [];
+  try {
+    tradesRows = await dbQuery(
+      db,
+      `SELECT 
+         t.id,
+         t.token,
+         t.price,
+         t.contracts,
+         t.create_time,
+         t.risk_off_contracts,
+         t.risk_off_price_diff,
+         t.outcome,
+         t.taker_side,
+         o.name as outcome_name,
+         o.ticker as outcome_ticker,
+         o.market_id,
+         m.short_name as market_short_name
+       FROM trades t
+       LEFT JOIN outcomes o ON t.outcome = o.outcome_id
+       LEFT JOIN markets m ON o.market_id = m.market_id
+       ORDER BY t.create_time DESC
+       LIMIT ?`,
+      [limit]
+    );
+  } catch (err) {
+    try {
+      tradesRows = await dbQuery(
+        db,
+        `SELECT 
+           t.id,
+           t.token,
+           t.price,
+           t.contracts,
+           t.create_time,
+           t.risk_off_contracts,
+           t.risk_off_price_diff,
+           t.outcome,
+           o.name as outcome_name,
+           o.ticker as outcome_ticker,
+           o.market_id,
+           m.short_name as market_short_name
+         FROM trades t
+         LEFT JOIN outcomes o ON t.outcome = o.outcome_id
+         LEFT JOIN markets m ON o.market_id = m.market_id
+         ORDER BY t.create_time DESC
+         LIMIT ?`,
+        [limit]
+      );
+    } catch {
+      tradesRows = [];
+    }
+  }
+  const trades = tradesRows.map((t) => ({
+    id: t.id,
+    token: t.token,
+    price: t.price,
+    contracts: t.contracts,
+    create_time: t.create_time,
+    risk_off_contracts: t.risk_off_contracts ?? 0,
+    risk_off_price_diff: t.risk_off_price_diff ?? 0,
+    outcome: t.outcome,
+    outcome_name: t.outcome_name,
+    outcome_ticker: t.outcome_ticker,
+    market_id: t.market_id,
+    market_short_name: t.market_short_name,
+    side: t.taker_side ?? null,
+    taker_side: t.taker_side ?? null
+  }));
+  return jsonResponse({ trades });
+}, "onRequestGet");
+
+// api/trades/index.ts
+var onRequestGet14 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
   const limit = parseInt(url.searchParams.get("limit") || "100", 10);
@@ -6644,11 +6743,18 @@ var routes = [
     modules: [onRequestGet12]
   },
   {
+    routePath: "/api/tape",
+    mountPath: "/api/tape",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet13]
+  },
+  {
     routePath: "/api/trades",
     mountPath: "/api/trades",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet13]
+    modules: [onRequestGet14]
   },
   {
     routePath: "/",
@@ -7146,7 +7252,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// ../.wrangler/tmp/bundle-uSLC8d/middleware-insertion-facade.js
+// ../.wrangler/tmp/bundle-qOHWwJ/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -7178,7 +7284,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// ../.wrangler/tmp/bundle-uSLC8d/middleware-loader.entry.ts
+// ../.wrangler/tmp/bundle-qOHWwJ/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

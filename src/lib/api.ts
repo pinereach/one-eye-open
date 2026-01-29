@@ -24,7 +24,16 @@ async function apiRequest<T>(
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unknown error');
       console.error(`API Error [${response.status}]: ${endpoint}`, errorText);
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      let message = `${response.status} ${response.statusText}`;
+      try {
+        const errBody = JSON.parse(errorText);
+        if (errBody?.error && typeof errBody.error === 'string') {
+          message = errBody.error;
+        }
+      } catch {
+        // use default message
+      }
+      throw new Error(message);
     }
 
     return response.json();
@@ -80,10 +89,16 @@ export const api = {
   getPositions: (marketId: string) =>
     apiRequest<{ positions: any[] }>(`/markets/${marketId}/positions`),
 
-  // All trades and positions (across all markets)
+  // All trades and positions (across all markets) — only the current user's trades
   getAllTrades: (limit?: number) => {
     const query = limit ? `?limit=${limit}` : '';
     return apiRequest<{ trades: any[] }>(`/trades${query}`);
+  },
+
+  // Global trade tape — all taker trades across the app (not filtered by user)
+  getTape: (limit?: number) => {
+    const query = limit ? `?limit=${limit}` : '';
+    return apiRequest<{ trades: any[] }>(`/tape${query}`);
   },
 
   getAllPositions: () =>

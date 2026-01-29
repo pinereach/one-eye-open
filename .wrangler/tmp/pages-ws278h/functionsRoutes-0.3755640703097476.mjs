@@ -19,6 +19,7 @@ import { onRequestGet as __api_markets_index_ts_onRequestGet } from "/Users/dhuf
 import { onRequestGet as __api_orders_index_ts_onRequestGet } from "/Users/dhuffman/Documents/GitHub/one-eye-open1/functions/api/orders/index.ts"
 import { onRequestGet as __api_participants_index_ts_onRequestGet } from "/Users/dhuffman/Documents/GitHub/one-eye-open1/functions/api/participants/index.ts"
 import { onRequestGet as __api_positions_index_ts_onRequestGet } from "/Users/dhuffman/Documents/GitHub/one-eye-open1/functions/api/positions/index.ts"
+import { onRequestGet as __api_tape_index_ts_onRequestGet } from "/Users/dhuffman/Documents/GitHub/one-eye-open1/functions/api/tape/index.ts"
 import { onRequestGet as __api_trades_index_ts_onRequestGet } from "/Users/dhuffman/Documents/GitHub/one-eye-open1/functions/api/trades/index.ts"
 import { onRequest as ___middleware_ts_onRequest } from "/Users/dhuffman/Documents/GitHub/one-eye-open1/functions/_middleware.ts"
 
@@ -169,6 +170,13 @@ export const routes = [
       method: "GET",
       middlewares: [],
       modules: [__api_positions_index_ts_onRequestGet],
+    },
+  {
+      routePath: "/api/tape",
+      mountPath: "/api/tape",
+      method: "GET",
+      middlewares: [],
+      modules: [__api_tape_index_ts_onRequestGet],
     },
   {
       routePath: "/api/trades",

@@ -7,6 +7,7 @@ import { ToastContainer, useToast } from '../ui/Toast';
 import { BottomSheet } from '../ui/BottomSheet';
 import { Tabs } from '../ui/Tabs';
 import { ConfirmModal } from '../ui/ConfirmModal';
+import { PullToRefresh } from '../ui/PullToRefresh';
 import { Skeleton } from '../ui/Skeleton';
 import { Card, CardContent } from '../ui/Card';
 import { useAuth } from '../../hooks/useAuth';
@@ -42,6 +43,20 @@ export function MarketDetail() {
   const [confirmCancelAllOpen, setConfirmCancelAllOpen] = useState(false);
   const isDesktop = useIsDesktop();
   const quantityInputRef = useRef<HTMLInputElement>(null);
+  const lastLoadTsRef = useRef<number>(0);
+  const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
+
+  const MIN_REFRESH_INTERVAL_MS = 45_000;
+
+  function formatLastUpdated(ts: number): string {
+    const diffSec = Math.floor((Date.now() - ts) / 1000);
+    if (diffSec < 10) return 'just now';
+    if (diffSec < 60) return `${diffSec} sec ago`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} min ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    return `${diffHr} hr ago`;
+  }
 
   useEffect(() => {
     if (id) loadMarket();
@@ -63,6 +78,24 @@ export function MarketDetail() {
       }, 100);
     }
   }, [bottomSheetOpen]);
+
+  // Refetch when opening order sheet if data is stale (throttled)
+  useEffect(() => {
+    if (bottomSheetOpen && id && Date.now() - lastLoadTsRef.current >= MIN_REFRESH_INTERVAL_MS) {
+      loadMarket();
+    }
+  }, [bottomSheetOpen, id]);
+
+  // Refetch when user returns to tab if data is stale (throttled)
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'visible' && id && Date.now() - lastLoadTsRef.current >= MIN_REFRESH_INTERVAL_MS) {
+        loadMarket();
+      }
+    };
+    document.addEventListener('visibilitychange', handler);
+    return () => document.removeEventListener('visibilitychange', handler);
+  }, [id]);
 
   async function loadMarket() {
     if (!id) return;
@@ -100,6 +133,8 @@ export function MarketDetail() {
       showToast('Failed to load market data', 'error');
     } finally {
       setLoading(false);
+      lastLoadTsRef.current = Date.now();
+      setLastFetchedAt(Date.now());
     }
   }
 
@@ -157,6 +192,8 @@ export function MarketDetail() {
         setBottomSheetOpen(false);
       } catch (err: any) {
         showToast(err?.message || 'Failed to place orders', 'error');
+        await loadMarket();
+        showToast('Orderbook refreshed – please try again if needed.', 'info');
       } finally {
         setSubmitting(false);
       }
@@ -199,6 +236,46 @@ export function MarketDetail() {
       }
     }
 
+    // Pre-submit light check: refetch orderbook and abort if liquidity no longer there
+    try {
+      const data = await api.getMarket(id);
+      if (data?.market) setMarket(data.market);
+      if (data?.outcomes) setOutcomes(data.outcomes);
+      if (data?.orderbook) setOrderbookByOutcome(data.orderbook);
+      if (data?.trades != null) setTrades(data.trades);
+      if (data?.positions != null) setPositions(data.positions);
+      lastLoadTsRef.current = Date.now();
+      setLastFetchedAt(Date.now());
+
+      const freshBook = data?.orderbook?.[selectedOutcomeId];
+      if (orderSide === 'bid') {
+        const asksAtOrBelow = (freshBook?.asks || []).filter(
+          (a: Order) => (a.status === 'open' || a.status === 'partial') && a.price <= priceCents
+        );
+        if (asksAtOrBelow.length > 0) {
+          const totalSize = asksAtOrBelow.reduce((sum: number, a: Order) => sum + (a.contract_size ?? 0), 0);
+          if (totalSize < qty) {
+            showToast('Orderbook changed – refreshed', 'info');
+            return;
+          }
+        }
+      } else {
+        const bidsAtOrAbove = (freshBook?.bids || []).filter(
+          (b: Order) => (b.status === 'open' || b.status === 'partial') && b.price >= priceCents
+        );
+        if (bidsAtOrAbove.length > 0) {
+          const totalSize = bidsAtOrAbove.reduce((sum: number, b: Order) => sum + (b.contract_size ?? 0), 0);
+          if (totalSize < qty) {
+            showToast('Orderbook changed – refreshed', 'info');
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      // If pre-submit refetch fails, still allow submit (server will validate)
+      console.warn('Pre-submit orderbook check failed:', err);
+    }
+
     setSubmitting(true);
     try {
       await api.placeOrder(id, {
@@ -222,6 +299,8 @@ export function MarketDetail() {
       ]);
     } catch (err: any) {
       showToast(err.message || 'Failed to place order', 'error');
+      await loadMarket();
+      showToast('Orderbook refreshed – please try again if needed.', 'info');
     } finally {
       setSubmitting(false);
     }
@@ -430,6 +509,7 @@ export function MarketDetail() {
   }) : [];
 
   return (
+    <PullToRefresh onRefresh={loadMarket}>
     <div className="space-y-4 sm:space-y-6">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
@@ -456,6 +536,18 @@ export function MarketDetail() {
             <div className="text-sm sm:text-lg font-semibold">{formatPrice(marketStats.totalVolume * 100)}</div>
           </div>
         </div>
+        {lastFetchedAt != null && (
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-2">
+            <span>Updated {formatLastUpdated(lastFetchedAt)}</span>
+            <button
+              type="button"
+              onClick={() => loadMarket()}
+              className="text-primary-600 dark:text-primary-400 hover:underline font-medium"
+            >
+              Refresh
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Mobile Tabs */}
@@ -1644,5 +1736,6 @@ export function MarketDetail() {
       {/* Spacer for mobile bottom nav and FAB */}
       <div className="md:hidden h-24"></div>
     </div>
+    </PullToRefresh>
   );
 }

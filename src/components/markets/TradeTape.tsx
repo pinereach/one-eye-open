@@ -14,7 +14,7 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
     async function load() {
       setLoading(true);
       try {
-        const { trades: data } = await api.getAllTrades(TAPE_LIMIT);
+        const { trades: data } = await api.getTape(TAPE_LIMIT);
         setTrades(data ?? []);
       } catch (err) {
         console.error('Failed to load trade tape:', err);
