@@ -61,6 +61,21 @@ export function MarketDetail() {
     return `${diffHr} hr ago`;
   }
 
+  /** H2H outcome name is "PlayerA Over PlayerB"; format with handicap indexes in smaller font. */
+  function formatH2HOutcomeWithIndexes(name: string, asString: false): React.ReactNode;
+  function formatH2HOutcomeWithIndexes(name: string, asString: true): string;
+  function formatH2HOutcomeWithIndexes(name: string, asString: boolean): React.ReactNode | string {
+    const overIdx = name.indexOf(' Over ');
+    if (overIdx === -1) return asString ? name : <>{name}</>;
+    const playerA = name.slice(0, overIdx).trim();
+    const playerB = name.slice(overIdx + 6).trim();
+    const indexA = handicaps[playerA];
+    const indexB = handicaps[playerB];
+    const small = (x: number) => <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-normal"> ({x})</span>;
+    if (asString) return `${playerA}${indexA != null ? ` (${indexA})` : ''} Over ${playerB}${indexB != null ? ` (${indexB})` : ''}`;
+    return <>{playerA}{indexA != null && small(indexA)} Over {playerB}{indexB != null && small(indexB)}</>;
+  }
+
   useEffect(() => {
     if (id) loadMarket();
   }, [id]);
@@ -111,8 +126,9 @@ export function MarketDetail() {
       setTrades(data?.trades ?? []);
       setPositions(data?.positions ?? []);
 
-      // Load handicaps for individual-net-champion (cached 48h). Use 2025 if 2026 has no data yet.
-      if (data?.market?.market_id === 'market-individual-net-champion') {
+      // Load handicaps for individual-net-champion and H2H matchups (cached 48h). Use 2025 if 2026 has no data yet.
+      const needsHandicaps = data?.market?.market_id === 'market-individual-net-champion' || data?.market?.market_id === 'market-h2h-matchups';
+      if (needsHandicaps) {
         api.getHandicaps(2026).then((res) => {
           const h = ('handicaps' in res ? res.handicaps : {}) ?? {};
           if (Object.keys(h).length > 0) {
@@ -623,10 +639,16 @@ export function MarketDetail() {
                                 </span>
                                 <div className="min-w-0 flex-1">
                                   <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
-                                    {outcome.name}
-                                    {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null && (
-                                      <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-normal"> ({handicaps[outcome.name]})</span>
-                                    )}
+                                    {market?.market_id === 'market-h2h-matchups'
+                                      ? formatH2HOutcomeWithIndexes(outcome.name, false)
+                                      : (
+                                          <>
+                                            {outcome.name}
+                                            {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null && (
+                                              <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-normal"> ({handicaps[outcome.name]})</span>
+                                            )}
+                                          </>
+                                        )}
                                   </div>
                                   {positionByOutcome[outcome.outcome_id] && (() => {
                                     const { net_position } = positionByOutcome[outcome.outcome_id];
@@ -948,10 +970,16 @@ export function MarketDetail() {
                                 </span>
                                 <div className="min-w-0 flex-1">
                                   <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
-                                    {outcome.name}
-                                    {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null && (
-                                      <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-normal"> ({handicaps[outcome.name]})</span>
-                                    )}
+                                    {market?.market_id === 'market-h2h-matchups'
+                                      ? formatH2HOutcomeWithIndexes(outcome.name, false)
+                                      : (
+                                          <>
+                                            {outcome.name}
+                                            {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null && (
+                                              <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-normal"> ({handicaps[outcome.name]})</span>
+                                            )}
+                                          </>
+                                        )}
                                   </div>
                                   {positionByOutcome[outcome.outcome_id] && (() => {
                                     const { net_position } = positionByOutcome[outcome.outcome_id];
@@ -1105,9 +1133,11 @@ export function MarketDetail() {
                     <option value="">Select an outcome</option>
                     {outcomes.map((outcome) => (
                       <option key={outcome.id} value={outcome.outcome_id}>
-                        {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null
-                          ? `${outcome.name} (${handicaps[outcome.name]})`
-                          : (outcome.name ?? outcome.ticker)}
+                        {market?.market_id === 'market-h2h-matchups'
+                          ? formatH2HOutcomeWithIndexes(outcome.name, true)
+                          : market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null
+                            ? `${outcome.name} (${handicaps[outcome.name]})`
+                            : (outcome.name ?? outcome.ticker)}
                       </option>
                     ))}
                   </select>
@@ -1578,9 +1608,11 @@ export function MarketDetail() {
                 <option value="">Select an outcome</option>
                 {outcomes.map((outcome) => (
                   <option key={outcome.outcome_id} value={outcome.outcome_id}>
-                    {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null
-                      ? `${outcome.name} (${handicaps[outcome.name]})`
-                      : (outcome.name ?? outcome.ticker)}
+                    {market?.market_id === 'market-h2h-matchups'
+                      ? formatH2HOutcomeWithIndexes(outcome.name, true)
+                      : market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null
+                        ? `${outcome.name} (${handicaps[outcome.name]})`
+                        : (outcome.name ?? outcome.ticker)}
                   </option>
                 ))}
               </select>
