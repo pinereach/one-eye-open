@@ -29,15 +29,21 @@ export function PositionsPage() {
   }
 
   const totalPositionValueCents = positions.reduce((sum, position) => {
-    if (position.net_position === 0) return sum;
-    const currentPrice = position.current_price !== null && position.current_price !== undefined ? position.current_price : null;
-    if (currentPrice === null) return sum;
-    const costCents = position.net_position * position.price_basis;
-    const diffCents =
-      position.net_position < 0
-        ? (position.price_basis - currentPrice) * Math.abs(position.net_position)
-        : position.net_position * currentPrice - costCents;
-    return sum + diffCents;
+    let contribution = 0;
+    // Unrealized P&L from open positions
+    if (position.net_position !== 0) {
+      const currentPrice = position.current_price !== null && position.current_price !== undefined ? position.current_price : null;
+      if (currentPrice !== null) {
+        const costCents = position.net_position * position.price_basis;
+        contribution =
+          position.net_position < 0
+            ? (position.price_basis - currentPrice) * Math.abs(position.net_position)
+            : position.net_position * currentPrice - costCents;
+      }
+    }
+    // Closed and settled profit (realized P&L)
+    contribution += (position.closed_profit ?? 0) + (position.settled_profit ?? 0);
+    return sum + contribution;
   }, 0);
 
   const positionsToShow = positions.filter(
@@ -143,7 +149,7 @@ export function PositionsPage() {
     <PullToRefresh onRefresh={loadPositions}>
     <div className="space-y-4 sm:space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold">Positions</h1>
-      {positionsToShow.some((p) => p.net_position !== 0) && (
+      {positionsToShow.length > 0 && (
         <div className="flex flex-col gap-0.5">
           <span className="text-sm text-gray-600 dark:text-gray-400">Portfolio value</span>
           <span className={`text-lg sm:text-xl font-bold ${totalPositionValueCents > 0 ? 'text-green-600 dark:text-green-400' : totalPositionValueCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
