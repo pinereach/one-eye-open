@@ -117,22 +117,32 @@ export async function getUserFromToken(
     return null;
   }
 
-  // Verify user still exists and get latest data (view_* default to 0 if column missing)
-  const row = await dbFirst<{ id: number; username: string; view_scores: number; view_market_maker: number; view_market_creation: number; admin: number }>(
-    db,
-    `SELECT id, username, view_scores, view_market_maker, view_market_creation, admin FROM users WHERE id = ?`,
-    [payload.userId]
-  );
+  // Verify user still exists and get latest data (try with flag columns; fallback if migrations not run)
+  let row: { id: number; username: string; view_scores?: number; view_market_maker?: number; view_market_creation?: number; admin?: number } | null = null;
+
+  try {
+    row = await dbFirst<{ id: number; username: string; view_scores: number; view_market_maker: number; view_market_creation: number; admin: number }>(
+      db,
+      `SELECT id, username, view_scores, view_market_maker, view_market_creation, admin FROM users WHERE id = ?`,
+      [payload.userId]
+    );
+  } catch {
+    row = await dbFirst<{ id: number; username: string }>(
+      db,
+      `SELECT id, username FROM users WHERE id = ?`,
+      [payload.userId]
+    );
+  }
 
   if (!row) return null;
 
   return {
     id: row.id,
     username: row.username,
-    view_scores: Boolean(row.view_scores),
-    view_market_maker: Boolean(row.view_market_maker),
-    view_market_creation: Boolean(row.view_market_creation),
-    admin: Boolean(row.admin),
+    view_scores: Boolean(row.view_scores ?? 0),
+    view_market_maker: Boolean(row.view_market_maker ?? 0),
+    view_market_creation: Boolean(row.view_market_creation ?? 0),
+    admin: Boolean(row.admin ?? 0),
   };
 }
 

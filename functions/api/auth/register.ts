@@ -32,31 +32,51 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     // Hash password (plain text for unserious projects)
     const passwordHash = await hashPassword(validated.password);
 
-    // Create user (all flags false: view_scores, view_market_maker, view_market_creation, admin)
-    const result = await dbRun(
-      db,
-      `INSERT INTO users (username, password, view_scores, view_market_maker, view_market_creation, admin)
-       VALUES (?, ?, 0, 0, 0, 0)`,
-      [validated.username, passwordHash]
-    );
+    // Create user (try with flag columns first; fallback if migrations not run)
+    let lastId: number | undefined;
+    try {
+      const result = await dbRun(
+        db,
+        `INSERT INTO users (username, password, view_scores, view_market_maker, view_market_creation, admin)
+         VALUES (?, ?, 0, 0, 0, 0)`,
+        [validated.username, passwordHash]
+      );
+      lastId = result.meta?.last_row_id as number | undefined;
+    } catch (err: any) {
+      if (err?.message?.includes('no such column')) {
+        const result = await dbRun(
+          db,
+          `INSERT INTO users (username, password) VALUES (?, ?)`,
+          [validated.username, passwordHash]
+        );
+        lastId = result.meta?.last_row_id as number | undefined;
+      } else {
+        throw err;
+      }
+    }
 
-    console.log('Registration result:', {
-      success: result.success,
-      meta: result.meta,
-      username: validated.username,
-    });
+    console.log('Registration result:', { username: validated.username, lastId });
 
-    if (!result.success || !result.meta.last_row_id) {
-      console.error('Failed to create user:', result);
+    if (lastId == null) {
       return errorResponse('Failed to create user', 500);
     }
 
-    // Get created user (new users get default view_* = 0, admin = 0)
-    const row = await dbFirst<{ id: number; username: string; view_scores: number; view_market_maker: number; view_market_creation: number; admin: number }>(
-      db,
-      'SELECT id, username, view_scores, view_market_maker, view_market_creation, admin FROM users WHERE id = ?',
-      [result.meta.last_row_id]
-    );
+    // Get created user (try with flag columns; fallback if migrations not run)
+    let row: { id: number; username: string; view_scores?: number; view_market_maker?: number; view_market_creation?: number; admin?: number } | null = null;
+
+    try {
+      row = await dbFirst<{ id: number; username: string; view_scores: number; view_market_maker: number; view_market_creation: number; admin: number }>(
+        db,
+        'SELECT id, username, view_scores, view_market_maker, view_market_creation, admin FROM users WHERE id = ?',
+        [lastId]
+      );
+    } catch {
+      row = await dbFirst<{ id: number; username: string }>(
+        db,
+        'SELECT id, username FROM users WHERE id = ?',
+        [lastId]
+      );
+    }
 
     if (!row) {
       return errorResponse('Failed to retrieve created user', 500);
@@ -65,10 +85,10 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const user = {
       id: row.id,
       username: row.username,
-      view_scores: Boolean(row.view_scores),
-      view_market_maker: Boolean(row.view_market_maker),
-      view_market_creation: Boolean(row.view_market_creation),
-      admin: Boolean(row.admin),
+      view_scores: Boolean(row.view_scores ?? 0),
+      view_market_maker: Boolean(row.view_market_maker ?? 0),
+      view_market_creation: Boolean(row.view_market_creation ?? 0),
+      admin: Boolean(row.admin ?? 0),
     };
 
     // Create token
