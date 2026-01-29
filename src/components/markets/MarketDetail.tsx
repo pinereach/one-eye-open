@@ -485,8 +485,8 @@ export function MarketDetail() {
                     <tr className="border-b border-gray-300 dark:border-gray-600">
                       <th className="py-1.5 px-2 sm:py-2 sm:px-3 text-left text-xs font-bold text-gray-600 dark:text-gray-400">Team</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Chance</th>
-                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Yes/Buy</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">No/Sell</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Yes/Buy</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -538,13 +538,13 @@ export function MarketDetail() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleBidClick(outcome.outcome_id, yesPrice);
+                                    handleAskClick(outcome.outcome_id, bestAsk?.price || null);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
                                 >
-                                  {yesPrice ? formatPriceCents(yesPrice) : '-'}
-                                  {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
-                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestBid.contract_size}</span>
+                                  {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
+                                  {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
+                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestAsk.contract_size}</span>
                                   )}
                                 </button>
                               </div>
@@ -554,13 +554,13 @@ export function MarketDetail() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleAskClick(outcome.outcome_id, bestAsk?.price || null);
+                                    handleBidClick(outcome.outcome_id, yesPrice);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
                                 >
-                                  {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
-                                  {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
-                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestAsk.contract_size}</span>
+                                  {yesPrice ? formatPriceCents(yesPrice) : '-'}
+                                  {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
+                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestBid.contract_size}</span>
                                   )}
                                 </button>
                               </div>
@@ -776,8 +776,8 @@ export function MarketDetail() {
                     <tr className="border-b border-gray-300 dark:border-gray-600">
                       <th className="py-1.5 px-2 sm:py-2 sm:px-3 text-left text-xs font-bold text-gray-600 dark:text-gray-400">Team</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Chance</th>
-                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Yes/Buy</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">No/Sell</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Yes/Buy</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -829,13 +829,13 @@ export function MarketDetail() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleBidClick(outcome.outcome_id, yesPrice);
+                                    handleAskClick(outcome.outcome_id, bestAsk?.price || null);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
                                 >
-                                  {yesPrice ? formatPriceCents(yesPrice) : '-'}
-                                  {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
-                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestBid.contract_size}</span>
+                                  {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
+                                  {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
+                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestAsk.contract_size}</span>
                                   )}
                                 </button>
                               </div>
@@ -845,13 +845,13 @@ export function MarketDetail() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleAskClick(outcome.outcome_id, bestAsk?.price || null);
+                                    handleBidClick(outcome.outcome_id, yesPrice);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
                                 >
-                                  {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
-                                  {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
-                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestAsk.contract_size}</span>
+                                  {yesPrice ? formatPriceCents(yesPrice) : '-'}
+                                  {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
+                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestBid.contract_size}</span>
                                   )}
                                 </button>
                               </div>
