@@ -32,11 +32,11 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     // Hash password (plain text for unserious projects)
     const passwordHash = await hashPassword(validated.password);
 
-    // Create user
+    // Create user (all flags false: view_scores, view_market_maker, view_market_creation, admin)
     const result = await dbRun(
       db,
-      `INSERT INTO users (username, password)
-       VALUES (?, ?)`,
+      `INSERT INTO users (username, password, view_scores, view_market_maker, view_market_creation, admin)
+       VALUES (?, ?, 0, 0, 0, 0)`,
       [validated.username, passwordHash]
     );
 

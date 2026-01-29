@@ -527,7 +527,7 @@ export function MarketDetail() {
                                     e.stopPropagation();
                                     handleBidClick(outcome.outcome_id, yesPrice);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
                                 >
                                   {yesPrice ? formatPriceCents(yesPrice) : '-'}
                                   {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
@@ -543,7 +543,7 @@ export function MarketDetail() {
                                     e.stopPropagation();
                                     handleAskClick(outcome.outcome_id, bestAsk?.price || null);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
                                 >
                                   {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
                                   {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
@@ -818,7 +818,7 @@ export function MarketDetail() {
                                     e.stopPropagation();
                                     handleBidClick(outcome.outcome_id, yesPrice);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
                                 >
                                   {yesPrice ? formatPriceCents(yesPrice) : '-'}
                                   {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
@@ -834,7 +834,7 @@ export function MarketDetail() {
                                     e.stopPropagation();
                                     handleAskClick(outcome.outcome_id, bestAsk?.price || null);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
                                 >
                                   {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
                                   {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
