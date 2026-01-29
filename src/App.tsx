@@ -50,13 +50,17 @@ function Layout({ children }: { children: React.ReactNode }) {
               {(user || isDevelopment) && (
                 <>
                   <div className="hidden md:flex items-center gap-3 lg:gap-4">
-                    <Link to="/scoring" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/scoring' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Scoring</Link>
+                    {user?.view_scores && (
+                      <Link to="/scoring" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/scoring' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Scoring</Link>
+                    )}
                     <Link to="/markets" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname.startsWith('/markets') ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Markets</Link>
                     <Link to="/tape" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/tape' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Tape</Link>
                     <Link to="/orders" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/orders' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Orders</Link>
                     <Link to="/trades" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/trades' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Trades</Link>
                     <Link to="/positions" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/positions' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Positions</Link>
-                    <Link to="/market-suggestions" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/market-suggestions' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Market Suggestions</Link>
+                    {user?.view_market_creation && (
+                      <Link to="/market-suggestions" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/market-suggestions' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Market Suggestions</Link>
+                    )}
                   </div>
                 </>
               )}
@@ -84,13 +88,17 @@ function Layout({ children }: { children: React.ReactNode }) {
           </div>
           {(user || isDevelopment) && mobileMenuOpen && (
             <div className="md:hidden border-t border-gray-300 dark:border-gray-700 py-3 space-y-2">
-              <Link to="/scoring" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/scoring' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Scoring</Link>
+              {user?.view_scores && (
+                <Link to="/scoring" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/scoring' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Scoring</Link>
+              )}
               <Link to="/markets" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname.startsWith('/markets') ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Markets</Link>
               <Link to="/tape" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/tape' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Tape</Link>
               <Link to="/orders" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/orders' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Orders</Link>
               <Link to="/trades" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/trades' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Trades</Link>
               <Link to="/positions" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/positions' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Positions</Link>
-              <Link to="/market-suggestions" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/market-suggestions' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Market Suggestions</Link>
+              {user?.view_market_creation && (
+                <Link to="/market-suggestions" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/market-suggestions' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Market Suggestions</Link>
+              )}
               <Link to="/settings" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/settings' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>{user?.username || 'User'}</Link>
               {!isDevelopment && (
                 <button onClick={handleLogout} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-600 dark:text-gray-400">Logout</button>

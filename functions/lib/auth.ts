@@ -3,6 +3,9 @@ import { dbFirst, type D1Database } from './db';
 export interface User {
   id: number;
   username: string;
+  view_scores: boolean;
+  view_market_maker: boolean;
+  view_market_creation: boolean;
 }
 
 interface TokenPayload {
@@ -113,14 +116,22 @@ export async function getUserFromToken(
     return null;
   }
 
-  // Verify user still exists and get latest data
-  const user = await dbFirst<User>(
+  // Verify user still exists and get latest data (view_* default to 0 if column missing)
+  const row = await dbFirst<{ id: number; username: string; view_scores: number; view_market_maker: number; view_market_creation: number }>(
     db,
-    `SELECT id, username FROM users WHERE id = ?`,
+    `SELECT id, username, view_scores, view_market_maker, view_market_creation FROM users WHERE id = ?`,
     [payload.userId]
   );
 
-  return user;
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    username: row.username,
+    view_scores: Boolean(row.view_scores),
+    view_market_maker: Boolean(row.view_market_maker),
+    view_market_creation: Boolean(row.view_market_creation),
+  };
 }
 
 export function getCookieValue(cookieHeader: string | null, name: string): string | null {

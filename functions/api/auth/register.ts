@@ -51,16 +51,24 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       return errorResponse('Failed to create user', 500);
     }
 
-    // Get created user
-    const user = await dbFirst<{ id: number; username: string }>(
+    // Get created user (new users get default view_* = 0)
+    const row = await dbFirst<{ id: number; username: string; view_scores: number; view_market_maker: number; view_market_creation: number }>(
       db,
-      'SELECT id, username FROM users WHERE id = ?',
+      'SELECT id, username, view_scores, view_market_maker, view_market_creation FROM users WHERE id = ?',
       [result.meta.last_row_id]
     );
 
-    if (!user) {
+    if (!row) {
       return errorResponse('Failed to retrieve created user', 500);
     }
+
+    const user = {
+      id: row.id,
+      username: row.username,
+      view_scores: Boolean(row.view_scores),
+      view_market_maker: Boolean(row.view_market_maker),
+      view_market_creation: Boolean(row.view_market_creation),
+    };
 
     // Create token
     const token = await createToken(user, env);

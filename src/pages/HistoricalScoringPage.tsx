@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { api } from '../lib/api';
+import { useAuth } from '../hooks/useAuth';
 
 export function HistoricalScoringPage() {
+  const { user } = useAuth();
   const [selectedCourse, setSelectedCourse] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
   const [scores, setScores] = useState<Array<{ id: number; course: string; year: number; player: string; score: number | null; index_number: number | null; handicap_index: number | null }>>([]);
@@ -14,6 +17,10 @@ export function HistoricalScoringPage() {
   const [editingCell, setEditingCell] = useState<{ key: string; value: string } | null>(null);
 
   const players = ['Loop', 'Boose', 'Krass', 'TK', 'CTH', 'Avayou', 'Alex', 'Huffman', 'Jon', 'Tim', 'Doc', 'Will'];
+
+  if (user && !user.view_scores) {
+    return <Navigate to="/markets" replace />;
+  }
 
   useEffect(() => {
     loadScores();

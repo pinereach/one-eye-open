@@ -1,6 +1,9 @@
 export interface User {
   id: number;
   username: string;
+  view_scores?: boolean;
+  view_market_maker?: boolean;
+  view_market_creation?: boolean;
 }
 
 export interface Participant {

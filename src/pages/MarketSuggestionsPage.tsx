@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { ToastContainer, useToast } from '../components/ui/Toast';
+import { useAuth } from '../hooks/useAuth';
 
 export function MarketSuggestionsPage() {
+  const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [tbSubmitting, setTbSubmitting] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
@@ -25,6 +28,10 @@ export function MarketSuggestionsPage() {
   const [h2hParticipant2, setH2hParticipant2] = useState<string>('');
   const [h2hOutcomes, setH2hOutcomes] = useState<Array<{ name: string; ticker: string; strike: string }>>([]);
   const [h2hSubmitting, setH2hSubmitting] = useState(false);
+
+  if (user && !user.view_market_creation) {
+    return <Navigate to="/markets" replace />;
+  }
 
   // Load participants on mount
   useEffect(() => {

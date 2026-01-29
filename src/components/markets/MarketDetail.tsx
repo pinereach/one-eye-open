@@ -25,9 +25,11 @@ export function MarketDetail() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
-  const [orderSide, setOrderSide] = useState<'bid' | 'ask'>('bid');
+  const [orderSide, setOrderSide] = useState<'bid' | 'ask' | 'market_maker'>('bid');
   const [orderPrice, setOrderPrice] = useState('');
   const [orderQty, setOrderQty] = useState('');
+  const [mmBidPrice, setMmBidPrice] = useState('');
+  const [mmAskPrice, setMmAskPrice] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [autoFilled, setAutoFilled] = useState<'price' | null>(null);
   const [bottomSheetOpen, setBottomSheetOpen] = useState(false);
@@ -41,6 +43,13 @@ export function MarketDetail() {
   useEffect(() => {
     if (id) loadMarket();
   }, [id]);
+
+  // Reset market maker selection if user loses view_market_maker
+  useEffect(() => {
+    if (user && !user.view_market_maker && orderSide === 'market_maker') {
+      setOrderSide('bid');
+    }
+  }, [user?.view_market_maker, orderSide]);
 
   // Auto-focus quantity input when order window opens
   useEffect(() => {
@@ -98,16 +107,63 @@ export function MarketDetail() {
       return;
     }
 
-    const price = parseInt(orderPrice, 10);
     const qty = parseInt(orderQty, 10);
-
-    if (isNaN(price) || price < 1 || price > 99) {
-      showToast('Price must be a whole number between $1 and $99', 'error');
+    if (isNaN(qty) || qty <= 0) {
+      showToast('Quantity must be at least 1', 'error');
       return;
     }
 
-    if (isNaN(qty) || qty <= 0) {
-      showToast('Quantity must be at least 1', 'error');
+    // Market maker: place bid and ask (same outcome, same qty)
+    if (orderSide === 'market_maker') {
+      const bidPrice = parseInt(mmBidPrice, 10);
+      const askPrice = parseInt(mmAskPrice, 10);
+      if (isNaN(bidPrice) || bidPrice < 1 || bidPrice > 99) {
+        showToast('Bid price must be a whole number between $1 and $99', 'error');
+        return;
+      }
+      if (isNaN(askPrice) || askPrice < 1 || askPrice > 99) {
+        showToast('Ask price must be a whole number between $1 and $99', 'error');
+        return;
+      }
+      if (bidPrice >= askPrice) {
+        showToast('Bid price must be less than ask price', 'error');
+        return;
+      }
+      setSubmitting(true);
+      try {
+        await api.placeOrder(id, {
+          outcome_id: selectedOutcomeId,
+          side: 'bid',
+          price: bidPrice * 100,
+          contract_size: qty,
+          tif: 'GTC',
+        });
+        await api.placeOrder(id, {
+          outcome_id: selectedOutcomeId,
+          side: 'ask',
+          price: askPrice * 100,
+          contract_size: qty,
+          tif: 'GTC',
+        });
+        setOrderQty('');
+        setMmBidPrice('');
+        setMmAskPrice('');
+        showToast('Bid and ask placed', 'success');
+        await new Promise(resolve => setTimeout(resolve, 200));
+        await loadMarket();
+        setBottomSheetOpen(false);
+      } catch (err: any) {
+        showToast(err?.message || 'Failed to place orders', 'error');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Single order (bid or ask)
+    const price = parseInt(orderPrice, 10);
+    if (isNaN(price) || price < 1 || price > 99) {
+      showToast('Price must be a whole number between $1 and $99', 'error');
       return;
     }
 
@@ -198,7 +254,7 @@ export function MarketDetail() {
     setBottomSheetOpen(true);
   }
 
-  function handleSideChange(newSide: 'bid' | 'ask') {
+  function handleSideChange(newSide: 'bid' | 'ask' | 'market_maker') {
     setOrderSide(newSide);
     // Auto-update price based on selected side
     if (selectedOrderbook) {
@@ -210,6 +266,15 @@ export function MarketDetail() {
         const priceDollars = Math.round(bestAsk.price / 100);
         const clampedPrice = Math.max(1, Math.min(99, priceDollars));
         setOrderPrice(clampedPrice.toString());
+      } else if (newSide === 'market_maker' && (bestBid || bestAsk)) {
+        if (bestBid) {
+          const bidDollars = Math.max(1, Math.min(99, Math.round(bestBid.price / 100)));
+          setMmBidPrice(bidDollars.toString());
+        }
+        if (bestAsk) {
+          const askDollars = Math.max(1, Math.min(99, Math.round(bestAsk.price / 100)));
+          setMmAskPrice(askDollars.toString());
+        }
       }
     }
   }
@@ -231,15 +296,21 @@ export function MarketDetail() {
   const orderSummary = (() => {
     const price = parseInt(orderPrice, 10) || 0;
     const qty = parseInt(orderQty, 10) || 0;
+    const mmBid = parseInt(mmBidPrice, 10) || 0;
+    const mmAsk = parseInt(mmAskPrice, 10) || 0;
     // For buy (Yes/bid side): cost = price * quantity
     // For sell (No/ask side): cost = quantity * (100 - price)
-    const totalCost = orderSide === 'bid' 
-      ? price * qty 
-      : qty * (100 - price);
+    const totalCost = orderSide === 'market_maker'
+      ? 0
+      : orderSide === 'bid'
+        ? price * qty
+        : qty * (100 - price);
     return {
       totalCost,
       price,
       qty,
+      mmBidPrice: mmBid,
+      mmAskPrice: mmAsk,
     };
   })();
 
@@ -401,8 +472,8 @@ export function MarketDetail() {
                     <tr className="border-b border-gray-300 dark:border-gray-600">
                       <th className="py-1.5 px-2 sm:py-2 sm:px-3 text-left text-xs font-bold text-gray-600 dark:text-gray-400">Team</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Chance</th>
-                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Bid/Sell</th>
-                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Ask/Buy</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Yes/Buy</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">No/Sell</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -514,7 +585,7 @@ export function MarketDetail() {
               <div className="space-y-2">
                 {myOpenOrders.map((order) => {
                   const outcomeName = outcomes?.find(o => o.outcome_id === order.outcome)?.name ?? order.outcome;
-                  const sideLabel = order.side === 0 ? 'Bid' : 'Sell';
+                  const sideLabel = order.side === 0 ? 'Yes/Buy' : 'No/Sell';
                   const size = order.remaining_size ?? order.contract_size ?? 0;
                   const isCanceling = cancelingOrderId === order.id;
                   return (
@@ -537,9 +608,11 @@ export function MarketDetail() {
                         type="button"
                         onClick={() => handleCancelOrder(order.id)}
                         disabled={isCanceling}
-                        className="flex-shrink-0 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded disabled:opacity-50"
+                        title="Cancel order"
+                        aria-label="Cancel order"
+                        className="flex-shrink-0 px-2 py-1 text-lg font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded disabled:opacity-50 touch-manipulation"
                       >
-                        {isCanceling ? 'Canceling…' : 'Cancel'}
+                        ×
                       </button>
                     </div>
                   );
@@ -690,8 +763,8 @@ export function MarketDetail() {
                     <tr className="border-b border-gray-300 dark:border-gray-600">
                       <th className="py-1.5 px-2 sm:py-2 sm:px-3 text-left text-xs font-bold text-gray-600 dark:text-gray-400">Team</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Chance</th>
-                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Bid/Sell</th>
-                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Ask/Buy</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Yes/Buy</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">No/Sell</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -859,22 +932,22 @@ export function MarketDetail() {
               )}
               <div>
                 <label className="block text-sm font-medium mb-1.5">Side</label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => handleSideChange('ask')}
-                    className={`flex-1 py-3 px-4 rounded font-medium text-sm sm:text-base min-h-[44px] touch-manipulation ${
+                    className={`flex-1 min-w-0 py-3 px-4 rounded font-medium text-sm sm:text-base min-h-[44px] touch-manipulation ${
                       orderSide === 'ask'
                         ? 'bg-red-600 text-white'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                     }`}
                   >
-                    Bid/Sell {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
+                    No/Sell {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSideChange('bid')}
-                    className={`flex-1 py-3 px-4 rounded font-medium text-sm sm:text-base min-h-[44px] touch-manipulation ${
+                    className={`flex-1 min-w-0 py-3 px-4 rounded font-medium text-sm sm:text-base min-h-[44px] touch-manipulation ${
                       orderSide === 'bid'
                         ? 'bg-green-600 text-white'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
@@ -882,6 +955,19 @@ export function MarketDetail() {
                   >
                     Yes/Buy {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
                   </button>
+                  {user?.view_market_maker && (
+                  <button
+                    type="button"
+                    onClick={() => handleSideChange('market_maker')}
+                    className={`flex-1 min-w-0 py-3 px-4 rounded font-medium text-sm sm:text-base min-h-[44px] touch-manipulation ${
+                      orderSide === 'market_maker'
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                    }`}
+                  >
+                    Market Maker
+                  </button>
+                  )}
                 </div>
               </div>
 
@@ -898,6 +984,50 @@ export function MarketDetail() {
                 />
               </div>
 
+              {orderSide === 'market_maker' ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5">Bid price ($)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400">$</span>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        min={1}
+                        max={99}
+                        value={mmBidPrice}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || (parseInt(value, 10) >= 1 && parseInt(value, 10) <= 99)) setMmBidPrice(value);
+                        }}
+                        placeholder="1-99"
+                        className="w-full pl-8 pr-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5">Ask price ($)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400">$</span>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        min={1}
+                        max={99}
+                        value={mmAskPrice}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || (parseInt(value, 10) >= 1 && parseInt(value, 10) <= 99)) setMmAskPrice(value);
+                        }}
+                        placeholder="1-99"
+                        className="w-full pl-8 pr-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
               <div>
                 <label className="block text-sm font-medium mb-1.5">Price ($)</label>
                 {selectedOrderbook && (bestBid || bestAsk) && (
@@ -909,7 +1039,7 @@ export function MarketDetail() {
                     )}
                     {bestAsk && (
                       <span>
-                        Bid/Sell: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceCents(bestAsk.price)}</span>
+                        No/Sell: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceCents(bestAsk.price)}</span>
                       </span>
                     )}
                   </div>
@@ -944,6 +1074,7 @@ export function MarketDetail() {
                   </div>
                 )}
               </div>
+              )}
 
               {/* View orderbook toggle */}
               {selectedOutcomeId && selectedOrderbook && (
@@ -986,13 +1117,23 @@ export function MarketDetail() {
               )}
 
               {/* Order Summary */}
-              {orderPrice && orderQty && (
-                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Estimated Total:</span>
-                    <span className="text-lg font-semibold">{formatPrice(orderSummary.totalCost * 100)}</span>
+              {orderSide === 'market_maker' ? (
+                orderSummary.qty > 0 && orderSummary.mmBidPrice > 0 && orderSummary.mmAskPrice > 0 && (
+                  <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Bid: ${orderSummary.mmBidPrice} × {orderSummary.qty}, Ask: ${orderSummary.mmAskPrice} × {orderSummary.qty}
+                    </div>
                   </div>
-                </div>
+                )
+              ) : (
+                orderPrice && orderQty && (
+                  <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Estimated Total:</span>
+                      <span className="text-lg font-semibold">{formatPrice(orderSummary.totalCost * 100)}</span>
+                    </div>
+                  </div>
+                )
               )}
 
               <button
@@ -1000,7 +1141,7 @@ export function MarketDetail() {
                 disabled={submitting}
                 className="w-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-medium py-3 px-4 rounded-md disabled:opacity-50 min-h-[44px] text-base touch-manipulation"
               >
-                {submitting ? 'Placing...' : 'Place Order'}
+                {submitting ? 'Placing...' : orderSide === 'market_maker' ? 'Place both' : 'Place Order'}
               </button>
             </form>
           </div>
@@ -1029,7 +1170,7 @@ export function MarketDetail() {
               <div className="space-y-2">
                 {myOpenOrders.map((order) => {
                   const outcomeName = outcomes?.find(o => o.outcome_id === order.outcome)?.name ?? order.outcome;
-                  const sideLabel = order.side === 0 ? 'Bid' : 'Sell';
+                  const sideLabel = order.side === 0 ? 'Yes/Buy' : 'No/Sell';
                   const size = order.remaining_size ?? order.contract_size ?? 0;
                   const isCanceling = cancelingOrderId === order.id;
                   return (
@@ -1052,9 +1193,11 @@ export function MarketDetail() {
                         type="button"
                         onClick={() => handleCancelOrder(order.id)}
                         disabled={isCanceling}
-                        className="flex-shrink-0 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded disabled:opacity-50"
+                        title="Cancel order"
+                        aria-label="Cancel order"
+                        className="flex-shrink-0 px-2 py-1 text-lg font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded disabled:opacity-50"
                       >
-                        {isCanceling ? 'Canceling…' : 'Cancel'}
+                        ×
                       </button>
                     </div>
                   );
@@ -1202,6 +1345,8 @@ export function MarketDetail() {
           setBottomSheetOpen(false);
           setOrderPrice('');
           setOrderQty('');
+          setMmBidPrice('');
+          setMmAskPrice('');
           setShowOrderbookInForm(false);
         }}
         title="Place Order"
@@ -1230,29 +1375,42 @@ export function MarketDetail() {
           )}
           <div>
             <label className="block text-sm font-medium mb-2">Side</label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => handleSideChange('ask')}
-                className={`flex-1 py-3 px-4 rounded font-medium text-base min-h-[44px] touch-manipulation ${
+                className={`flex-1 min-w-0 py-3 px-4 rounded font-medium text-base min-h-[44px] touch-manipulation ${
                   orderSide === 'ask'
                     ? 'bg-red-600 text-white'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                 }`}
               >
-                No {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
+                No/Sell {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
               </button>
               <button
                 type="button"
                 onClick={() => handleSideChange('bid')}
-                className={`flex-1 py-3 px-4 rounded font-medium text-base min-h-[44px] touch-manipulation ${
+                className={`flex-1 min-w-0 py-3 px-4 rounded font-medium text-base min-h-[44px] touch-manipulation ${
                   orderSide === 'bid'
                     ? 'bg-green-600 text-white'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                 }`}
               >
-                Yes {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
+                Yes/Buy {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
               </button>
+              {user?.view_market_maker && (
+              <button
+                type="button"
+                onClick={() => handleSideChange('market_maker')}
+                className={`flex-1 min-w-0 py-3 px-4 rounded font-medium text-base min-h-[44px] touch-manipulation ${
+                  orderSide === 'market_maker'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                }`}
+              >
+                Market Maker
+              </button>
+              )}
             </div>
           </div>
 
@@ -1272,6 +1430,50 @@ export function MarketDetail() {
             />
           </div>
 
+          {orderSide === 'market_maker' ? (
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-2">Bid price ($)</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400">$</span>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    min={1}
+                    max={99}
+                    value={mmBidPrice}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '' || (parseInt(value, 10) >= 1 && parseInt(value, 10) <= 99)) setMmBidPrice(value);
+                    }}
+                    placeholder="1-99"
+                    className="w-full pl-8 pr-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 min-h-[44px]"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Ask price ($)</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400">$</span>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    min={1}
+                    max={99}
+                    value={mmAskPrice}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '' || (parseInt(value, 10) >= 1 && parseInt(value, 10) <= 99)) setMmAskPrice(value);
+                    }}
+                    placeholder="1-99"
+                    className="w-full pl-8 pr-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 min-h-[44px]"
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
           <div>
             <label className="block text-sm font-medium mb-2">Price ($)</label>
             {selectedOrderbook && (bestBid || bestAsk) && (
@@ -1283,7 +1485,7 @@ export function MarketDetail() {
                 )}
                 {bestAsk && (
                   <span>
-                    Bid/Sell: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceCents(bestAsk.price)}</span>
+                    No/Sell: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceCents(bestAsk.price)}</span>
                   </span>
                 )}
               </div>
@@ -1313,6 +1515,7 @@ export function MarketDetail() {
               />
             </div>
           </div>
+          )}
 
           {/* View orderbook toggle */}
           {selectedOutcomeId && selectedOrderbook && (
@@ -1355,13 +1558,23 @@ export function MarketDetail() {
           )}
 
           {/* Order Summary */}
-          {orderPrice && orderQty && (
-            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Estimated Total:</span>
-                <span className="text-lg font-semibold">{formatPrice(orderSummary.totalCost * 100)}</span>
+          {orderSide === 'market_maker' ? (
+            orderSummary.qty > 0 && orderSummary.mmBidPrice > 0 && orderSummary.mmAskPrice > 0 && (
+              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Bid: ${orderSummary.mmBidPrice} × {orderSummary.qty}, Ask: ${orderSummary.mmAskPrice} × {orderSummary.qty}
+                </div>
               </div>
-            </div>
+            )
+          ) : (
+            orderPrice && orderQty && (
+              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Estimated Total:</span>
+                  <span className="text-lg font-semibold">{formatPrice(orderSummary.totalCost * 100)}</span>
+                </div>
+              </div>
+            )
           )}
 
           <button
@@ -1369,7 +1582,7 @@ export function MarketDetail() {
             disabled={submitting}
             className="w-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-medium py-3 px-4 rounded-md disabled:opacity-50 min-h-[44px] text-base touch-manipulation"
           >
-            {submitting ? 'Placing...' : 'Place Order'}
+            {submitting ? 'Placing...' : orderSide === 'market_maker' ? 'Place both' : 'Place Order'}
           </button>
         </form>
       </BottomSheet>

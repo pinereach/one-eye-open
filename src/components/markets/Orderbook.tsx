@@ -207,7 +207,7 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
       <div>
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <div>
-            <h3 className="font-bold mb-2 text-sm sm:text-base text-green-600 dark:text-green-400">Bids</h3>
+            <h3 className="font-bold mb-2 text-sm sm:text-base text-green-600 dark:text-green-400">Yes/Buy</h3>
             <div className="space-y-1">
               {bidLevels.length === 0 ? (
                 <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
@@ -284,7 +284,7 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
           </div>
 
           <div>
-            <h3 className="font-bold mb-2 text-sm sm:text-base text-red-600 dark:text-red-400">Asks</h3>
+            <h3 className="font-bold mb-2 text-sm sm:text-base text-red-600 dark:text-red-400">No/Sell</h3>
             <div className="space-y-1">
               {askLevels.length === 0 ? (
                 <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 py-4 text-center">

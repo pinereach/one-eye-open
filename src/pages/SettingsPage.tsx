@@ -48,8 +48,12 @@ export function SettingsPage() {
           <Link to="/orders" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">Orders</Link>
           <Link to="/trades" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">Trades</Link>
           <Link to="/positions" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">Positions</Link>
-          <Link to="/scoring" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">Scoring</Link>
-          <Link to="/market-suggestions" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">Market suggestions</Link>
+          {user?.view_scores && (
+            <Link to="/scoring" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">Scoring</Link>
+          )}
+          {user?.view_market_creation && (
+            <Link to="/market-suggestions" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">Market suggestions</Link>
+          )}
         </nav>
       </div>
       <div className="p-6 border border-gray-300 dark:border-gray-600 rounded-lg">

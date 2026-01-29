@@ -26,6 +26,9 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
   if ('error' in authResult) {
     return authResult.error;
   }
+  if (!authResult.user.view_market_creation) {
+    return errorResponse('Forbidden: market creation access not allowed', 403);
+  }
 
   const db = getDb(env);
 

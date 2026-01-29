@@ -13,6 +13,9 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   if ('error' in authResult) {
     return authResult.error;
   }
+  if (!authResult.user.view_scores) {
+    return errorResponse('Forbidden: scoring access not allowed', 403);
+  }
 
   const db = getDb(env);
 
@@ -65,6 +68,9 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
   const authResult = await requireAuth(request, env);
   if ('error' in authResult) {
     return authResult.error;
+  }
+  if (!authResult.user.view_scores) {
+    return errorResponse('Forbidden: scoring access not allowed', 403);
   }
 
   const body = await request.json();

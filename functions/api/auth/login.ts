@@ -23,9 +23,12 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       id: number;
       username: string;
       password: string;
+      view_scores: number;
+      view_market_maker: number;
+      view_market_creation: number;
     }>(
       db,
-      'SELECT id, username, password FROM users WHERE username = ?',
+      'SELECT id, username, password, view_scores, view_market_maker, view_market_creation FROM users WHERE username = ?',
       [validated.username]
     );
 
@@ -47,8 +50,15 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     };
     const token = await createToken(userForToken, env);
 
-    // Return user (without password)
-    const { password, ...userWithoutPassword } = user;
+    // Return user (without password, with boolean flags)
+    const { password, ...rest } = user;
+    const userWithoutPassword = {
+      id: rest.id,
+      username: rest.username,
+      view_scores: Boolean(rest.view_scores),
+      view_market_maker: Boolean(rest.view_market_maker),
+      view_market_creation: Boolean(rest.view_market_creation),
+    };
 
     const response = jsonResponse({ user: userWithoutPassword });
     response.headers.set('Set-Cookie', setSessionCookie(token));
