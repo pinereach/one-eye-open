@@ -12,25 +12,109 @@ function clampPriceBasis(cents: number): number {
   return Math.max(PRICE_BASIS_MIN_CENTS, Math.min(PRICE_BASIS_MAX_CENTS, cents));
 }
 
-// Helper function to recalculate price_basis from order history
+// Recalculate price_basis from trades (source of truth for fills)
+async function recalculatePriceBasisFromTrades(
+  db: D1Database,
+  userId: number,
+  outcomeId: string,
+  currentNetPosition: number
+): Promise<number | null> {
+  const rows = await dbQuery<{ price: number; contracts: number; taker_user_id: number | null; maker_user_id: number | null; taker_side: number }>(
+    db,
+    `SELECT price, contracts, taker_user_id, maker_user_id, taker_side
+     FROM trades
+     WHERE outcome = ? AND (taker_user_id = ? OR maker_user_id = ?)
+     ORDER BY create_time ASC, id ASC`,
+    [outcomeId, userId, userId]
+  );
+  if (rows.length === 0) return null;
+
+  let longContracts: Array<{ price: number; qty: number }> = [];
+  let shortContracts: Array<{ price: number; qty: number }> = [];
+
+  for (const row of rows) {
+    const isTaker = row.taker_user_id === userId;
+    const side = isTaker ? row.taker_side : (1 - row.taker_side); // 0 = buy, 1 = sell
+    const qty = row.contracts || 0;
+    if (qty === 0) continue;
+    const price = row.price;
+
+    if (side === 0) {
+      if (shortContracts.length > 0) {
+        let remaining = qty;
+        while (remaining > 0 && shortContracts.length > 0) {
+          const first = shortContracts[0];
+          if (first.qty <= remaining) {
+            remaining -= first.qty;
+            shortContracts.shift();
+          } else {
+            first.qty -= remaining;
+            remaining = 0;
+          }
+        }
+        if (remaining > 0) longContracts.push({ price, qty: remaining });
+      } else {
+        longContracts.push({ price, qty });
+      }
+    } else {
+      if (longContracts.length > 0) {
+        let remaining = qty;
+        while (remaining > 0 && longContracts.length > 0) {
+          const first = longContracts[0];
+          if (first.qty <= remaining) {
+            remaining -= first.qty;
+            longContracts.shift();
+          } else {
+            first.qty -= remaining;
+            remaining = 0;
+          }
+        }
+        if (remaining > 0) shortContracts.push({ price, qty: remaining });
+      } else {
+        shortContracts.push({ price, qty });
+      }
+    }
+  }
+
+  const netFromTrades = longContracts.reduce((s, c) => s + c.qty, 0) - shortContracts.reduce((s, c) => s + c.qty, 0);
+  if (Math.abs(netFromTrades - currentNetPosition) > 1) return null;
+
+  if (currentNetPosition > 0 && longContracts.length > 0) {
+    let totalValue = 0, totalQty = 0;
+    for (const c of longContracts) {
+      totalValue += c.price * c.qty;
+      totalQty += c.qty;
+    }
+    if (totalQty > 0) return clampPriceBasis(Math.round(totalValue / totalQty));
+  } else if (currentNetPosition < 0 && shortContracts.length > 0) {
+    let totalValue = 0, totalQty = 0;
+    for (const c of shortContracts) {
+      totalValue += c.price * c.qty;
+      totalQty += c.qty;
+    }
+    if (totalQty > 0) return clampPriceBasis(Math.round(totalValue / totalQty));
+  }
+  return null;
+}
+
+// Helper function to recalculate price_basis from order history (uses filled qty = original - remaining)
 async function recalculatePriceBasis(
   db: D1Database,
   userId: number,
   outcomeId: string,
   currentNetPosition: number
 ): Promise<number | null> {
-  // Get all filled/partial orders for this user/outcome, ordered by time
-  // We need to look at orders that have been filled (contract_size > 0)
   const orders = await dbQuery<{
     price: number;
-    side: number; // 0 = bid, 1 = ask
+    side: number;
     contract_size: number | null;
+    original_contract_size: number | null;
     create_time: number;
   }>(
     db,
-    `SELECT price, side, contract_size, create_time
+    `SELECT price, side, contract_size, original_contract_size, create_time
      FROM orders
-     WHERE outcome = ? AND user_id = ? AND status IN ('filled', 'partial') AND contract_size > 0
+     WHERE outcome = ? AND user_id = ? AND status IN ('filled', 'partial')
      ORDER BY create_time ASC`,
     [outcomeId, userId]
   );
@@ -39,13 +123,13 @@ async function recalculatePriceBasis(
     return null;
   }
 
-  // Simulate position building using FIFO to determine which contracts are still open
-  // Track long and short positions separately using FIFO queues
   let longContracts: Array<{ price: number; qty: number }> = [];
   let shortContracts: Array<{ price: number; qty: number }> = [];
 
   for (const order of orders) {
-    const qty = order.contract_size || 0;
+    const remaining = order.contract_size ?? 0;
+    const original = order.original_contract_size ?? order.contract_size ?? 0;
+    const qty = Math.max(0, original - remaining);
     if (qty === 0) continue;
 
     if (order.side === 0) {
@@ -161,25 +245,28 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     [userIdNum]
   );
 
-  // Fix positions with price_basis = 0 but net_position != 0
+  // Fix positions with wrong price_basis: 0 with non-zero position, or outside valid range ($1–$99)
+  const needsRecalc = (p: typeof positionsDb[0]) =>
+    p.net_position !== 0 && (
+      p.price_basis === 0 ||
+      p.price_basis > PRICE_BASIS_MAX_CENTS ||
+      (p.price_basis > 0 && p.price_basis < PRICE_BASIS_MIN_CENTS)
+    );
   for (const position of positionsDb) {
-    if (position.price_basis === 0 && position.net_position !== 0) {
-      const recalculatedBasis = await recalculatePriceBasis(
+    if (!needsRecalc(position)) continue;
+    const recalculatedBasis = await recalculatePriceBasisFromTrades(
+      db,
+      userIdNum,
+      position.outcome,
+      position.net_position
+    ) ?? await recalculatePriceBasis(db, userIdNum, position.outcome, position.net_position);
+    if (recalculatedBasis !== null && recalculatedBasis > 0) {
+      await dbRun(
         db,
-        userIdNum,
-        position.outcome,
-        position.net_position
+        `UPDATE positions SET price_basis = ? WHERE id = ?`,
+        [recalculatedBasis, position.id]
       );
-      if (recalculatedBasis !== null && recalculatedBasis > 0) {
-        // Update the position with recalculated price_basis
-        await dbRun(
-          db,
-          `UPDATE positions SET price_basis = ? WHERE id = ?`,
-          [recalculatedBasis, position.id]
-        );
-        // Update the position object for this response
-        position.price_basis = recalculatedBasis;
-      }
+      position.price_basis = recalculatedBasis;
     }
   }
 

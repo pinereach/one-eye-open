@@ -77,6 +77,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     bidsRows.forEach(r => { if (bestBidByOutcome[r.outcome] == null) bestBidByOutcome[r.outcome] = r.price; });
     const bestAskByOutcome: Record<string, number> = {};
     asksRows.forEach(r => { if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price; });
+    const clampPriceBasis = (cents: number, netPosition: number) =>
+      netPosition !== 0 && cents > 0 ? Math.max(100, Math.min(9900, cents)) : cents;
     positionsWithPrice = positionsDb.map(p => {
       const bidPrice = bestBidByOutcome[p.outcome] ?? null;
       const askPrice = bestAskByOutcome[p.outcome] ?? null;
@@ -89,7 +91,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
         closed_profit: p.closed_profit,
         settled_profit: p.settled_profit,
         net_position: p.net_position,
-        price_basis: p.price_basis,
+        price_basis: clampPriceBasis(p.price_basis, p.net_position),
         is_settled: p.is_settled,
         market_name: p.market_name,
         outcome_name: p.outcome_name,

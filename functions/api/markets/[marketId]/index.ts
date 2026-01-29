@@ -183,6 +183,9 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
         const bidPrice = bestBidByOutcome[p.outcome] ?? null;
         const askPrice = bestAskByOutcome[p.outcome] ?? null;
         const current_price = (bidPrice != null && askPrice != null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
+        const price_basis = p.net_position !== 0 && p.price_basis > 0
+          ? Math.max(100, Math.min(9900, p.price_basis))
+          : p.price_basis;
         return {
           id: p.id,
           user_id: p.user_id,
@@ -191,7 +194,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
           closed_profit: p.closed_profit,
           settled_profit: p.settled_profit,
           net_position: p.net_position,
-          price_basis: p.price_basis,
+          price_basis,
           is_settled: p.is_settled,
           market_name: p.market_name,
           outcome_name: p.outcome_name,
