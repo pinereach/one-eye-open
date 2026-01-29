@@ -538,13 +538,13 @@ export function MarketDetail() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleAskClick(outcome.outcome_id, bestAsk?.price || null);
+                                    handleAskClick(outcome.outcome_id, bestBid?.price || null);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-800 active:bg-purple-300 dark:active:bg-purple-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
                                 >
-                                  {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
-                                  {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
-                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestAsk.contract_size}</span>
+                                  {bestBid ? formatPriceCents(bestBid.price) : '-'}
+                                  {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
+                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestBid.contract_size}</span>
                                   )}
                                 </button>
                               </div>
@@ -554,13 +554,13 @@ export function MarketDetail() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleBidClick(outcome.outcome_id, yesPrice);
+                                    handleBidClick(outcome.outcome_id, bestAsk?.price || null);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800 active:bg-blue-300 dark:active:bg-blue-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
                                 >
-                                  {yesPrice ? formatPriceCents(yesPrice) : '-'}
-                                  {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
-                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestBid.contract_size}</span>
+                                  {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
+                                  {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
+                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestAsk.contract_size}</span>
                                   )}
                                 </button>
                               </div>
@@ -829,13 +829,13 @@ export function MarketDetail() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleAskClick(outcome.outcome_id, bestAsk?.price || null);
+                                    handleAskClick(outcome.outcome_id, bestBid?.price || null);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-800 active:bg-purple-300 dark:active:bg-purple-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
                                 >
-                                  {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
-                                  {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
-                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestAsk.contract_size}</span>
+                                  {bestBid ? formatPriceCents(bestBid.price) : '-'}
+                                  {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
+                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestBid.contract_size}</span>
                                   )}
                                 </button>
                               </div>
@@ -845,13 +845,13 @@ export function MarketDetail() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleBidClick(outcome.outcome_id, yesPrice);
+                                    handleBidClick(outcome.outcome_id, bestAsk?.price || null);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800 active:bg-blue-300 dark:active:bg-blue-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
                                 >
-                                  {yesPrice ? formatPriceCents(yesPrice) : '-'}
-                                  {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
-                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestBid.contract_size}</span>
+                                  {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
+                                  {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
+                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestAsk.contract_size}</span>
                                   )}
                                 </button>
                               </div>
@@ -951,22 +951,22 @@ export function MarketDetail() {
                     onClick={() => handleSideChange('ask')}
                     className={`flex-1 min-w-0 py-3 px-4 rounded font-medium text-sm sm:text-base min-h-[44px] touch-manipulation ${
                       orderSide === 'ask'
-                        ? 'bg-red-600 text-white'
+                        ? 'bg-purple-600 text-white'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                     }`}
                   >
-                    No/Sell {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
+                    No/Sell {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSideChange('bid')}
                     className={`flex-1 min-w-0 py-3 px-4 rounded font-medium text-sm sm:text-base min-h-[44px] touch-manipulation ${
                       orderSide === 'bid'
-                        ? 'bg-green-600 text-white'
+                        ? 'bg-blue-600 text-white'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                     }`}
                   >
-                    Yes/Buy {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
+                    Yes/Buy {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
                   </button>
                   {user?.view_market_maker && (
                   <button
@@ -1047,12 +1047,12 @@ export function MarketDetail() {
                   <div className="mb-2 text-xs text-gray-600 dark:text-gray-400 flex gap-4">
                     {bestBid && (
                       <span>
-                        Yes/Buy: <span className="font-medium text-red-600 dark:text-red-400">{formatPriceCents(bestBid.price)}</span>
+                        No/Sell: <span className="font-medium text-purple-600 dark:text-purple-400">{formatPriceCents(bestBid.price)}</span>
                       </span>
                     )}
                     {bestAsk && (
                       <span>
-                        No/Sell: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceCents(bestAsk.price)}</span>
+                        Yes/Buy: <span className="font-medium text-blue-600 dark:text-blue-400">{formatPriceCents(bestAsk.price)}</span>
                       </span>
                     )}
                   </div>
@@ -1408,22 +1408,22 @@ export function MarketDetail() {
                 onClick={() => handleSideChange('ask')}
                 className={`flex-1 min-w-0 py-3 px-4 rounded font-medium text-base min-h-[44px] touch-manipulation ${
                   orderSide === 'ask'
-                    ? 'bg-red-600 text-white'
+                    ? 'bg-purple-600 text-white'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                 }`}
               >
-                No/Sell {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
+                No/Sell {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
               </button>
               <button
                 type="button"
                 onClick={() => handleSideChange('bid')}
                 className={`flex-1 min-w-0 py-3 px-4 rounded font-medium text-base min-h-[44px] touch-manipulation ${
                   orderSide === 'bid'
-                    ? 'bg-green-600 text-white'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                 }`}
               >
-                Yes/Buy {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
+                Yes/Buy {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
               </button>
               {user?.view_market_maker && (
               <button
@@ -1507,12 +1507,12 @@ export function MarketDetail() {
               <div className="mb-2 text-xs text-gray-600 dark:text-gray-400 flex gap-4">
                 {bestBid && (
                   <span>
-                    Yes/Buy: <span className="font-medium text-red-600 dark:text-red-400">{formatPriceCents(bestBid.price)}</span>
+                    No/Sell: <span className="font-medium text-purple-600 dark:text-purple-400">{formatPriceCents(bestBid.price)}</span>
                   </span>
                 )}
                 {bestAsk && (
                   <span>
-                    No/Sell: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceCents(bestAsk.price)}</span>
+                    Yes/Buy: <span className="font-medium text-blue-600 dark:text-blue-400">{formatPriceCents(bestAsk.price)}</span>
                   </span>
                 )}
               </div>
