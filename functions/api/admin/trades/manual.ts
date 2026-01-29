@@ -25,10 +25,12 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     if (userId == null || !Number.isInteger(userId) || userId < 1) {
       return errorResponse('Invalid or missing user_id', 400);
     }
-    if (typeof marketId !== 'string' || !marketId.trim()) {
+    const marketIdSanitized = typeof marketId === 'string' ? marketId.trim() : '';
+    const outcomeIdSanitized = typeof outcomeId === 'string' ? outcomeId.trim() : '';
+    if (!marketIdSanitized) {
       return errorResponse('Invalid or missing market_id', 400);
     }
-    if (typeof outcomeId !== 'string' || !outcomeId.trim()) {
+    if (!outcomeIdSanitized) {
       return errorResponse('Invalid or missing outcome_id', 400);
     }
     if (side !== 'bid' && side !== 'ask') {
@@ -46,7 +48,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       return errorResponse('User not found', 404);
     }
 
-    const market = await dbFirst(db, 'SELECT market_id FROM markets WHERE market_id = ?', [marketId]);
+    const market = await dbFirst(db, 'SELECT market_id FROM markets WHERE market_id = ?', [marketIdSanitized]);
     if (!market) {
       return errorResponse('Market not found', 404);
     }
@@ -54,7 +56,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const outcome = await dbFirst(
       db,
       'SELECT outcome_id FROM outcomes WHERE outcome_id = ? AND market_id = ?',
-      [outcomeId, marketId]
+      [outcomeIdSanitized, marketIdSanitized]
     );
     if (!outcome) {
       return errorResponse('Outcome not found or does not belong to market', 404);
@@ -63,25 +65,25 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const takerSide = side === 'bid' ? 0 : 1;
     const tradeId = await createTrade(
       db,
-      marketId,
+      marketIdSanitized,
       'manual',
       0,
       price,
       contractSize,
-      outcomeId,
+      outcomeIdSanitized,
       userId,
       null,
       takerSide
     );
 
-    await updatePosition(db, outcomeId, userId, side, price, contractSize);
+    await updatePosition(db, outcomeIdSanitized, userId, side, price, contractSize);
 
     return jsonResponse(
       {
         trade: {
           id: tradeId,
-          market_id: marketId,
-          outcome_id: outcomeId,
+          market_id: marketIdSanitized,
+          outcome_id: outcomeIdSanitized,
           side,
           price,
           contracts: contractSize,

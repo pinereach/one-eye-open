@@ -218,7 +218,7 @@ export function HistoricalScoringPage() {
           </button>
           {averagesExpanded && (
             <div className="px-4 pb-4 pt-0">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {playerAverages.filter(p => p.count > 0).sort((a, b) => (a.avg || 0) - (b.avg || 0)).map(({ player, avg, count }) => (
                   <div key={player} className="text-center">
                     <div className="text-xs text-gray-600 dark:text-gray-400">{player}</div>
@@ -247,7 +247,7 @@ export function HistoricalScoringPage() {
           </button>
           {averagesByYearExpanded && (
             <div className="px-4 pb-4 pt-0">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {averagesByYear.map(({ year, avg, count }) => (
                   <div key={year} className="text-center">
                     <div className="text-xs text-gray-600 dark:text-gray-400">{year}</div>
@@ -276,7 +276,7 @@ export function HistoricalScoringPage() {
           </button>
           {averagesByCourseExpanded && (
             <div className="px-4 pb-4 pt-0">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {averagesByCourse.map(({ course, avg, count }) => (
                   <div key={course} className="text-center">
                     <div className="text-xs text-gray-600 dark:text-gray-400">{course}</div>

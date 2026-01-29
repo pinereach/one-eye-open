@@ -4,15 +4,15 @@ import { getDb, dbRun, dbFirst, type Env } from '../../lib/db';
 import { requireAuth, jsonResponse, errorResponse } from '../../middleware';
 
 const outcomeSchema = z.object({
-  name: z.string().min(1, 'Outcome name is required'),
-  ticker: z.string().min(1, 'Ticker is required'),
-  strike: z.string().optional().default(''),
-  outcome_id: z.string().min(1).optional(), // Optional deterministic id (e.g. h2h: outcome-h2h-ALEX-AVAYOU) to avoid duplicates
+  name: z.string().trim().min(1, 'Outcome name is required'),
+  ticker: z.string().trim().min(1, 'Ticker is required'),
+  strike: z.string().trim().optional().default(''),
+  outcome_id: z.string().trim().min(1).optional(), // Optional deterministic id (e.g. h2h: outcome-h2h-ALEX-AVAYOU) to avoid duplicates
 });
 
 const marketSuggestionSchema = z.object({
-  short_name: z.string().min(1, 'Market name is required'),
-  symbol: z.string().min(1, 'Symbol is required'),
+  short_name: z.string().trim().min(1, 'Market name is required'),
+  symbol: z.string().trim().min(1, 'Symbol is required'),
   max_winners: z.number().int().min(1).max(12).default(1),
   min_winners: z.number().int().min(1).max(12).default(1),
   outcomes: z.array(outcomeSchema).min(1, 'At least one outcome is required').max(12, 'Maximum 12 outcomes allowed'),

@@ -19,7 +19,7 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
     setLoading(true);
 
     try {
-      await register(username, password);
+      await register(username.trim(), password.trim());
       onSuccess?.();
     } catch (err: any) {
       setError(err.message || 'Registration failed');

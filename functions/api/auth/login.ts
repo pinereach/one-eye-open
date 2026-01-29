@@ -5,8 +5,8 @@ import { verifyPassword, createToken, setSessionCookie } from '../../lib/auth';
 import { jsonResponse, errorResponse } from '../../middleware';
 
 const loginSchema = z.object({
-  username: z.string().min(1),
-  password: z.string().min(1),
+  username: z.string().trim().min(1, 'Username is required'),
+  password: z.string().trim().min(1, 'Password is required'),
 });
 
 export const onRequestPost: OnRequest<Env> = async (context) => {

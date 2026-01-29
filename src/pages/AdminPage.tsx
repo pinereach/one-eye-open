@@ -31,25 +31,25 @@ export function AdminPage() {
   const [manualPrice, setManualPrice] = useState<string>('');
   const [manualContracts, setManualContracts] = useState<string>('');
 
+  // Load once when user is admin. Do not depend on showToast — it changes every render and caused a request storm on failure.
   useEffect(() => {
     if (!user?.admin) return;
-    async function load() {
-      setLoadingMarkets(true);
-      try {
-        const [usersRes, marketsRes] = await Promise.all([
-          api.adminGetUsers(),
-          api.getMarkets(),
-        ]);
+    let cancelled = false;
+    setLoadingMarkets(true);
+    Promise.all([api.adminGetUsers(), api.getMarkets()])
+      .then(([usersRes, marketsRes]) => {
+        if (cancelled) return;
         setUsers(usersRes.users ?? []);
         setMarkets(marketsRes.markets ?? []);
-      } catch (err) {
-        showToast('Failed to load admin data', 'error');
-      } finally {
-        setLoadingMarkets(false);
-      }
-    }
-    load();
-  }, [user?.admin, showToast]);
+      })
+      .catch((err) => {
+        if (!cancelled) showToast('Failed to load admin data', 'error');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingMarkets(false);
+      });
+    return () => { cancelled = true; };
+  }, [user?.admin]);
 
   if (user && !user.admin) {
     return <Navigate to="/markets" replace />;

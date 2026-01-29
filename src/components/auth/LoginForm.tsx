@@ -19,7 +19,7 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
     setLoading(true);
 
     try {
-      await login(username, password);
+      await login(username.trim(), password.trim());
       onSuccess?.();
     } catch (err: any) {
       setError(err.message || 'Login failed');

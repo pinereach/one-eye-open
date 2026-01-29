@@ -9,12 +9,12 @@ import {
 } from '../../../lib/matching';
 
 const orderSchema = z.object({
-  outcome_id: z.string(),
+  outcome_id: z.string().trim().min(1, 'outcome_id is required'),
   side: z.enum(['bid', 'ask']),
   price: z.number().int().min(100).max(9900), // 1-99 dollars in cents (whole numbers only)
   contract_size: z.number().int().positive(),
-  tif: z.string().optional().default('GTC'), // Time in force, default to Good Till Cancel
-  token: z.string().optional(),
+  tif: z.string().trim().optional().default('GTC'), // Time in force, default to Good Till Cancel
+  token: z.string().trim().optional(),
 });
 
 export const onRequestPost: OnRequest<Env> = async (context) => {
