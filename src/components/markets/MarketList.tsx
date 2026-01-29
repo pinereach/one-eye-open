@@ -173,9 +173,6 @@ export function MarketList({ tripId }: { tripId?: string }) {
                     <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 truncate">
                       {market.short_name}
                     </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      Volume: ${((market.volume_contracts ?? 0) * 200).toLocaleString()}
-                    </p>
                   </div>
                   <div className="flex-shrink-0">
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

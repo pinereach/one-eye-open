@@ -43,6 +43,7 @@ export function MarketDetail() {
   const [confirmCancelAllOpen, setConfirmCancelAllOpen] = useState(false);
   const [confirmCancelAllForOutcome, setConfirmCancelAllForOutcome] = useState(false);
   const [cancelingAllForOutcome, setCancelingAllForOutcome] = useState(false);
+  const [handicaps, setHandicaps] = useState<Record<string, number>>({});
   const isDesktop = useIsDesktop();
   const quantityInputRef = useRef<HTMLInputElement>(null);
   const lastLoadTsRef = useRef<number>(0);
@@ -109,6 +110,20 @@ export function MarketDetail() {
       setOrderbookByOutcome(data?.orderbook || {});
       setTrades(data?.trades ?? []);
       setPositions(data?.positions ?? []);
+
+      // Load handicaps for individual-net-champion (cached 48h). Use 2025 if 2026 has no data yet.
+      if (data?.market?.market_id === 'market-individual-net-champion') {
+        api.getHandicaps(2026).then((res) => {
+          const h = ('handicaps' in res ? res.handicaps : {}) ?? {};
+          if (Object.keys(h).length > 0) {
+            setHandicaps(h);
+          } else {
+            api.getHandicaps(2025).then((r) => setHandicaps(('handicaps' in r ? r.handicaps : {}) ?? {})).catch(() => setHandicaps({}));
+          }
+        }).catch(() => setHandicaps({}));
+      } else {
+        setHandicaps({});
+      }
 
       // Sort outcomes by chance and select the highest chance outcome
       if (data.outcomes && data.outcomes.length > 0 && data.orderbook) {
@@ -609,6 +624,9 @@ export function MarketDetail() {
                                 <div className="min-w-0 flex-1">
                                   <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
                                     {outcome.name}
+                                    {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null && (
+                                      <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-normal"> ({handicaps[outcome.name]})</span>
+                                    )}
                                   </div>
                                   {positionByOutcome[outcome.outcome_id] && (() => {
                                     const { net_position } = positionByOutcome[outcome.outcome_id];
@@ -931,6 +949,9 @@ export function MarketDetail() {
                                 <div className="min-w-0 flex-1">
                                   <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
                                     {outcome.name}
+                                    {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null && (
+                                      <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-normal"> ({handicaps[outcome.name]})</span>
+                                    )}
                                   </div>
                                   {positionByOutcome[outcome.outcome_id] && (() => {
                                     const { net_position } = positionByOutcome[outcome.outcome_id];
@@ -1084,7 +1105,9 @@ export function MarketDetail() {
                     <option value="">Select an outcome</option>
                     {outcomes.map((outcome) => (
                       <option key={outcome.id} value={outcome.outcome_id}>
-                        {outcome.name ?? outcome.ticker}
+                        {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null
+                          ? `${outcome.name} (${handicaps[outcome.name]})`
+                          : (outcome.name ?? outcome.ticker)}
                       </option>
                     ))}
                   </select>
@@ -1555,7 +1578,9 @@ export function MarketDetail() {
                 <option value="">Select an outcome</option>
                 {outcomes.map((outcome) => (
                   <option key={outcome.outcome_id} value={outcome.outcome_id}>
-                    {outcome.name ?? outcome.ticker}
+                    {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null
+                      ? `${outcome.name} (${handicaps[outcome.name]})`
+                      : (outcome.name ?? outcome.ticker)}
                   </option>
                 ))}
               </select>

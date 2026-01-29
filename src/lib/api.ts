@@ -6,6 +6,8 @@ function isCacheableGet(endpoint: string, method?: string): boolean {
   if (endpoint === '/markets' || endpoint === '/participants') return true;
   // Market detail: /markets/:id (not /markets/:id/orders, etc.)
   if (/^\/markets\/[^/]+$/.test(endpoint)) return true;
+  // Handicaps (1-day cache)
+  if (endpoint === '/scoring/handicaps' || endpoint.startsWith('/scoring/handicaps?')) return true;
   return false;
 }
 
@@ -140,13 +142,22 @@ export const api = {
     });
   },
 
+  // Handicaps: ?year=2026 (default) for net champion market; year=all for scoring page (cached 1 day)
+  getHandicaps: (year?: number | 'all') => {
+    const param = year === 'all' ? 'all' : (year ?? 2026);
+    const endpoint = `/scoring/handicaps?year=${param}`;
+    return year === 'all'
+      ? apiRequest<{ handicapsByYear: Record<string, Record<string, number>> }>(endpoint)
+      : apiRequest<{ handicaps: Record<string, number> }>(endpoint);
+  },
+
   // Scores (historical scoring data)
   getScores: (course?: string, year?: string) => {
     const params = new URLSearchParams();
     if (course) params.append('course', course);
     if (year) params.append('year', year);
     const query = params.toString() ? `?${params.toString()}` : '';
-    return apiRequest<{ scores: Array<{ id: number; course: string; year: number; player: string; score: number | null; index_number: number | null; handicap_index: number | null }> }>(`/scoring/scores${query}`);
+    return apiRequest<{ scores: Array<{ id: number; course: string; year: number; player: string; score: number | null; index_number: number | null }> }>(`/scoring/scores${query}`);
   },
 
   updateScoreValue: (data: { course: string; year: number; player: string; score: number | null; index_number?: number | null }) =>
@@ -184,7 +195,4 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  /** Refresh cached 30-day volume per market (run every 4h via cron or admin). */
-  adminRefreshVolume: () =>
-    apiRequest<{ updated: number }>('/admin/refresh-volume', { method: 'POST' }),
 };

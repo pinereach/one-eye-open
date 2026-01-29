@@ -9,7 +9,8 @@ export function HistoricalScoringPage() {
   const { user } = useAuth();
   const [selectedCourse, setSelectedCourse] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
-  const [scores, setScores] = useState<Array<{ id: number; course: string; year: number; player: string; score: number | null; index_number: number | null; handicap_index: number | null }>>([]);
+  const [scores, setScores] = useState<Array<{ id: number; course: string; year: number; player: string; score: number | null; index_number: number | null }>>([]);
+  const [handicapsByYear, setHandicapsByYear] = useState<Record<string, Record<string, number>>>({});
   const [loading, setLoading] = useState(true);
   const [averagesExpanded, setAveragesExpanded] = useState(false);
   const [averagesByYearExpanded, setAveragesByYearExpanded] = useState(false);
@@ -25,6 +26,10 @@ export function HistoricalScoringPage() {
   useEffect(() => {
     loadScores();
   }, [selectedCourse, selectedYear]);
+
+  useEffect(() => {
+    api.getHandicaps('all').then((res) => setHandicapsByYear(('handicapsByYear' in res ? res.handicapsByYear : {}) ?? {})).catch(() => setHandicapsByYear({}));
+  }, []);
 
   async function loadScores() {
     setLoading(true);
@@ -67,16 +72,7 @@ export function HistoricalScoringPage() {
     return Array.from(rowMap.values());
   };
 
-  const yearPlayerToHandicap = (() => {
-    const map = new Map<string, number | null>();
-    scores.forEach(s => {
-      const key = `${s.year}-${s.player}`;
-      if (s.handicap_index != null) map.set(key, s.handicap_index);
-      else if (!map.has(key)) map.set(key, null);
-    });
-    return map;
-  })();
-  const getHandicap = (year: number, player: string) => yearPlayerToHandicap.get(`${year}-${player}`) ?? null;
+  const getHandicap = (year: number, player: string) => handicapsByYear[String(year)]?.[player] ?? null;
 
   const historicalData = getRowData();
   const courses = Array.from(new Set(historicalData.map(d => d.course as string))).filter((c): c is string => typeof c === 'string');

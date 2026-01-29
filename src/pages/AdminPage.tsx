@@ -27,7 +27,6 @@ export function AdminPage() {
   const [cancelUserBusy, setCancelUserBusy] = useState(false);
   const [pauseBusy, setPauseBusy] = useState<Record<string, boolean>>({});
   const [manualTradeBusy, setManualTradeBusy] = useState(false);
-  const [refreshVolumeBusy, setRefreshVolumeBusy] = useState(false);
 
   // Manual trade form
   const [manualUserId, setManualUserId] = useState<number | ''>('');
@@ -103,18 +102,6 @@ export function AdminPage() {
       setCancelUserBusy(false);
       setCancelAllUserConfirmOpen(false);
       setCancelUserId(null);
-    }
-  }
-
-  async function handleRefreshVolume() {
-    setRefreshVolumeBusy(true);
-    try {
-      const { updated } = await api.adminRefreshVolume();
-      showToast(`Volume cache updated (${updated} markets). Run every 4h via cron.`, 'success');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to refresh volume', 'error');
-    } finally {
-      setRefreshVolumeBusy(false);
     }
   }
 
@@ -213,23 +200,6 @@ export function AdminPage() {
               {cancelUserBusy ? 'Canceling…' : 'Cancel all for this user'}
             </button>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          <h2 className="text-base sm:text-lg font-bold mb-3">Volume cache</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-            Markets list reads volume from cache. Refresh every 4h (or run via cron to POST /api/admin/refresh-volume).
-          </p>
-          <button
-            type="button"
-            onClick={handleRefreshVolume}
-            disabled={refreshVolumeBusy}
-            className="px-3 py-2 text-sm font-medium bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50"
-          >
-            {refreshVolumeBusy ? 'Refreshing…' : 'Refresh volume cache'}
-          </button>
         </CardContent>
       </Card>
 

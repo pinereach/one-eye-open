@@ -27,32 +27,14 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       if (outcomesByMarket[o.market_id]) outcomesByMarket[o.market_id].push(o);
     });
 
-    // Volume from cache table (refreshed every 4h via POST /api/admin/refresh-volume). Fallback to 0 if table missing.
-    let volumeByMarket: Record<string, number> = {};
-    try {
-      const volumeRows = await dbQuery<{ market_id: string; volume_contracts: number }>(
-        db,
-        'SELECT market_id, volume_contracts FROM market_volume',
-        []
-      );
-      volumeRows.forEach((r: { market_id: string; volume_contracts: number }) => {
-        volumeByMarket[r.market_id] = r.volume_contracts;
-      });
-    } catch {
-      // market_volume table may not exist yet; leave volume 0
-    }
-
-    const marketsWithOutcomes = markets.map((market: any) => {
-      const volume_contracts = volumeByMarket[market.market_id] ?? 0;
-      return {
-        ...market,
-        outcomes: outcomesByMarket[market.market_id] || [],
-        volume_contracts,
-      };
-    });
+    // Volume is not included on the list; individual market pages compute volume from trades.
+    const marketsWithOutcomes = markets.map((market: any) => ({
+      ...market,
+      outcomes: outcomesByMarket[market.market_id] || [],
+    }));
 
     const response = jsonResponse({ markets: marketsWithOutcomes });
-    // Markets + outcomes are reference data; volume is 30-day aggregate. Cache 12h to cut D1 reads.
+    // Markets + outcomes are reference data. Cache 12h to cut D1 reads.
     response.headers.set('Cache-Control', 'public, max-age=43200'); // 12h
     return response;
   } catch (error: any) {
