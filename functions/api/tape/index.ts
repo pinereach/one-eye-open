@@ -1,10 +1,11 @@
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbQuery, dbRun, type Env } from '../../lib/db';
+import { getDb, dbQuery, type Env } from '../../lib/db';
 import { requireAuth, jsonResponse } from '../../middleware';
 
 /**
  * GET /api/tape — global trade tape: all taker trades across the app.
  * Requires auth. Use /api/trades for "my trades" only.
+ * Note: Backfill of trades.outcome is not run here (was causing heavy D1 reads). Run via cron or admin if needed.
  */
 export const onRequestGet: OnRequest<Env> = async (context) => {
   const { request, env } = context;
@@ -16,25 +17,6 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     return authResult.error;
   }
   const db = getDb(env);
-
-  // Backfill missing outcomes for trades when possible
-  await dbRun(
-    db,
-    `UPDATE trades 
-     SET outcome = (
-       SELECT o.outcome 
-       FROM orders o 
-       WHERE ABS(o.create_time - trades.create_time) <= 2 
-         AND ABS(o.price - trades.price) <= 50
-       LIMIT 1
-     )
-     WHERE outcome IS NULL 
-       AND EXISTS (
-         SELECT 1 FROM orders o 
-         WHERE ABS(o.create_time - trades.create_time) <= 2 
-           AND ABS(o.price - trades.price) <= 50
-       )`
-  );
 
   // All recent trades (no user filter) with outcome, market, and buyer/seller usernames
   type TradeRow = {

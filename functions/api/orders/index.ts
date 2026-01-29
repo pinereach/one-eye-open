@@ -69,7 +69,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     const params = uniquePairs.flatMap((p) => [p.outcome, p.price]);
     tradeRows = await dbQuery<TradeRow>(
       db,
-      `SELECT outcome, price, contracts, id FROM trades WHERE ${conditions} ORDER BY id DESC`,
+      `SELECT outcome, price, contracts, id FROM trades WHERE ${conditions} ORDER BY id DESC LIMIT 1000`,
       params
     );
   }

@@ -35,6 +35,8 @@ export interface Market {
   market_type?: string | null;
   trading_paused?: number;
   outcomes?: Outcome[];
+  /** Total contracts traded in this market (for volume = volume_contracts × $200) */
+  volume_contracts?: number;
 }
 
 export interface Order {

@@ -1,6 +1,6 @@
 import type { OnRequest } from '@cloudflare/pages';
 import type { D1Database } from '@cloudflare/workers-types';
-import { getDb, dbQuery, dbRun, type Env } from '../../lib/db';
+import { getDb, dbQuery, type Env } from '../../lib/db';
 import { requireAuth, jsonResponse } from '../../middleware';
 import type { Position } from '../../lib/matching';
 
@@ -245,30 +245,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     [userIdNum]
   );
 
-  // Fix positions with wrong price_basis: 0 with non-zero position, or outside valid range ($1–$99)
-  const needsRecalc = (p: typeof positionsDb[0]) =>
-    p.net_position !== 0 && (
-      p.price_basis === 0 ||
-      p.price_basis > PRICE_BASIS_MAX_CENTS ||
-      (p.price_basis > 0 && p.price_basis < PRICE_BASIS_MIN_CENTS)
-    );
-  for (const position of positionsDb) {
-    if (!needsRecalc(position)) continue;
-    const recalculatedBasis = await recalculatePriceBasisFromTrades(
-      db,
-      userIdNum,
-      position.outcome,
-      position.net_position
-    ) ?? await recalculatePriceBasis(db, userIdNum, position.outcome, position.net_position);
-    if (recalculatedBasis !== null && recalculatedBasis > 0) {
-      await dbRun(
-        db,
-        `UPDATE positions SET price_basis = ? WHERE id = ?`,
-        [recalculatedBasis, position.id]
-      );
-      position.price_basis = recalculatedBasis;
-    }
-  }
+  // Skip recalc on every GET to reduce D1 reads. Return stored price_basis (clamped for display).
+  // Run a one-off or scheduled job to backfill bad price_basis if needed.
 
   // Batched best bid/ask: 2 queries for all outcomes (no N+1)
   const clampBasis = (p: typeof positionsDb[0]) => p.net_position !== 0 && p.price_basis > 0 ? clampPriceBasis(p.price_basis) : p.price_basis;

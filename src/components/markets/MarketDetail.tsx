@@ -46,7 +46,7 @@ export function MarketDetail() {
   const lastLoadTsRef = useRef<number>(0);
   const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
 
-  const MIN_REFRESH_INTERVAL_MS = 45_000;
+  const MIN_REFRESH_INTERVAL_MS = 120_000; // 2 min — reduce D1 reads from visibility/sheet refetches
 
   function formatLastUpdated(ts: number): string {
     const diffSec = Math.floor((Date.now() - ts) / 1000);
@@ -236,20 +236,25 @@ export function MarketDetail() {
       }
     }
 
-    // Pre-submit light check: refetch orderbook and abort if liquidity no longer there
+    // Pre-submit: only refetch if data is stale (2+ min) to avoid doubling D1 reads on every submit
     try {
-      const data = await api.getMarket(id);
-      if (data?.market) setMarket(data.market);
-      if (data?.outcomes) setOutcomes(data.outcomes);
-      if (data?.orderbook) setOrderbookByOutcome(data.orderbook);
-      if (data?.trades != null) setTrades(data.trades);
-      if (data?.positions != null) setPositions(data.positions);
-      lastLoadTsRef.current = Date.now();
-      setLastFetchedAt(Date.now());
+      const dataIsStale = Date.now() - lastLoadTsRef.current >= MIN_REFRESH_INTERVAL_MS;
+      let freshBook = orderbookByOutcome[selectedOutcomeId];
+      if (dataIsStale) {
+        const data = await api.getMarket(id);
+        if (data?.market) setMarket(data.market);
+        if (data?.outcomes) setOutcomes(data.outcomes);
+        if (data?.orderbook) setOrderbookByOutcome(data.orderbook);
+        if (data?.trades != null) setTrades(data.trades);
+        if (data?.positions != null) setPositions(data.positions);
+        lastLoadTsRef.current = Date.now();
+        setLastFetchedAt(Date.now());
+        freshBook = data?.orderbook?.[selectedOutcomeId];
+      }
 
-      const freshBook = data?.orderbook?.[selectedOutcomeId];
+      const bookToCheck = freshBook;
       if (orderSide === 'bid') {
-        const asksAtOrBelow = (freshBook?.asks || []).filter(
+        const asksAtOrBelow = (bookToCheck?.asks || []).filter(
           (a: Order) => (a.status === 'open' || a.status === 'partial') && a.price <= priceCents
         );
         if (asksAtOrBelow.length > 0) {
@@ -260,7 +265,7 @@ export function MarketDetail() {
           }
         }
       } else {
-        const bidsAtOrAbove = (freshBook?.bids || []).filter(
+        const bidsAtOrAbove = (bookToCheck?.bids || []).filter(
           (b: Order) => (b.status === 'open' || b.status === 'partial') && b.price >= priceCents
         );
         if (bidsAtOrAbove.length > 0) {
@@ -361,16 +366,16 @@ export function MarketDetail() {
     }
   }
 
-  // Calculate market stats from executed trades only (open orders do not count as volume)
+  // Volume = number of contracts traded × $200
   const marketStats = (() => {
-    const totalVolume =
-      (trades || []).reduce(
-        (sum, t) => sum + (t.contracts || 0) * (t.price ?? 0),
-        0
-      ) / 100; // price in cents -> dollars
-
+    const volume_contracts = (trades || []).reduce(
+      (sum, t) => sum + (t.contracts || 0),
+      0
+    );
+    const volume_dollars = volume_contracts * 200;
     return {
-      totalVolume,
+      volume_contracts,
+      volume_dollars,
     };
   })();
 
@@ -540,8 +545,10 @@ export function MarketDetail() {
         {/* Market Summary Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-1 gap-3 sm:gap-4 mb-4 sm:mb-6">
           <div className="bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 rounded-lg">
-            <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Total Volume</div>
-            <div className="text-sm sm:text-lg font-semibold">{formatPrice(marketStats.totalVolume * 100)}</div>
+            <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Trading Volume</div>
+            <div className="text-sm sm:text-lg font-semibold">
+              {marketStats.volume_contracts.toLocaleString()} × $200 = ${marketStats.volume_dollars.toLocaleString()}
+            </div>
           </div>
         </div>
         {lastFetchedAt != null && (

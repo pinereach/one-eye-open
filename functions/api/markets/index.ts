@@ -27,12 +27,39 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       if (outcomesByMarket[o.market_id]) outcomesByMarket[o.market_id].push(o);
     });
 
-    const marketsWithOutcomes = markets.map((market: any) => ({
-      ...market,
-      outcomes: outcomesByMarket[market.market_id] || [],
-    }));
+    // Volume per market: sum of contracts from trades in last 30 days only (reduces D1 read scan)
+    const volumeDays = 30;
+    const volumeSince = Math.floor(Date.now() / 1000) - volumeDays * 24 * 60 * 60;
+    let volumeByMarket: Record<string, number> = {};
+    try {
+      const volumeRows = await dbQuery<{ market_id: string; volume_contracts: number }>(
+        db,
+        `SELECT o.market_id, COALESCE(SUM(t.contracts), 0) AS volume_contracts
+         FROM trades t
+         JOIN outcomes o ON t.outcome = o.outcome_id
+         WHERE t.create_time >= ?
+         GROUP BY o.market_id`,
+        [volumeSince]
+      );
+      volumeRows.forEach((r: { market_id: string; volume_contracts: number }) => {
+        volumeByMarket[r.market_id] = r.volume_contracts;
+      });
+    } catch {
+      // trades or outcome join may not exist; leave volume 0
+    }
 
-    return jsonResponse({ markets: marketsWithOutcomes });
+    const marketsWithOutcomes = markets.map((market: any) => {
+      const volume_contracts = volumeByMarket[market.market_id] ?? 0;
+      return {
+        ...market,
+        outcomes: outcomesByMarket[market.market_id] || [],
+        volume_contracts,
+      };
+    });
+
+    const response = jsonResponse({ markets: marketsWithOutcomes });
+    response.headers.set('Cache-Control', 'public, max-age=60');
+    return response;
   } catch (error: any) {
     console.error('Error in /api/markets:', error);
     return errorResponse(error.message || 'Failed to fetch markets', 500);
