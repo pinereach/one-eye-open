@@ -70,6 +70,8 @@ export interface Trade {
   market_short_name?: string | null;
   side?: number | null; // 0 = bid/buy, 1 = ask/sell (current user's side when in trade)
   taker_side?: number | null; // 0 = buy, 1 = sell (taker's side for display)
+  buyer_username?: string | null;
+  seller_username?: string | null;
 }
 
 export interface Position {
