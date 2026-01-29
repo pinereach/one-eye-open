@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { formatPrice, formatPricePercent } from '../lib/format';
 import { format } from 'date-fns';
 import { Card, CardContent } from '../components/ui/Card';
@@ -7,10 +9,13 @@ import { Skeleton, SkeletonCard, SkeletonTable } from '../components/ui/Skeleton
 import { EmptyState } from '../components/ui/EmptyState';
 import { SwipeableCard } from '../components/ui/SwipeableCard';
 import { ToastContainer, useToast } from '../components/ui/Toast';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
 
 export function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
+  const [cancelAllOpen, setCancelAllOpen] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
 
   useEffect(() => {
@@ -30,11 +35,7 @@ export function OrdersPage() {
     }
   }
 
-  async function handleCancelOrder(orderId: number) {
-    if (!confirm('Are you sure you want to cancel this order?')) {
-      return;
-    }
-
+  async function doCancelOrder(orderId: number) {
     try {
       await api.cancelOrder(orderId);
       showToast('Order canceled successfully', 'success');
@@ -45,14 +46,14 @@ export function OrdersPage() {
     }
   }
 
+  async function handleCancelOrder(orderId: number) {
+    setCancelOrderId(orderId);
+  }
+
   const activeOrders = orders.filter(order => order.status === 'open' || order.status === 'partial');
   const completedOrders = orders.filter(order => order.status === 'filled' || order.status === 'canceled');
 
-  async function handleCancelAll() {
-    if (!confirm('Are you sure you want to cancel all open orders?')) {
-      return;
-    }
-
+  async function doCancelAll() {
     try {
       const cancelPromises = activeOrders.map(order => api.cancelOrder(order.id));
       await Promise.all(cancelPromises);
@@ -64,10 +65,14 @@ export function OrdersPage() {
     }
   }
 
+  function handleCancelAll() {
+    setCancelAllOpen(true);
+  }
+
   const renderOrderCard = (order: any) => {
     const isSell = order.side === 1;
     const orderType = isSell ? 'SELL ORDER' : 'BUY ORDER';
-    const orderTypeColor = isSell ? 'text-[#FFCC00]' : 'text-[#00CC00]';
+    const orderTypeColor = isSell ? 'text-red-600 dark:text-red-400' : 'text-primary-600 dark:text-primary-400';
     const originalSize = order.original_size !== undefined && order.original_size !== null ? order.original_size : order.contract_size || 0;
     const remainingSize = order.remaining_size !== undefined && order.remaining_size !== null ? order.remaining_size : (order.status === 'filled' ? 0 : originalSize);
     const filledSize = Math.max(0, originalSize - remainingSize);
@@ -130,20 +135,21 @@ export function OrdersPage() {
     </tr>
   );
 
+  const thClass = 'py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-300 dark:border-gray-600';
   const renderOrderTable = (orderList: any[], emptyMessage: string) => (
     <div className="overflow-x-auto -mx-3 sm:mx-0">
       <div className="inline-block min-w-full align-middle">
         <table className="w-full min-w-[600px] border-collapse">
           <thead>
             <tr className="border-b border-gray-300 dark:border-gray-600">
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Time</th>
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Market</th>
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Outcome</th>
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Side</th>
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Price</th>
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Qty</th>
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Remaining</th>
-              <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Status</th>
+              <th className={thClass}>Time</th>
+              <th className={thClass}>Market</th>
+              <th className={thClass}>Outcome</th>
+              <th className={thClass}>Side</th>
+              <th className={thClass}>Price</th>
+              <th className={thClass}>Qty</th>
+              <th className={thClass}>Remaining</th>
+              <th className={thClass}>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -169,6 +175,7 @@ export function OrdersPage() {
   }
 
   return (
+    <PullToRefresh onRefresh={loadOrders}>
     <div className="space-y-4 sm:space-y-6">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       <div className="space-y-3 sm:space-y-4">
@@ -180,7 +187,12 @@ export function OrdersPage() {
         </div>
         <div className="md:hidden space-y-3">
           {activeOrders.length === 0 ? (
-            <EmptyState icon={<svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>} title="No Open Orders" message="You don't have any open orders at the moment. Place an order from a market to get started." />
+            <EmptyState
+              icon={<svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>}
+              title="No Open Orders"
+              message="You don't have any open orders at the moment. Place an order from a market to get started."
+              action={<Link to="/markets" className="text-primary-600 dark:text-primary-400 font-medium hover:underline">Browse markets</Link>}
+            />
           ) : (
             activeOrders.map(renderOrderCard)
           )}
@@ -199,5 +211,27 @@ export function OrdersPage() {
         <div className="hidden md:block">{renderOrderTable(completedOrders, 'No completed orders')}</div>
       </div>
     </div>
+
+    <ConfirmModal
+      isOpen={cancelOrderId != null}
+      onClose={() => setCancelOrderId(null)}
+      onConfirm={() => { if (cancelOrderId != null) doCancelOrder(cancelOrderId); }}
+      title="Cancel order"
+      message="Are you sure you want to cancel this order?"
+      confirmLabel="Cancel order"
+      cancelLabel="Keep"
+      variant="danger"
+    />
+    <ConfirmModal
+      isOpen={cancelAllOpen}
+      onClose={() => setCancelAllOpen(false)}
+      onConfirm={doCancelAll}
+      title="Cancel all orders"
+      message="Are you sure you want to cancel all open orders?"
+      confirmLabel="Cancel all"
+      cancelLabel="Keep"
+      variant="danger"
+    />
+    </PullToRefresh>
   );
 }

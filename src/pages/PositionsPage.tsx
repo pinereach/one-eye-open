@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { formatPrice, formatPriceBasis, formatPriceDecimal } from '../lib/format';
 import { Card, CardContent } from '../components/ui/Card';
+import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton, SkeletonCard, SkeletonTable } from '../components/ui/Skeleton';
 
 export function PositionsPage() {
@@ -99,6 +101,7 @@ export function PositionsPage() {
   }
 
   return (
+    <PullToRefresh onRefresh={loadPositions}>
     <div className="space-y-4 sm:space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold">Positions</h1>
       {positions.length > 0 && (
@@ -111,18 +114,29 @@ export function PositionsPage() {
       )}
       <div className="md:hidden space-y-3">
         {positions.length === 0 ? (
-          <Card><CardContent><p className="text-center text-gray-500 dark:text-gray-400 text-sm py-4">No positions found</p></CardContent></Card>
+          <EmptyState
+            icon={<svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
+            title="No Positions"
+            message="You don't have any open positions. Trade on a market to open a position."
+            action={<Link to="/markets" className="text-primary-600 dark:text-primary-400 font-medium hover:underline">Browse markets</Link>}
+          />
         ) : (
           positions.map(renderPositionCard)
         )}
       </div>
       <div className="hidden md:block space-y-3">
         {positions.length === 0 ? (
-          <Card><CardContent><p className="text-center text-gray-500 dark:text-gray-400 text-sm py-4">No positions found</p></CardContent></Card>
+          <EmptyState
+            icon={<svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
+            title="No Positions"
+            message="You don't have any open positions. Trade on a market to open a position."
+            action={<Link to="/markets" className="text-primary-600 dark:text-primary-400 font-medium hover:underline">Browse markets</Link>}
+          />
         ) : (
           positions.map(renderPositionCard)
         )}
       </div>
     </div>
+    </PullToRefresh>
   );
 }

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { MarketDetail } from './components/markets/MarketDetail';
 import { DarkModeToggle } from './components/ui/DarkModeToggle';
 import { BottomNav } from './components/ui/BottomNav';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { isDevelopment } from './lib/env';
 import {
   LandingPage,
@@ -17,11 +18,31 @@ import {
   SettingsPage,
 } from './pages';
 
+const DEFAULT_TITLE = 'One Eye Open';
+
+function getPageTitle(pathname: string): string {
+  if (pathname === '/') return DEFAULT_TITLE;
+  if (pathname === '/scoring') return 'Scoring | One Eye Open';
+  if (pathname === '/markets' || pathname === '/markets/') return 'Markets | One Eye Open';
+  if (pathname.startsWith('/markets/')) return 'Market | One Eye Open';
+  if (pathname === '/tape') return 'Trade Tape | One Eye Open';
+  if (pathname === '/orders') return 'Orders | One Eye Open';
+  if (pathname === '/trades') return 'Trades | One Eye Open';
+  if (pathname === '/positions') return 'Positions | One Eye Open';
+  if (pathname === '/market-suggestions') return 'Market Suggestions | One Eye Open';
+  if (pathname === '/settings') return 'Settings | One Eye Open';
+  return DEFAULT_TITLE;
+}
+
 function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    document.title = getPageTitle(location.pathname);
+  }, [location.pathname]);
 
   async function handleLogout() {
     if (isDevelopment) {
@@ -134,8 +155,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <BrowserRouter>
-      <Layout>
-        <Routes>
+      <ErrorBoundary onRetry={() => window.location.reload()}>
+        <Layout>
+          <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/scoring" element={<ProtectedRoute><HistoricalScoringPage /></ProtectedRoute>} />
           <Route path="/markets" element={<ProtectedRoute><MarketsPage /></ProtectedRoute>} />
@@ -146,8 +168,9 @@ export default function App() {
           <Route path="/positions" element={<ProtectedRoute><PositionsPage /></ProtectedRoute>} />
           <Route path="/market-suggestions" element={<ProtectedRoute><MarketSuggestionsPage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-        </Routes>
-      </Layout>
+          </Routes>
+        </Layout>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }

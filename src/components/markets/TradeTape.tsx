@@ -48,10 +48,12 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
     );
   }
 
+  const isFullPage = !showTitle;
+
   return (
     <div className="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 overflow-hidden">
       {showTitle && <h2 className="text-sm font-bold text-gray-600 dark:text-gray-400 px-4 pt-3 pb-2">Trade tape</h2>}
-      <div className={`max-h-[280px] overflow-y-auto px-4 pb-3 ${showTitle ? '' : 'pt-3'}`}>
+      <div className={`px-4 pb-3 ${isFullPage ? 'pt-3' : 'max-h-[280px] overflow-y-auto'}`}>
         <div className="space-y-1.5">
           {trades.map((trade) => {
             const isBuy = trade.side === 0;

@@ -31,17 +31,19 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="username" className="block text-sm font-medium mb-1.5">
+        <label htmlFor="register-username" className="block text-sm font-medium mb-1.5">
           Username
         </label>
         <input
-          id="username"
+          id="register-username"
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
           autoComplete="username"
           className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 min-h-[44px]"
+          aria-describedby={error ? 'register-error' : undefined}
+          aria-invalid={!!error}
         />
       </div>
 
@@ -61,7 +63,9 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
       </div>
 
       {error && (
-        <div className="text-red-600 dark:text-red-400 text-sm">{error}</div>
+        <div id="register-error" className="text-red-600 dark:text-red-400 text-sm" role="alert">
+          {error}
+        </div>
       )}
 
       <button

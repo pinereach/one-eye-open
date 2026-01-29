@@ -1,4 +1,6 @@
-import { useEffect, ReactNode } from 'react';
+import { useEffect, useRef, useCallback, ReactNode } from 'react';
+
+const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 interface BottomSheetProps {
   isOpen: boolean;
@@ -8,16 +10,80 @@ interface BottomSheetProps {
 }
 
 export function BottomSheet({ isOpen, onClose, children, title }: BottomSheetProps) {
+  const mobilePanelRef = useRef<HTMLDivElement>(null);
+  const desktopPanelRef = useRef<HTMLDivElement>(null);
+  const previousActiveRef = useRef<HTMLElement | null>(null);
+
+  const getVisiblePanel = useCallback(() => {
+    const mobile = mobilePanelRef.current;
+    const desktop = desktopPanelRef.current;
+    if (mobile && desktop) {
+      const mobileRect = mobile.getBoundingClientRect();
+      const desktopRect = desktop.getBoundingClientRect();
+      if (mobileRect.width > 0 && mobileRect.height > 0) return mobile;
+      if (desktopRect.width > 0 && desktopRect.height > 0) return desktop;
+    }
+    return mobile ?? desktop;
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      previousActiveRef.current = document.activeElement as HTMLElement | null;
     } else {
       document.body.style.overflow = '';
+      if (previousActiveRef.current && typeof previousActiveRef.current.focus === 'function') {
+        previousActiveRef.current.focus();
+        previousActiveRef.current = null;
+      }
     }
     return () => {
       document.body.style.overflow = '';
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const panel = getVisiblePanel();
+      if (!panel) return;
+      const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+        (el) => !el.hasAttribute('disabled') && el.offsetParent != null
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, getVisiblePanel]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const panel = getVisiblePanel();
+    if (!panel) return;
+    const focusable = panel.querySelector<HTMLElement>(FOCUSABLE);
+    const timer = requestAnimationFrame(() => {
+      if (focusable) focusable.focus();
+    });
+    return () => cancelAnimationFrame(timer);
+  }, [isOpen, getVisiblePanel]);
 
   if (!isOpen) return null;
 
@@ -31,7 +97,7 @@ export function BottomSheet({ isOpen, onClose, children, title }: BottomSheetPro
       />
       
       {/* Mobile: Bottom Sheet */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl max-h-[90vh] overflow-y-auto safe-area-bottom">
+      <div ref={mobilePanelRef} className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl max-h-[90vh] overflow-y-auto safe-area-bottom" role="dialog" aria-modal="true">
         {/* Handle */}
         <div className="sticky top-0 bg-white dark:bg-gray-800 pt-2 pb-2 flex justify-center">
           <div className="w-12 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
@@ -62,10 +128,13 @@ export function BottomSheet({ isOpen, onClose, children, title }: BottomSheetPro
       </div>
 
       {/* Desktop: Centered Modal */}
-      <div className="hidden md:flex fixed inset-0 z-50 items-center justify-center p-4">
+      <div className="hidden md:flex fixed inset-0 z-50 items-center justify-center p-4" aria-hidden="true">
         <div 
+          ref={desktopPanelRef}
           className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
         >
           {/* Header */}
           {title && (

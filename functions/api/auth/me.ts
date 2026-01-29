@@ -13,11 +13,15 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   const token = getCookieValue(cookieHeader, 'session');
 
   if (!token) {
-    return jsonResponse({ user: null });
+    const response = jsonResponse({ user: null });
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return response;
   }
 
   const db = getDb(env);
   const user = await getUserFromToken(db, token, env);
 
-  return jsonResponse({ user });
+  const response = jsonResponse({ user });
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  return response;
 };

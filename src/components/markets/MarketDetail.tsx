@@ -6,6 +6,7 @@ import { Orderbook } from './Orderbook';
 import { ToastContainer, useToast } from '../ui/Toast';
 import { BottomSheet } from '../ui/BottomSheet';
 import { Tabs } from '../ui/Tabs';
+import { ConfirmModal } from '../ui/ConfirmModal';
 import { Skeleton } from '../ui/Skeleton';
 import { Card, CardContent } from '../ui/Card';
 import { useAuth } from '../../hooks/useAuth';
@@ -37,6 +38,8 @@ export function MarketDetail() {
   const [activeTab, setActiveTab] = useState<'outcomes' | 'orders' | 'trades' | 'positions'>('outcomes');
   const [cancelingOrderId, setCancelingOrderId] = useState<number | null>(null);
   const [cancelingAll, setCancelingAll] = useState(false);
+  const [confirmCancelOrderId, setConfirmCancelOrderId] = useState<number | null>(null);
+  const [confirmCancelAllOpen, setConfirmCancelAllOpen] = useState(false);
   const isDesktop = useIsDesktop();
   const quantityInputRef = useRef<HTMLInputElement>(null);
 
@@ -359,7 +362,7 @@ export function MarketDetail() {
     return list;
   }, [activeTab, isDesktop, orderbookByOutcome, user?.id]);
 
-  async function handleCancelOrder(orderId: number) {
+  async function doCancelOrder(orderId: number) {
     setCancelingOrderId(orderId);
     try {
       await api.cancelOrder(orderId);
@@ -373,7 +376,11 @@ export function MarketDetail() {
     }
   }
 
-  async function handleCancelAllOrders() {
+  function handleCancelOrder(orderId: number) {
+    setConfirmCancelOrderId(orderId);
+  }
+
+  async function doCancelAllOrders() {
     if (myOpenOrders.length === 0) return;
     setCancelingAll(true);
     try {
@@ -388,6 +395,10 @@ export function MarketDetail() {
     } finally {
       setCancelingAll(false);
     }
+  }
+
+  function handleCancelAllOrders() {
+    setConfirmCancelAllOpen(true);
   }
 
   if (loading) {
@@ -418,8 +429,10 @@ export function MarketDetail() {
     return avgPriceB - avgPriceA;
   }) : [];
 
+  const showMobileCta = selectedOutcomeId && activeTab === 'outcomes';
+
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className={`space-y-4 sm:space-y-6 ${showMobileCta ? 'pb-24 md:pb-0' : ''}`}>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
       <div className="flex items-center gap-2 sm:gap-4">
@@ -527,7 +540,7 @@ export function MarketDetail() {
                                     e.stopPropagation();
                                     handleBidClick(outcome.outcome_id, yesPrice);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
                                 >
                                   {yesPrice ? formatPriceCents(yesPrice) : '-'}
                                   {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
@@ -543,7 +556,7 @@ export function MarketDetail() {
                                     e.stopPropagation();
                                     handleAskClick(outcome.outcome_id, bestAsk?.price || null);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
                                 >
                                   {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
                                   {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
@@ -818,7 +831,7 @@ export function MarketDetail() {
                                     e.stopPropagation();
                                     handleBidClick(outcome.outcome_id, yesPrice);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 hover:bg-green-200 dark:hover:bg-green-800 active:bg-green-300 dark:active:bg-green-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
                                 >
                                   {yesPrice ? formatPriceCents(yesPrice) : '-'}
                                   {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
@@ -834,7 +847,7 @@ export function MarketDetail() {
                                     e.stopPropagation();
                                     handleAskClick(outcome.outcome_id, bestAsk?.price || null);
                                   }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[32px] sm:min-h-[38px] flex flex-col items-center justify-center transition-colors"
+                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 hover:bg-red-200 dark:hover:bg-red-800 active:bg-red-300 dark:active:bg-red-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
                                 >
                                   {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
                                   {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
@@ -1338,6 +1351,20 @@ export function MarketDetail() {
         </div>
       </div>
 
+      {/* Mobile: sticky CTA to open order sheet (above bottom nav) */}
+      {showMobileCta && (
+        <div className="md:hidden fixed left-0 right-0 bottom-16 z-40 pt-2 pb-2 px-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-[0_-2px_10px_rgba(0,0,0,0.08)] safe-area-bottom">
+          <button
+            type="button"
+            onClick={() => setBottomSheetOpen(true)}
+            className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg touch-manipulation min-h-[44px] transition-colors"
+            aria-label="Place order"
+          >
+            Buy / Sell
+          </button>
+        </div>
+      )}
+
       {/* Mobile Bottom Sheet for Order Form */}
       <BottomSheet
         isOpen={bottomSheetOpen}
@@ -1586,6 +1613,27 @@ export function MarketDetail() {
           </button>
         </form>
       </BottomSheet>
+
+      <ConfirmModal
+        isOpen={confirmCancelOrderId != null}
+        onClose={() => setConfirmCancelOrderId(null)}
+        onConfirm={() => { if (confirmCancelOrderId != null) doCancelOrder(confirmCancelOrderId); }}
+        title="Cancel order"
+        message="Are you sure you want to cancel this order?"
+        confirmLabel="Cancel order"
+        cancelLabel="Keep"
+        variant="danger"
+      />
+      <ConfirmModal
+        isOpen={confirmCancelAllOpen}
+        onClose={() => setConfirmCancelAllOpen(false)}
+        onConfirm={doCancelAllOrders}
+        title="Cancel all orders"
+        message="Are you sure you want to cancel all open orders in this market?"
+        confirmLabel="Cancel all"
+        cancelLabel="Keep"
+        variant="danger"
+      />
 
       {/* Spacer for mobile bottom nav and FAB */}
       <div className="md:hidden h-24"></div>

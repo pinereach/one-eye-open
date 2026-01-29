@@ -42,6 +42,8 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
           required
           autoComplete="username"
           className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 min-h-[44px]"
+          aria-describedby={error ? 'login-error' : undefined}
+          aria-invalid={!!error}
         />
       </div>
 
@@ -61,7 +63,9 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
       </div>
 
       {error && (
-        <div className="text-red-600 dark:text-red-400 text-sm">{error}</div>
+        <div id="login-error" className="text-red-600 dark:text-red-400 text-sm" role="alert">
+          {error}
+        </div>
       )}
 
       <button

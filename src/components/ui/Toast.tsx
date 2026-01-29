@@ -24,10 +24,13 @@ export function Toast({ message, type, duration = 3000, onClose }: ToastProps) {
     info: 'bg-blue-600',
   }[type];
 
+  const isError = type === 'error';
   return (
     <div
-      className={`fixed top-4 right-4 z-50 ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-[250px] max-w-md animate-slide-in`}
-      role="alert"
+      className={`${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-[250px] max-w-full animate-slide-in`}
+      role={isError ? 'alert' : 'status'}
+      aria-live={isError ? 'assertive' : 'polite'}
+      aria-atomic="true"
     >
       <div className="flex-1">{message}</div>
       <button
@@ -50,7 +53,7 @@ interface ToastContainerProps {
 
 export function ToastContainer({ toasts, removeToast }: ToastContainerProps) {
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2">
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-4 z-50 space-y-2 w-[calc(100vw-2rem)] max-w-md">
       {toasts.map((toast) => (
         <Toast
           key={toast.id}

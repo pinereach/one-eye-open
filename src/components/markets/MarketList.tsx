@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
+import { PullToRefresh } from '../ui/PullToRefresh';
 import type { Market } from '../../types';
 
 function getMarketIcon(marketId: string) {
@@ -126,12 +127,11 @@ export function MarketList({ tripId }: { tripId?: string }) {
   const unknownTypes = Object.keys(marketsByType).filter(type => !typeOrder.includes(type) && marketsByType[type]?.length > 0);
   const sortedTypes = [...knownTypes, ...unknownTypes];
 
+  let content: ReactNode;
   if (loading && markets.length === 0) {
-    return <div className="text-center py-8">Loading markets...</div>;
-  }
-
-  if (error && markets.length === 0) {
-    return (
+    content = <div className="text-center py-8">Loading markets...</div>;
+  } else if (error && markets.length === 0) {
+    content = (
       <div className="text-center py-8">
         <div className="text-red-600 dark:text-red-400 mb-4">
           <p className="font-semibold">Error loading markets</p>
@@ -145,9 +145,8 @@ export function MarketList({ tripId }: { tripId?: string }) {
         </button>
       </div>
     );
-  }
-
-  return (
+  } else {
+    content = (
     <div className="space-y-4 sm:space-y-6">
       {sortedTypes.map((type) => {
         const typeMarkets = marketsByType[type];
@@ -193,5 +192,12 @@ export function MarketList({ tripId }: { tripId?: string }) {
         </div>
       )}
     </div>
+    );
+  }
+
+  return (
+    <PullToRefresh onRefresh={() => loadMarkets(true)}>
+      {content}
+    </PullToRefresh>
   );
 }
