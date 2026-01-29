@@ -5,7 +5,7 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// ../.wrangler/tmp/bundle-zilK7o/checked-fetch.js
+// ../.wrangler/tmp/bundle-uSLC8d/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -5210,7 +5210,8 @@ var onRequestGet2 = /* @__PURE__ */ __name(async (context) => {
       tradesDb = [];
     }
   }
-  const trades = tradesDb.map((t) => {
+  const tradesFiltered = currentUserId != null ? tradesDb.filter((t) => t.taker_user_id === currentUserId || t.maker_user_id === currentUserId) : [];
+  const trades = tradesFiltered.map((t) => {
     const createTime = t.create_time != null ? t.create_time : (t.id ?? 0) * 1e3;
     let side = null;
     if (currentUserId != null && t.taker_side != null) {
@@ -5227,8 +5228,10 @@ var onRequestGet2 = /* @__PURE__ */ __name(async (context) => {
       risk_off_price_diff: t.risk_off_price_diff ?? 0,
       outcome_name: t.outcome_name,
       outcome_ticker: t.outcome_ticker,
-      side
+      side,
       // 0 = buy/bid, 1 = sell/ask (current user's side when authenticated)
+      taker_side: t.taker_side ?? null
+      // taker's side for every trade (0 = buy, 1 = sell)
     };
   });
   return jsonResponse({ trades });
@@ -5823,7 +5826,9 @@ var onRequestGet7 = /* @__PURE__ */ __name(async (context) => {
       tradesDb = [];
     }
   }
-  const trades = tradesDb.map((t) => {
+  const hasUserColumns = tradesDb.length > 0 && (tradesDb[0].taker_user_id !== void 0 || tradesDb[0].maker_user_id !== void 0);
+  const tradesFiltered = currentUserId == null ? [] : hasUserColumns ? tradesDb.filter((t) => t.taker_user_id === currentUserId || t.maker_user_id === currentUserId) : [];
+  const trades = tradesFiltered.map((t) => {
     const createTime = t.create_time != null ? t.create_time : (t.id ?? 0) * 1e3;
     let side = null;
     if (currentUserId != null && t.taker_side != null) {
@@ -5840,7 +5845,8 @@ var onRequestGet7 = /* @__PURE__ */ __name(async (context) => {
       risk_off_price_diff: t.risk_off_price_diff ?? 0,
       outcome_name: t.outcome_name,
       outcome_ticker: t.outcome_ticker,
-      side
+      side,
+      taker_side: t.taker_side ?? null
     };
   });
   let positions = [];
@@ -6410,6 +6416,7 @@ var onRequestGet13 = /* @__PURE__ */ __name(async (context) => {
   if ("error" in authResult) {
     return authResult.error;
   }
+  const userId = typeof authResult.user.id === "number" ? authResult.user.id : parseInt(String(authResult.user.id), 10);
   const db = getDb(env);
   await dbRun(
     db,
@@ -6447,9 +6454,10 @@ var onRequestGet13 = /* @__PURE__ */ __name(async (context) => {
      FROM trades t
      LEFT JOIN outcomes o ON t.outcome = o.outcome_id
      LEFT JOIN markets m ON o.market_id = m.market_id
+     WHERE t.taker_user_id = ? OR t.maker_user_id = ?
      ORDER BY t.create_time DESC
      LIMIT ?`,
-    [limit]
+    [userId, userId, limit]
   );
   const trades = tradesRows.map((t) => ({
     id: t.id,
@@ -7138,7 +7146,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// ../.wrangler/tmp/bundle-zilK7o/middleware-insertion-facade.js
+// ../.wrangler/tmp/bundle-uSLC8d/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -7170,7 +7178,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// ../.wrangler/tmp/bundle-zilK7o/middleware-loader.entry.ts
+// ../.wrangler/tmp/bundle-uSLC8d/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

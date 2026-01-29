@@ -128,7 +128,16 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       tradesDb = [];
     }
   }
-  const trades = tradesDb.map((t: any) => {
+  // Only include trades where the current user is taker or maker (when not logged in or schema has no user columns, return none)
+  const hasUserColumns = tradesDb.length > 0 && (tradesDb[0].taker_user_id !== undefined || tradesDb[0].maker_user_id !== undefined);
+  const tradesFiltered =
+    currentUserId == null
+      ? []
+      : hasUserColumns
+        ? tradesDb.filter((t: any) => t.taker_user_id === currentUserId || t.maker_user_id === currentUserId)
+        : [];
+
+  const trades = tradesFiltered.map((t: any) => {
     const createTime = t.create_time != null ? t.create_time : (t.id ?? 0) * 1000;
     let side: number | null = null;
     if (currentUserId != null && t.taker_side != null) {
@@ -146,6 +155,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       outcome_name: t.outcome_name,
       outcome_ticker: t.outcome_ticker,
       side,
+      taker_side: t.taker_side ?? null,
     };
   });
 

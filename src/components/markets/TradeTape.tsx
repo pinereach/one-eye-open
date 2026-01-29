@@ -56,8 +56,9 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
       <div className={`px-4 pb-3 ${isFullPage ? 'pt-3' : 'max-h-[280px] overflow-y-auto'}`}>
         <div className="space-y-1.5">
           {trades.map((trade) => {
-            const isBuy = trade.side === 0;
-            const isSell = trade.side === 1;
+            const displaySide = trade.taker_side ?? trade.side;
+            const isBuy = displaySide === 0;
+            const isSell = displaySide === 1;
             const sideLabel = isBuy ? 'Buy' : isSell ? 'Sell' : '—';
             const sideClass = isBuy
               ? 'bg-green-600 text-white dark:bg-green-500 dark:text-white'
@@ -85,7 +86,7 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
                     {marketName}
                   </span>
                   <span className="text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap flex-shrink-0">
-                    {trade.contracts} @ {formatPrice(trade.price)} · {formatNotionalBySide(trade.price, trade.contracts, trade.side ?? 0)}
+                    {trade.contracts} @ {formatPrice(trade.price)} · {formatNotionalBySide(trade.price, trade.contracts, trade.taker_side ?? trade.side ?? 0)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3 mt-0.5">

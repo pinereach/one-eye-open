@@ -37,12 +37,13 @@ export function TradesPage() {
   };
 
   const renderTradeCard = (trade: any) => {
-    const isSell = trade.side === 1;
+    const displaySide = trade.taker_side ?? trade.side;
+    const isSell = displaySide === 1;
     const tradeType = isSell ? 'Sell' : 'Buy';
     const pricePercent = trade.price ? formatPricePercent(trade.price) : '0.0%';
     const unit = trade.contracts === 1 ? 'share' : 'shares';
     const actionText = isSell ? `Sold ${trade.contracts} ${unit} at ${pricePercent}` : `Bought ${trade.contracts} ${unit} at ${pricePercent}`;
-    const purchaseCost = formatNotionalBySide(trade.price, trade.contracts, trade.side ?? 0);
+    const purchaseCost = formatNotionalBySide(trade.price, trade.contracts, displaySide ?? 0);
     const timePurchased = trade.create_time ? format(new Date(trade.create_time * 1000), 'M/d, h:mm a') : '—';
 
     return (
@@ -113,7 +114,7 @@ export function TradesPage() {
                   <td className="py-3 px-2 sm:px-3 text-xs sm:text-sm"><span className="font-medium">{trade.outcome_name || '—'}</span></td>
                   <td className="py-3 px-2 sm:px-3 text-right font-medium text-xs sm:text-sm">{formatPrice(trade.price)}</td>
                   <td className="py-3 px-2 sm:px-3 text-right text-xs sm:text-sm">{trade.contracts}</td>
-                  <td className="py-3 px-2 sm:px-3 text-right font-medium text-xs sm:text-sm">{formatNotionalBySide(trade.price, trade.contracts, trade.side ?? 0)}</td>
+                  <td className="py-3 px-2 sm:px-3 text-right font-medium text-xs sm:text-sm">{formatNotionalBySide(trade.price, trade.contracts, trade.taker_side ?? trade.side ?? 0)}</td>
                   <td className={`py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-bold ${formatIf0(trade.price, trade.contracts) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>${formatIf0(trade.price, trade.contracts)}</td>
                   <td className={`py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-bold ${formatIf100(trade.price, trade.contracts) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>${formatIf100(trade.price, trade.contracts)}</td>
                 </tr>

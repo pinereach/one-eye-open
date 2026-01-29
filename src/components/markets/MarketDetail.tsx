@@ -429,10 +429,8 @@ export function MarketDetail() {
     return avgPriceB - avgPriceA;
   }) : [];
 
-  const showMobileCta = selectedOutcomeId && activeTab === 'outcomes';
-
   return (
-    <div className={`space-y-4 sm:space-y-6 ${showMobileCta ? 'pb-24 md:pb-0' : ''}`}>
+    <div className="space-y-4 sm:space-y-6">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
       <div className="flex items-center gap-2 sm:gap-4">
@@ -650,8 +648,9 @@ export function MarketDetail() {
             ) : (
               <div className="space-y-2">
                 {trades.map((trade) => {
-                  const isBuy = trade.side === 0;
-                  const isSell = trade.side === 1;
+                  const displaySide = trade.taker_side ?? trade.side;
+                  const isBuy = displaySide === 0;
+                  const isSell = displaySide === 1;
                   const sideLabel = isBuy ? 'Buy' : isSell ? 'Sell' : '—';
                   const sidePillClass = isBuy
                     ? 'bg-green-600 text-white dark:bg-green-500 dark:text-white'
@@ -680,7 +679,7 @@ export function MarketDetail() {
                           {trade.contracts} @ {formatPrice(trade.price)}
                         </span>
                         <span className="text-gray-700 dark:text-gray-300 font-medium flex-shrink-0">
-                          {formatNotionalBySide(trade.price, trade.contracts, trade.side ?? 0)}
+                          {formatNotionalBySide(trade.price, trade.contracts, trade.taker_side ?? trade.side ?? 0)}
                         </span>
                       </div>
                       <span className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap flex-shrink-0">
@@ -913,8 +912,14 @@ export function MarketDetail() {
           {/* Mobile: Floating Action Button */}
           <button
             onClick={() => setBottomSheetOpen(true)}
-            className="md:hidden fixed bottom-20 right-4 z-30 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white rounded-full p-4 shadow-lg touch-manipulation min-h-[56px] min-w-[56px] flex items-center justify-center"
-            aria-label="Place Order"
+            className={`md:hidden fixed bottom-20 right-4 z-30 text-white rounded-full p-4 shadow-lg touch-manipulation min-h-[56px] min-w-[56px] flex items-center justify-center ${
+              orderSide === 'ask'
+                ? 'bg-purple-600 hover:bg-purple-700 active:bg-purple-800'
+                : orderSide === 'market_maker'
+                  ? 'bg-primary-600 hover:bg-primary-700 active:bg-primary-800'
+                  : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+            }`}
+            aria-label={orderSide === 'market_maker' ? 'Place order' : orderSide === 'ask' ? 'Place sell order' : 'Place buy order'}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -923,7 +928,9 @@ export function MarketDetail() {
 
           {/* Desktop: Inline Form */}
           <div className="hidden md:block">
-            <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Place Order</h2>
+            <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">
+              {orderSide === 'market_maker' ? 'Place Order' : orderSide === 'ask' ? 'Place Sell Order' : 'Place Buy Order'}
+            </h2>
             <form onSubmit={handlePlaceOrder} className="space-y-3 sm:space-y-4">
               {outcomes && outcomes.length > 0 && (
                 <div>
@@ -1152,9 +1159,15 @@ export function MarketDetail() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-medium py-3 px-4 rounded-md disabled:opacity-50 min-h-[44px] text-base touch-manipulation"
+                className={`w-full text-white font-medium py-3 px-4 rounded-md disabled:opacity-50 min-h-[44px] text-base touch-manipulation ${
+                  orderSide === 'ask'
+                    ? 'bg-purple-600 hover:bg-purple-700 active:bg-purple-800'
+                    : orderSide === 'market_maker'
+                      ? 'bg-primary-600 hover:bg-primary-700 active:bg-primary-800'
+                      : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+                }`}
               >
-                {submitting ? 'Placing...' : orderSide === 'market_maker' ? 'Place both' : 'Place Order'}
+                {submitting ? 'Placing...' : orderSide === 'market_maker' ? 'Place both' : orderSide === 'ask' ? 'Place Sell Order' : 'Place Buy Order'}
               </button>
             </form>
           </div>
@@ -1306,8 +1319,9 @@ export function MarketDetail() {
             ) : (
               <div className="space-y-2">
                 {trades.map((trade) => {
-                  const isBuy = trade.side === 0;
-                  const isSell = trade.side === 1;
+                  const displaySide = trade.taker_side ?? trade.side;
+                  const isBuy = displaySide === 0;
+                  const isSell = displaySide === 1;
                   const sideLabel = isBuy ? 'Buy' : isSell ? 'Sell' : '—';
                   const sidePillClass = isBuy
                     ? 'bg-green-600 text-white dark:bg-green-500 dark:text-white'
@@ -1336,7 +1350,7 @@ export function MarketDetail() {
                           {trade.contracts} @ {formatPrice(trade.price)}
                         </span>
                         <span className="text-gray-700 dark:text-gray-300 font-medium flex-shrink-0">
-                          {formatNotionalBySide(trade.price, trade.contracts, trade.side ?? 0)}
+                          {formatNotionalBySide(trade.price, trade.contracts, trade.taker_side ?? trade.side ?? 0)}
                         </span>
                       </div>
                       <span className="text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap flex-shrink-0">
@@ -1351,20 +1365,6 @@ export function MarketDetail() {
         </div>
       </div>
 
-      {/* Mobile: sticky CTA to open order sheet (above bottom nav) */}
-      {showMobileCta && (
-        <div className="md:hidden fixed left-0 right-0 bottom-16 z-40 pt-2 pb-2 px-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-[0_-2px_10px_rgba(0,0,0,0.08)] safe-area-bottom">
-          <button
-            type="button"
-            onClick={() => setBottomSheetOpen(true)}
-            className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg touch-manipulation min-h-[44px] transition-colors"
-            aria-label="Place order"
-          >
-            Buy / Sell
-          </button>
-        </div>
-      )}
-
       {/* Mobile Bottom Sheet for Order Form */}
       <BottomSheet
         isOpen={bottomSheetOpen}
@@ -1376,7 +1376,7 @@ export function MarketDetail() {
           setMmAskPrice('');
           setShowOrderbookInForm(false);
         }}
-        title="Place Order"
+        title={orderSide === 'market_maker' ? 'Place Order' : orderSide === 'ask' ? 'Place Sell Order' : 'Place Buy Order'}
       >
         <form onSubmit={(e) => {
           handlePlaceOrder(e);
@@ -1607,9 +1607,15 @@ export function MarketDetail() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-medium py-3 px-4 rounded-md disabled:opacity-50 min-h-[44px] text-base touch-manipulation"
+            className={`w-full text-white font-medium py-3 px-4 rounded-md disabled:opacity-50 min-h-[44px] text-base touch-manipulation ${
+              orderSide === 'ask'
+                ? 'bg-purple-600 hover:bg-purple-700 active:bg-purple-800'
+                : orderSide === 'market_maker'
+                  ? 'bg-primary-600 hover:bg-primary-700 active:bg-primary-800'
+                  : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+            }`}
           >
-            {submitting ? 'Placing...' : orderSide === 'market_maker' ? 'Place both' : 'Place Order'}
+            {submitting ? 'Placing...' : orderSide === 'market_maker' ? 'Place both' : orderSide === 'ask' ? 'Place Sell Order' : 'Place Buy Order'}
           </button>
         </form>
       </BottomSheet>

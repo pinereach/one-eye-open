@@ -104,8 +104,14 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     }
   }
 
+  // Only include trades where the current user is taker or maker
+  const tradesFiltered =
+    currentUserId != null
+      ? tradesDb.filter((t: any) => t.taker_user_id === currentUserId || t.maker_user_id === currentUserId)
+      : [];
+
   // Build response: create_time (real or id proxy), side = "my side" when authenticated (taker_side present; maker_user_id can be null)
-  const trades = tradesDb.map((t: any) => {
+  const trades = tradesFiltered.map((t: any) => {
     const createTime = t.create_time != null ? t.create_time : (t.id ?? 0) * 1000;
     let side: number | null = null;
     if (currentUserId != null && t.taker_side != null) {
@@ -123,6 +129,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       outcome_name: t.outcome_name,
       outcome_ticker: t.outcome_ticker,
       side, // 0 = buy/bid, 1 = sell/ask (current user's side when authenticated)
+      taker_side: t.taker_side ?? null, // taker's side for every trade (0 = buy, 1 = sell)
     };
   });
 
