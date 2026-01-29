@@ -11,7 +11,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   if ('error' in authResult) {
     return authResult.error;
   }
-
+  const userId = typeof authResult.user.id === 'number' ? authResult.user.id : parseInt(String(authResult.user.id), 10);
   const db = getDb(env);
 
   // Get all recent trades with outcome and market information
@@ -35,7 +35,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
        )`
   );
 
-  // Now get trades with outcome and market information (taker_side: 0 = buy, 1 = sell)
+  // Now get trades with outcome and market information (only trades where user is taker or maker)
   const tradesRows = await dbQuery<{
     id: number;
     token: string;
@@ -69,9 +69,10 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
      FROM trades t
      LEFT JOIN outcomes o ON t.outcome = o.outcome_id
      LEFT JOIN markets m ON o.market_id = m.market_id
+     WHERE t.taker_user_id = ? OR t.maker_user_id = ?
      ORDER BY t.create_time DESC
      LIMIT ?`,
-    [limit]
+    [userId, userId, limit]
   );
 
   const trades = tradesRows.map((t) => ({
