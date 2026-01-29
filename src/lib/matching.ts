@@ -573,13 +573,13 @@ export async function executeMatching(
         );
       }
 
-      // Maker position: when your order is filled you take the opposite side (bid filled → you sold → ask)
+      // Maker position: when your order is filled you did that side (bid filled → you bought, ask filled → you sold)
       if (makerUserId != null) {
         await updatePosition(
           db,
           outcomeId,
           makerUserId,
-          makerOrderDb.side === 0 ? 'ask' : 'bid',
+          makerOrderDb.side === 0 ? 'bid' : 'ask',
           fill.price_cents,
           fill.qty_contracts
         );
