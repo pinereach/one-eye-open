@@ -41,6 +41,8 @@ export function MarketDetail() {
   const [cancelingAll, setCancelingAll] = useState(false);
   const [confirmCancelOrderId, setConfirmCancelOrderId] = useState<number | null>(null);
   const [confirmCancelAllOpen, setConfirmCancelAllOpen] = useState(false);
+  const [confirmCancelAllForOutcome, setConfirmCancelAllForOutcome] = useState(false);
+  const [cancelingAllForOutcome, setCancelingAllForOutcome] = useState(false);
   const isDesktop = useIsDesktop();
   const quantityInputRef = useRef<HTMLInputElement>(null);
   const lastLoadTsRef = useRef<number>(0);
@@ -410,6 +412,15 @@ export function MarketDetail() {
     return list;
   }, [activeTab, isDesktop, orderbookByOutcome, user?.id]);
 
+  // My open orders for the currently selected outcome only (for "cancel all for this outcome" button)
+  const myOrdersInSelectedOutcome = useMemo(() => {
+    if (!user?.id || !selectedOrderbook) return [];
+    const orders = [...(selectedOrderbook.bids || []), ...(selectedOrderbook.asks || [])];
+    return orders.filter(
+      (o) => o.user_id === user.id && (o.status === 'open' || o.status === 'partial')
+    );
+  }, [user?.id, selectedOrderbook]);
+
   async function doCancelOrder(orderId: number) {
     setCancelingOrderId(orderId);
     try {
@@ -447,6 +458,28 @@ export function MarketDetail() {
 
   function handleCancelAllOrders() {
     setConfirmCancelAllOpen(true);
+  }
+
+  async function doCancelAllOrdersForOutcome() {
+    if (myOrdersInSelectedOutcome.length === 0) return;
+    setCancelingAllForOutcome(true);
+    setConfirmCancelAllForOutcome(false);
+    try {
+      for (const order of myOrdersInSelectedOutcome) {
+        await api.cancelOrder(order.id);
+      }
+      showToast(`Canceled ${myOrdersInSelectedOutcome.length} order(s) for this outcome`, 'success');
+      await loadMarket();
+    } catch (err: any) {
+      console.error('Failed to cancel orders for outcome:', err);
+      showToast(err?.message || 'Failed to cancel some orders', 'error');
+    } finally {
+      setCancelingAllForOutcome(false);
+    }
+  }
+
+  function handleCancelAllOrdersForOutcome() {
+    setConfirmCancelAllForOutcome(true);
   }
 
   if (loading) {
@@ -966,7 +999,21 @@ export function MarketDetail() {
         <div className="grid md:grid-cols-2 gap-4 sm:gap-6 mt-6">
           {/* Orderbook Section */}
           <div className="min-w-0">
-            <h2 className="text-base sm:text-lg font-bold mb-3 sm:mb-4">Orderbook</h2>
+            <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
+              <h2 className="text-base sm:text-lg font-bold">Orderbook</h2>
+              {selectedOutcomeId && selectedOrderbook && myOrdersInSelectedOutcome.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleCancelAllOrdersForOutcome}
+                  disabled={cancelingAllForOutcome}
+                  className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50 p-1.5 rounded touch-manipulation font-bold text-lg leading-none"
+                  title="Cancel all your orders for this outcome"
+                  aria-label="Cancel all your orders for this outcome"
+                >
+                  ×
+                </button>
+              )}
+            </div>
             {selectedOutcomeId && selectedOrderbook ? (
               <Orderbook
                 bids={selectedOrderbook.bids}
@@ -1745,6 +1792,16 @@ export function MarketDetail() {
         onConfirm={doCancelAllOrders}
         title="Cancel all orders"
         message="Are you sure you want to cancel all open orders in this market?"
+        confirmLabel="Cancel all"
+        cancelLabel="Keep"
+        variant="danger"
+      />
+      <ConfirmModal
+        isOpen={confirmCancelAllForOutcome}
+        onClose={() => setConfirmCancelAllForOutcome(false)}
+        onConfirm={doCancelAllOrdersForOutcome}
+        title="Cancel all orders for this outcome"
+        message={`Cancel all ${myOrdersInSelectedOutcome.length} open order(s) for this outcome?`}
         confirmLabel="Cancel all"
         cancelLabel="Keep"
         variant="danger"

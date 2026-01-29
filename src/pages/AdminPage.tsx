@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../lib/api';
@@ -7,10 +7,15 @@ import { ToastContainer, useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import type { Market } from '../types';
 
+// Throttle admin data fetch: avoid duplicate requests from React Strict Mode or rapid re-mounts.
+const ADMIN_FETCH_THROTTLE_MS = 3000;
+let lastAdminFetchAt = 0;
+
 export function AdminPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toasts, showToast, removeToast } = useToast();
+  const hasFetchedRef = useRef(false);
 
   const [users, setUsers] = useState<Array<{ id: number; username: string }>>([]);
   const [markets, setMarkets] = useState<Market[]>([]);
@@ -32,9 +37,15 @@ export function AdminPage() {
   const [manualPrice, setManualPrice] = useState<string>('');
   const [manualContracts, setManualContracts] = useState<string>('');
 
-  // Load once when user is admin. Do not depend on showToast — it changes every render and caused a request storm on failure.
+  // Load once per visit when user is admin. Throttle + ref prevent duplicate runs (e.g. Strict Mode).
   useEffect(() => {
     if (!user?.admin) return;
+    if (hasFetchedRef.current) return;
+    const now = Date.now();
+    if (now - lastAdminFetchAt < ADMIN_FETCH_THROTTLE_MS) return;
+    hasFetchedRef.current = true;
+    lastAdminFetchAt = now;
+
     let cancelled = false;
     setLoadingMarkets(true);
     Promise.all([api.adminGetUsers(), api.getMarkets()])
@@ -43,13 +54,21 @@ export function AdminPage() {
         setUsers(usersRes.users ?? []);
         setMarkets(marketsRes.markets ?? []);
       })
-      .catch((err) => {
-        if (!cancelled) showToast('Failed to load admin data', 'error');
+      .catch(() => {
+        if (!cancelled) {
+          hasFetchedRef.current = false;
+          showToast('Failed to load admin data', 'error');
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingMarkets(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      // Reset throttle after delay so Strict Mode’s second mount doesn’t refetch, but returning to admin later does
+      const t = setTimeout(() => { lastAdminFetchAt = 0; }, ADMIN_FETCH_THROTTLE_MS + 500);
+      return () => clearTimeout(t);
+    };
   }, [user?.admin]);
 
   if (user && !user.admin) {
