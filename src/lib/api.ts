@@ -144,4 +144,33 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  // Admin
+  adminCancelAllOrders: (userId?: number) =>
+    apiRequest<{ canceled: number }>('/admin/orders/cancel-all', {
+      method: 'POST',
+      body: JSON.stringify(userId != null ? { user_id: userId } : {}),
+    }),
+
+  adminGetUsers: () =>
+    apiRequest<{ users: Array<{ id: number; username: string }> }>('/admin/users'),
+
+  adminUpdateMarketPause: (marketId: string, tradingPaused: boolean) =>
+    apiRequest<{ market: any; success: boolean }>(`/admin/markets/${marketId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ trading_paused: tradingPaused }),
+    }),
+
+  adminCreateManualTrade: (data: {
+    user_id: number;
+    market_id: string;
+    outcome_id: string;
+    side: 'bid' | 'ask';
+    price: number;
+    contract_size: number;
+  }) =>
+    apiRequest<{ trade: { id: number; market_id: string; outcome_id: string; side: string; price: number; contracts: number } }>('/admin/trades/manual', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };

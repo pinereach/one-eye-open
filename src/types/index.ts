@@ -33,6 +33,7 @@ export interface Market {
   min_winners: number;
   created_date: number;
   market_type?: string | null;
+  trading_paused?: number;
   outcomes?: Outcome[];
 }
 

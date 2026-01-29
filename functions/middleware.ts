@@ -51,8 +51,24 @@ export async function requireAuth(
   return { user };
 }
 
-// requireAdmin removed - users no longer have roles
-// If admin functionality is needed, it can be added back with a separate admin_users table or similar
+export async function requireAdmin(
+  request: Request,
+  env: Env
+): Promise<{ user: User; error?: never } | { user?: never; error: Response }> {
+  const authResult = await requireAuth(request, env);
+  if ('error' in authResult) {
+    return authResult;
+  }
+  if (!authResult.user.admin) {
+    return {
+      error: new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    };
+  }
+  return { user: authResult.user };
+}
 
 export function jsonResponse(data: any, status: number = 200): Response {
   return new Response(JSON.stringify(data), {

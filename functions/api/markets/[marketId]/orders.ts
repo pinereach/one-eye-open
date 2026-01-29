@@ -44,6 +44,10 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       return errorResponse('Market not found', 404);
     }
 
+    if ((market as { trading_paused?: number }).trading_paused === 1) {
+      return errorResponse('Trading is paused for this market', 403);
+    }
+
     // Verify outcome exists and belongs to market
     // Note: outcomes no longer have status field, so we check market status instead
     const outcome = await dbFirst(

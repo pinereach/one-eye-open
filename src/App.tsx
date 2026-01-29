@@ -16,6 +16,7 @@ import {
   PositionsPage,
   MarketSuggestionsPage,
   SettingsPage,
+  AdminPage,
 } from './pages';
 
 const DEFAULT_TITLE = 'One Eye Open';
@@ -31,6 +32,7 @@ function getPageTitle(pathname: string): string {
   if (pathname === '/positions') return 'Positions | One Eye Open';
   if (pathname === '/market-suggestions') return 'Market Suggestions | One Eye Open';
   if (pathname === '/settings') return 'Settings | One Eye Open';
+  if (pathname === '/admin') return 'Admin | One Eye Open';
   return DEFAULT_TITLE;
 }
 
@@ -82,6 +84,9 @@ function Layout({ children }: { children: React.ReactNode }) {
                     {user?.view_market_creation && (
                       <Link to="/market-suggestions" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/market-suggestions' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Market Suggestions</Link>
                     )}
+                    {user?.admin && (
+                      <Link to="/admin" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/admin' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Admin</Link>
+                    )}
                   </div>
                 </>
               )}
@@ -119,6 +124,9 @@ function Layout({ children }: { children: React.ReactNode }) {
               <Link to="/positions" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/positions' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Positions</Link>
               {user?.view_market_creation && (
                 <Link to="/market-suggestions" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/market-suggestions' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Market Suggestions</Link>
+              )}
+              {user?.admin && (
+                <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/admin' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Admin</Link>
               )}
               <Link to="/settings" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/settings' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>{user?.username || 'User'}</Link>
               {!isDevelopment && (
@@ -169,6 +177,7 @@ export default function App() {
           <Route path="/positions" element={<ProtectedRoute><PositionsPage /></ProtectedRoute>} />
           <Route path="/market-suggestions" element={<ProtectedRoute><MarketSuggestionsPage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
           </Routes>
           </Layout>
         </AuthProvider>

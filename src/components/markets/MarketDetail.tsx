@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
-import { formatPrice, formatPriceDecimal, formatPriceCents, formatNotionalBySide } from '../../lib/format';
+import { formatPrice, formatPriceBasis, formatPriceDecimal, formatPriceCents, formatNotionalBySide } from '../../lib/format';
 import { Orderbook } from './Orderbook';
 import { ToastContainer, useToast } from '../ui/Toast';
 import { BottomSheet } from '../ui/BottomSheet';
@@ -415,6 +415,14 @@ export function MarketDetail() {
     return acc;
   }, {});
 
+  // Show cards for open positions or closed/settled positions with non-zero profit
+  const positionsToShow = useMemo(
+    () => (positions || []).filter(
+      (p) => p.net_position !== 0 || (p.closed_profit ?? 0) !== 0 || (p.settled_profit ?? 0) !== 0
+    ),
+    [positions]
+  );
+
   const formatPositionChip = (netPosition: number, priceBasisCents: number) => {
     const sign = netPosition >= 0 ? '+' : '';
     const priceStr = (priceBasisCents / 100).toFixed(1);
@@ -793,25 +801,36 @@ export function MarketDetail() {
                   <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
                 ))}
               </div>
-            ) : positions.length === 0 ? (
+            ) : positionsToShow.length === 0 ? (
               <div className="text-sm text-gray-500 dark:text-gray-400 py-8 text-center">
                 No positions
               </div>
             ) : (
               <div className="space-y-3">
-                {positions.map((position) => {
+                {positionsToShow.map((position) => {
+                  const hasOpenPosition = position.net_position !== 0;
                   const { marketName, outcomeLabel } = getPositionDisplayNames(position);
                   const currentPrice = position.current_price !== null && position.current_price !== undefined 
                     ? position.current_price 
                     : null;
                   const costCents = position.net_position * position.price_basis;
-                  const positionValueCents = getPositionValueCents(position, currentPrice);
+                  const positionValueCents = hasOpenPosition ? getPositionValueCents(position, currentPrice) : null;
                   const diffCents =
-                    currentPrice !== null
+                    hasOpenPosition && currentPrice !== null
                       ? position.net_position < 0
                         ? (position.price_basis - currentPrice) * Math.abs(position.net_position)
                         : position.net_position * currentPrice - costCents
                       : null;
+                  const { riskCents, toProfitCents } =
+                    position.net_position < 0
+                      ? {
+                          riskCents: (10000 - position.price_basis) * Math.abs(position.net_position),
+                          toProfitCents: position.price_basis * Math.abs(position.net_position),
+                        }
+                      : {
+                          riskCents: position.price_basis * position.net_position,
+                          toProfitCents: (10000 - position.price_basis) * position.net_position,
+                        };
 
                   return (
                     <Card key={position.id} className="mb-3">
@@ -824,29 +843,46 @@ export function MarketDetail() {
                             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">
                               {outcomeLabel}
                             </p>
-                            <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${position.net_position > 0 ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
-                              {formatPositionChip(position.net_position, position.price_basis)}
-                            </span>
+                            {hasOpenPosition && (
+                              <>
+                                <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${position.net_position > 0 ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
+                                  {formatPositionChip(position.net_position, position.price_basis)}
+                                </span>
+                                <p className="mt-1.5 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                  Risk: <span className="font-medium text-red-600 dark:text-red-400">{formatPriceBasis(riskCents)}</span>
+                                  {' | '}
+                                  To Profit: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceBasis(toProfitCents)}</span>
+                                </p>
+                              </>
+                            )}
                           </div>
-                          <div className="flex flex-col items-end text-right">
-                            <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                              {positionValueCents !== null ? formatPriceDecimal(positionValueCents) : formatPriceDecimal(costCents)}
-                            </div>
-                            <div className={`text-sm sm:text-base font-semibold ${
-                              diffCents !== null
-                                ? diffCents > 0 ? 'text-green-600 dark:text-green-400' 
-                                  : diffCents < 0 ? 'text-red-600 dark:text-red-400' 
+                          {hasOpenPosition && (
+                            <div className="flex flex-col items-end text-right">
+                              <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                                {positionValueCents !== null ? formatPriceDecimal(positionValueCents) : formatPriceDecimal(costCents)}
+                              </div>
+                              <div className={`text-sm sm:text-base font-semibold ${
+                                diffCents !== null
+                                  ? diffCents > 0 ? 'text-green-600 dark:text-green-400' 
+                                    : diffCents < 0 ? 'text-red-600 dark:text-red-400' 
+                                    : 'text-gray-600 dark:text-gray-400'
                                   : 'text-gray-600 dark:text-gray-400'
-                                : 'text-gray-600 dark:text-gray-400'
-                            }`}>
-                              {diffCents !== null ? (
-                                <>{(diffCents > 0 ? '↑' : diffCents < 0 ? '↓' : '')} {formatPrice(Math.abs(diffCents))}</>
-                              ) : (
-                                '—'
-                              )}
+                              }`}>
+                                {diffCents !== null ? (
+                                  <>{(diffCents > 0 ? '↑' : diffCents < 0 ? '↓' : '')} {formatPrice(Math.abs(diffCents))}</>
+                                ) : (
+                                  '—'
+                                )}
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
+                        {(position.closed_profit != null && position.closed_profit !== 0) || (position.settled_profit != null && position.settled_profit !== 0) ? (
+                          <div className="mt-3 -mx-4 sm:-mx-5 -mb-4 sm:-mb-5 px-4 sm:px-5 py-2 rounded-b-lg bg-gray-100 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                            <span>Closed profit: <span className={`font-medium ${(position.closed_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(position.closed_profit ?? 0)}</span></span>
+                            <span>Settled profit: <span className={`font-medium ${(position.settled_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(position.settled_profit ?? 0)}</span></span>
+                          </div>
+                        ) : null}
                       </CardContent>
                     </Card>
                   );
@@ -1322,7 +1358,7 @@ export function MarketDetail() {
           </div>
 
           {/* Positions Section */}
-          {positions && positions.length > 0 && (
+          {positionsToShow.length > 0 && (
             <div className="mt-6">
               <h2 className="text-base sm:text-lg font-bold mb-3 sm:mb-4">Your Positions</h2>
               {loading ? (
@@ -1331,25 +1367,32 @@ export function MarketDetail() {
                     <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
                   ))}
                 </div>
-              ) : positions.length === 0 ? (
-                <div className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
-                  No positions
-                </div>
               ) : (
                 <div className="space-y-3">
-                  {positions.map((position) => {
+                  {positionsToShow.map((position) => {
+                    const hasOpenPosition = position.net_position !== 0;
                     const { marketName, outcomeLabel } = getPositionDisplayNames(position);
                     const currentPrice = position.current_price !== null && position.current_price !== undefined 
                       ? position.current_price 
                       : null;
                     const costCents = position.net_position * position.price_basis;
-                    const positionValueCents = getPositionValueCents(position, currentPrice);
+                    const positionValueCents = hasOpenPosition ? getPositionValueCents(position, currentPrice) : null;
                     const diffCents =
-                      currentPrice !== null
+                      hasOpenPosition && currentPrice !== null
                         ? position.net_position < 0
                           ? (position.price_basis - currentPrice) * Math.abs(position.net_position)
                           : position.net_position * currentPrice - costCents
                         : null;
+                    const { riskCents, toProfitCents } =
+                      position.net_position < 0
+                        ? {
+                            riskCents: (10000 - position.price_basis) * Math.abs(position.net_position),
+                            toProfitCents: position.price_basis * Math.abs(position.net_position),
+                          }
+                        : {
+                            riskCents: position.price_basis * position.net_position,
+                            toProfitCents: (10000 - position.price_basis) * position.net_position,
+                          };
 
                     return (
                       <Card key={position.id} className="mb-3">
@@ -1362,29 +1405,46 @@ export function MarketDetail() {
                               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">
                                 {outcomeLabel}
                               </p>
-                              <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${position.net_position > 0 ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
-                                {formatPositionChip(position.net_position, position.price_basis)}
-                              </span>
+                              {hasOpenPosition && (
+                                <>
+                                  <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${position.net_position > 0 ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
+                                    {formatPositionChip(position.net_position, position.price_basis)}
+                                  </span>
+                                  <p className="mt-1.5 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                    Risk: <span className="font-medium text-red-600 dark:text-red-400">{formatPriceBasis(riskCents)}</span>
+                                    {' | '}
+                                    To Profit: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceBasis(toProfitCents)}</span>
+                                  </p>
+                                </>
+                              )}
                             </div>
-                            <div className="flex flex-col items-end text-right">
-                              <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                                {positionValueCents !== null ? formatPriceDecimal(positionValueCents) : formatPriceDecimal(costCents)}
-                              </div>
-                              <div className={`text-sm sm:text-base font-semibold ${
-                                diffCents !== null
-                                  ? diffCents > 0 ? 'text-green-600 dark:text-green-400' 
-                                    : diffCents < 0 ? 'text-red-600 dark:text-red-400' 
+                            {hasOpenPosition && (
+                              <div className="flex flex-col items-end text-right">
+                                <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                                  {positionValueCents !== null ? formatPriceDecimal(positionValueCents) : formatPriceDecimal(costCents)}
+                                </div>
+                                <div className={`text-sm sm:text-base font-semibold ${
+                                  diffCents !== null
+                                    ? diffCents > 0 ? 'text-green-600 dark:text-green-400' 
+                                      : diffCents < 0 ? 'text-red-600 dark:text-red-400' 
+                                      : 'text-gray-600 dark:text-gray-400'
                                     : 'text-gray-600 dark:text-gray-400'
-                                  : 'text-gray-600 dark:text-gray-400'
-                              }`}>
-                                {diffCents !== null ? (
-                                  <>{(diffCents > 0 ? '↑' : diffCents < 0 ? '↓' : '')} {formatPrice(Math.abs(diffCents))}</>
-                                ) : (
-                                  '—'
-                                )}
+                                }`}>
+                                  {diffCents !== null ? (
+                                    <>{(diffCents > 0 ? '↑' : diffCents < 0 ? '↓' : '')} {formatPrice(Math.abs(diffCents))}</>
+                                  ) : (
+                                    '—'
+                                  )}
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </div>
+                          {(position.closed_profit != null && position.closed_profit !== 0) || (position.settled_profit != null && position.settled_profit !== 0) ? (
+                            <div className="mt-3 -mx-4 sm:-mx-5 -mb-4 sm:-mb-5 px-4 sm:px-5 py-2 rounded-b-lg bg-gray-100 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                              <span>Closed profit: <span className={`font-medium ${(position.closed_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(position.closed_profit ?? 0)}</span></span>
+                              <span>Settled profit: <span className={`font-medium ${(position.settled_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(position.settled_profit ?? 0)}</span></span>
+                            </div>
+                          ) : null}
                         </CardContent>
                       </Card>
                     );

@@ -7,3 +7,4 @@ export { TradesPage } from './TradesPage';
 export { PositionsPage } from './PositionsPage';
 export { MarketSuggestionsPage } from './MarketSuggestionsPage';
 export { SettingsPage } from './SettingsPage';
+export { AdminPage } from './AdminPage';
