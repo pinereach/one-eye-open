@@ -127,14 +127,16 @@ Then in JS, map outcome → (bestBid, bestAsk) and attach to each position.
 
 ---
 
-### 2.6 Cache read-heavy, rarely changing data
+### 2.6 Cache read-heavy, rarely changing data *(implemented)*
 
-**Candidates:**
+**Implemented:**
 
-- **GET /api/markets** (list): Cache for 30–60 s (e.g. `Cache-Control: public, max-age=60` or CF Cache API). New markets appear within a minute.
-- **GET /api/markets/[id]** (or combined page payload): Cache for 15–30 s. After place/cancel order, refetch or skip cache (e.g. `cache: 'no-store'` on that request).
+- **GET /api/markets** (list): `Cache-Control: public, max-age=43200` (12h). Markets + outcomes + 30-day volume; reference data changes rarely.
+- **GET /api/markets/[id]/reference**: New endpoint returning only `{ market, outcomes }` with `Cache-Control: public, max-age=43200` (12h). Use when only reference data is needed (e.g. headers); full detail remains on GET /api/markets/[id].
+- **GET /api/markets/[id]** (full detail): `Cache-Control: public, max-age=120` (2 min). Orderbook/trades/positions change often; short cache cuts repeat reads without stale data.
+- **GET /api/participants**: `Cache-Control: public, max-age=43200` (12h). Reference data.
 
-**Implementation:** Add response headers in the handler or in a middleware; optionally use Cloudflare cache (e.g. cache the response by URL). No DB read when response is cached.
+Frontend: GETs to `/markets`, `/participants`, and `/markets/:id` (no subpath) no longer add cache-busting `_t`, so browser/CDN can use the above Cache-Control values.
 
 ---
 
@@ -183,3 +185,29 @@ If you don’t merge trades/positions into the main market request:
 - **Writes:** 100,000 rows/day (free).
 
 Focusing on reducing **reads** (and number of **requests** that each do multiple reads) will have the largest impact. The changes above keep behavior the same while cutting DB calls and request volume so usage is less likely to balloon on the free plan.
+
+---
+
+## 5. Further reductions to consider (after caching)
+
+| Priority | Action | Expected impact |
+|----------|--------|-----------------|
+| 1 | **Tape:** Remove or gate the backfill UPDATE from GET /api/tape (run via cron or admin-only). | Very high: avoids O(NULL-outcome trades) × order scans per tape load. |
+| 2 | **Market detail:** Relax or remove pre-submit full refetch before place order (or refetch only if form open &gt; N seconds). | Cuts duplicate market-detail reads on every place order. |
+| 3 | **Market detail:** Increase refetch throttle (e.g. 45s → 2–3 min) for visibility and order-sheet open. | Fewer refetches per session. |
+| 4 | **Markets list:** Volume is already limited to 30 days; consider caching volume in a table updated by a job and serve from there. | Removes trades+outcomes scan on every list load. |
+| 5 | **Positions:** Avoid price_basis recalc on every request (backfill job or recalc at most once per position per day). | Large reduction when many positions have bad price_basis. |
+| 6 | **Orders:** Ensure `original_contract_size` is always set; limit or batch trade fallback query. | Prevents full trades scan on GET /api/orders. |
+| 7 | **Auth:** Short-lived in-worker cache for “user by id” (e.g. 10–30s TTL) so repeated requests from the same session don’t hit D1 every time. | Saves 1 read per authenticated request when cache hits. |
+| 8 | **Orderbook depth:** Limit orderbook rows per outcome (e.g. best 5–10 bids/asks) in the query instead of returning all open orders. | Reduces rows read per market detail. |
+
+---
+
+## 6. Price_basis recalc (trades-only, no recalc on GET)
+
+**Current behavior:**
+
+- **Source of truth:** `price_basis` is derived only from **trades** via `recalculatePriceBasisFromTrades()` (trades table, user’s taker/maker side, FIFO long/short). That is the canonical cost basis.
+- **GET /api/positions** does **not** run recalc on every request. It returns the stored `price_basis` (clamped to $1–$99 for display). So no extra trades/orders scan on the hot path.
+- **Order-based helper:** `recalculatePriceBasis()` (from orders: filled/partial, original − remaining) exists for fallback/backfill but is **not** used on GET. Use it only in a one-off or scheduled backfill job if some positions have bad stored values.
+- **When recalc is needed:** Run a backfill job (e.g. admin endpoint or cron) that, for positions with `price_basis = 0` or invalid, calls `recalculatePriceBasisFromTrades()` and UPDATEs the row. Do not recalc on every positions request.

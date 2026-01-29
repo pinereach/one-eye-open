@@ -17,7 +17,9 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       'SELECT * FROM participants ORDER BY name ASC'
     );
 
-    return jsonResponse({ participants });
+    const response = jsonResponse({ participants });
+    response.headers.set('Cache-Control', 'public, max-age=43200'); // 12h reference data
+    return response;
   } catch (error: any) {
     console.error('Participants endpoint error:', error);
     return errorResponse(

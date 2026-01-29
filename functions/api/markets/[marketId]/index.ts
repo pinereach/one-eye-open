@@ -43,6 +43,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     orderbookByOutcome[o.outcome_id] = { bids: [], asks: [] };
   });
 
+  const ORDERBOOK_DEPTH = 3; // Best 3 bids/asks per outcome to reduce D1 reads
   if (outcomeIds.length > 0) {
     const placeholders = outcomeIds.map(() => '?').join(',');
     const orderRow = {
@@ -58,19 +59,23 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       side: 0,
       contract_size: null as number | null,
     };
-    const bidsDb = await dbQuery<typeof orderRow>(
+    const bidsDb = await dbQuery<typeof orderRow & { rn?: number }>(
       db,
-      `SELECT * FROM orders 
+      `SELECT id, create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size FROM (
+       SELECT *, ROW_NUMBER() OVER (PARTITION BY outcome ORDER BY price DESC, create_time ASC) AS rn
+       FROM orders
        WHERE outcome IN (${placeholders}) AND side = 0 AND status IN ('open', 'partial')
-       ORDER BY outcome, price DESC, create_time ASC`,
-      outcomeIds
+       ) WHERE rn <= ?`,
+      [...outcomeIds, ORDERBOOK_DEPTH]
     );
-    const asksDb = await dbQuery<typeof orderRow>(
+    const asksDb = await dbQuery<typeof orderRow & { rn?: number }>(
       db,
-      `SELECT * FROM orders 
+      `SELECT id, create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size FROM (
+       SELECT *, ROW_NUMBER() OVER (PARTITION BY outcome ORDER BY price ASC, create_time ASC) AS rn
+       FROM orders
        WHERE outcome IN (${placeholders}) AND side = 1 AND status IN ('open', 'partial')
-       ORDER BY outcome, price ASC, create_time ASC`,
-      outcomeIds
+       ) WHERE rn <= ?`,
+      [...outcomeIds, ORDERBOOK_DEPTH]
     );
 
     const mapOrder = (o: typeof orderRow) => ({
@@ -215,11 +220,14 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     }
   }
 
-  return jsonResponse({
+  const response = jsonResponse({
     market,
     outcomes,
     orderbook: orderbookByOutcome,
     trades,
     positions,
   });
+  // Orderbook/trades/positions change frequently; short cache to cut repeat reads without stale data.
+  response.headers.set('Cache-Control', 'public, max-age=120'); // 2 min
+  return response;
 };

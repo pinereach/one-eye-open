@@ -1,21 +1,31 @@
 const API_BASE = '/api';
 
+/** GETs to these paths respect server Cache-Control (markets/outcomes/participants cached 12h or 2m). */
+function isCacheableGet(endpoint: string, method?: string): boolean {
+  if (method && method !== 'GET') return false;
+  if (endpoint === '/markets' || endpoint === '/participants') return true;
+  // Market detail: /markets/:id (not /markets/:id/orders, etc.)
+  if (/^\/markets\/[^/]+$/.test(endpoint)) return true;
+  return false;
+}
+
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   try {
-    // Add cache-busting for GET requests to prevent stale cached responses
     const url = `${API_BASE}${endpoint}`;
-    const cacheBustUrl = options.method === 'GET' || !options.method
+    const method = options.method ?? 'GET';
+    const allowCache = isCacheableGet(endpoint, method);
+    const finalUrl = !allowCache && (method === 'GET' || !method)
       ? `${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`
       : url;
-    
-    const response = await fetch(cacheBustUrl, {
+
+    const response = await fetch(finalUrl, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
+        ...(allowCache ? {} : { 'Cache-Control': 'no-cache' }),
         ...options.headers,
       },
       credentials: 'include',
@@ -173,4 +183,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  /** Refresh cached 30-day volume per market (run every 4h via cron or admin). */
+  adminRefreshVolume: () =>
+    apiRequest<{ updated: number }>('/admin/refresh-volume', { method: 'POST' }),
 };

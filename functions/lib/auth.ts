@@ -1,5 +1,27 @@
 import { dbFirst, type D1Database } from './db';
 
+const AUTH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+interface CachedUser { user: User; expiresAt: number }
+const authCache = new Map<string, CachedUser>();
+
+function getCachedUser(token: string): User | null {
+  const entry = authCache.get(token);
+  if (!entry || Date.now() > entry.expiresAt) {
+    if (entry) authCache.delete(token);
+    return null;
+  }
+  return entry.user;
+}
+
+function setCachedUser(token: string, user: User): void {
+  authCache.set(token, { user, expiresAt: Date.now() + AUTH_CACHE_TTL_MS });
+  // Simple eviction: if cache is large, drop oldest (arbitrary 500 entries)
+  if (authCache.size > 500) {
+    const firstKey = authCache.keys().next().value;
+    if (firstKey != null) authCache.delete(firstKey);
+  }
+}
+
 export interface User {
   id: number;
   username: string;
@@ -112,6 +134,9 @@ export async function getUserFromToken(
   token: string,
   env: any
 ): Promise<User | null> {
+  const cached = getCachedUser(token);
+  if (cached) return cached;
+
   const payload = await verifyToken(token, env);
   if (!payload) {
     return null;
@@ -134,7 +159,7 @@ export async function getUserFromToken(
 
     if (!row) return null;
 
-    return {
+    const user: User = {
       id: row.id,
       username: row.username,
       view_scores: Boolean(row.view_scores ?? 0),
@@ -142,6 +167,8 @@ export async function getUserFromToken(
       view_market_creation: Boolean(row.view_market_creation ?? 0),
       admin: Boolean(row.admin ?? 0),
     };
+    setCachedUser(token, user);
+    return user;
   } catch {
     // Fallback if view_scores etc columns don't exist (migrations 0041/0042 not run)
     const user = await dbFirst<{ id: number; username: string }>(
@@ -150,7 +177,9 @@ export async function getUserFromToken(
       [payload.userId]
     );
     if (!user) return null;
-    return { id: user.id, username: user.username };
+    const u: User = { id: user.id, username: user.username };
+    setCachedUser(token, u);
+    return u;
   }
 }
 

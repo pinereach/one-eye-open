@@ -27,25 +27,19 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       if (outcomesByMarket[o.market_id]) outcomesByMarket[o.market_id].push(o);
     });
 
-    // Volume per market: sum of contracts from trades in last 30 days only (reduces D1 read scan)
-    const volumeDays = 30;
-    const volumeSince = Math.floor(Date.now() / 1000) - volumeDays * 24 * 60 * 60;
+    // Volume from cache table (refreshed every 4h via POST /api/admin/refresh-volume). Fallback to 0 if table missing.
     let volumeByMarket: Record<string, number> = {};
     try {
       const volumeRows = await dbQuery<{ market_id: string; volume_contracts: number }>(
         db,
-        `SELECT o.market_id, COALESCE(SUM(t.contracts), 0) AS volume_contracts
-         FROM trades t
-         JOIN outcomes o ON t.outcome = o.outcome_id
-         WHERE t.create_time >= ?
-         GROUP BY o.market_id`,
-        [volumeSince]
+        'SELECT market_id, volume_contracts FROM market_volume',
+        []
       );
       volumeRows.forEach((r: { market_id: string; volume_contracts: number }) => {
         volumeByMarket[r.market_id] = r.volume_contracts;
       });
     } catch {
-      // trades or outcome join may not exist; leave volume 0
+      // market_volume table may not exist yet; leave volume 0
     }
 
     const marketsWithOutcomes = markets.map((market: any) => {
@@ -58,7 +52,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     });
 
     const response = jsonResponse({ markets: marketsWithOutcomes });
-    response.headers.set('Cache-Control', 'public, max-age=60');
+    // Markets + outcomes are reference data; volume is 30-day aggregate. Cache 12h to cut D1 reads.
+    response.headers.set('Cache-Control', 'public, max-age=43200'); // 12h
     return response;
   } catch (error: any) {
     console.error('Error in /api/markets:', error);

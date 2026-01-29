@@ -236,51 +236,7 @@ export function MarketDetail() {
       }
     }
 
-    // Pre-submit: only refetch if data is stale (2+ min) to avoid doubling D1 reads on every submit
-    try {
-      const dataIsStale = Date.now() - lastLoadTsRef.current >= MIN_REFRESH_INTERVAL_MS;
-      let freshBook = orderbookByOutcome[selectedOutcomeId];
-      if (dataIsStale) {
-        const data = await api.getMarket(id);
-        if (data?.market) setMarket(data.market);
-        if (data?.outcomes) setOutcomes(data.outcomes);
-        if (data?.orderbook) setOrderbookByOutcome(data.orderbook);
-        if (data?.trades != null) setTrades(data.trades);
-        if (data?.positions != null) setPositions(data.positions);
-        lastLoadTsRef.current = Date.now();
-        setLastFetchedAt(Date.now());
-        freshBook = data?.orderbook?.[selectedOutcomeId];
-      }
-
-      const bookToCheck = freshBook;
-      if (orderSide === 'bid') {
-        const asksAtOrBelow = (bookToCheck?.asks || []).filter(
-          (a: Order) => (a.status === 'open' || a.status === 'partial') && a.price <= priceCents
-        );
-        if (asksAtOrBelow.length > 0) {
-          const totalSize = asksAtOrBelow.reduce((sum: number, a: Order) => sum + (a.contract_size ?? 0), 0);
-          if (totalSize < qty) {
-            showToast('Orderbook changed – refreshed', 'info');
-            return;
-          }
-        }
-      } else {
-        const bidsAtOrAbove = (bookToCheck?.bids || []).filter(
-          (b: Order) => (b.status === 'open' || b.status === 'partial') && b.price >= priceCents
-        );
-        if (bidsAtOrAbove.length > 0) {
-          const totalSize = bidsAtOrAbove.reduce((sum: number, b: Order) => sum + (b.contract_size ?? 0), 0);
-          if (totalSize < qty) {
-            showToast('Orderbook changed – refreshed', 'info');
-            return;
-          }
-        }
-      }
-    } catch (err) {
-      // If pre-submit refetch fails, still allow submit (server will validate)
-      console.warn('Pre-submit orderbook check failed:', err);
-    }
-
+    // Pre-submit refetch removed to reduce D1 reads; server validates order and orderbook on submit.
     setSubmitting(true);
     try {
       await api.placeOrder(id, {
