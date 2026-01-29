@@ -30,16 +30,19 @@ export function PositionsPage() {
 
   const totalPositionValueCents = positions.reduce((sum, position) => {
     const currentPrice = position.current_price !== null && position.current_price !== undefined ? position.current_price : null;
+    if (currentPrice === null) return sum;
     const costCents = position.net_position * position.price_basis;
-    const positionValueCents = currentPrice !== null ? position.net_position * currentPrice : null;
-    const diffCents = positionValueCents !== null ? positionValueCents - costCents : 0;
+    const diffCents =
+      position.net_position < 0
+        ? (position.price_basis - currentPrice) * Math.abs(position.net_position)
+        : position.net_position * currentPrice - costCents;
     return sum + diffCents;
   }, 0);
 
   const getPositionValueCents = (position: any, currentPrice: number | null) => {
     if (currentPrice === null) return null;
     if (position.net_position < 0) {
-      return -position.net_position * (currentPrice - position.price_basis);
+      return (10000 - currentPrice) * Math.abs(position.net_position);
     }
     return position.net_position * currentPrice;
   };
@@ -48,8 +51,12 @@ export function PositionsPage() {
     const currentPrice = position.current_price !== null && position.current_price !== undefined ? position.current_price : null;
     const costCents = position.net_position * position.price_basis;
     const positionValueCents = getPositionValueCents(position, currentPrice);
-    const positionValueForDiffCents = currentPrice !== null ? position.net_position * currentPrice : null;
-    const diffCents = positionValueForDiffCents !== null ? positionValueForDiffCents - costCents : null;
+    const diffCents =
+      currentPrice !== null
+        ? position.net_position < 0
+          ? (position.price_basis - currentPrice) * Math.abs(position.net_position)
+          : position.net_position * currentPrice - costCents
+        : null;
 
     const handleCardClick = () => {
       if (position.market_id) {

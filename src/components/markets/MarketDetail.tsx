@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
-import { formatPrice, formatPriceBasis, formatPriceDecimal, formatPriceCents, formatNotionalBySide } from '../../lib/format';
+import { formatPrice, formatPriceDecimal, formatPriceCents, formatNotionalBySide } from '../../lib/format';
 import { Orderbook } from './Orderbook';
 import { ToastContainer, useToast } from '../ui/Toast';
 import { BottomSheet } from '../ui/BottomSheet';
@@ -424,7 +424,7 @@ export function MarketDetail() {
   const getPositionValueCents = (position: Position, currentPrice: number | null) => {
     if (currentPrice === null) return null;
     if (position.net_position < 0) {
-      return -position.net_position * (currentPrice - position.price_basis);
+      return (10000 - currentPrice) * Math.abs(position.net_position);
     }
     return position.net_position * currentPrice;
   };
@@ -806,10 +806,12 @@ export function MarketDetail() {
                     : null;
                   const costCents = position.net_position * position.price_basis;
                   const positionValueCents = getPositionValueCents(position, currentPrice);
-                  const positionValueForDiffCents = currentPrice !== null ? position.net_position * currentPrice : null;
-                  const diffCents = positionValueForDiffCents !== null 
-                    ? positionValueForDiffCents - costCents 
-                    : null;
+                  const diffCents =
+                    currentPrice !== null
+                      ? position.net_position < 0
+                        ? (position.price_basis - currentPrice) * Math.abs(position.net_position)
+                        : position.net_position * currentPrice - costCents
+                      : null;
 
                   return (
                     <Card key={position.id} className="mb-3">
@@ -1342,10 +1344,12 @@ export function MarketDetail() {
                       : null;
                     const costCents = position.net_position * position.price_basis;
                     const positionValueCents = getPositionValueCents(position, currentPrice);
-                    const positionValueForDiffCents = currentPrice !== null ? position.net_position * currentPrice : null;
-                    const diffCents = positionValueForDiffCents !== null 
-                      ? positionValueForDiffCents - costCents 
-                      : null;
+                    const diffCents =
+                      currentPrice !== null
+                        ? position.net_position < 0
+                          ? (position.price_basis - currentPrice) * Math.abs(position.net_position)
+                          : position.net_position * currentPrice - costCents
+                        : null;
 
                     return (
                       <Card key={position.id} className="mb-3">
