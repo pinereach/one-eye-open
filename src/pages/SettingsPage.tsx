@@ -32,7 +32,7 @@ export function SettingsPage() {
       {user && (
         <Card>
           <CardContent>
-            <h2 className="text-xl font-bold mb-4">Profile</h2>
+            <h2 className="text-base sm:text-lg font-bold mb-4">Profile</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-3">
               Signed in as <strong className="text-gray-900 dark:text-gray-100">{user.username}</strong>
             </p>
@@ -49,7 +49,7 @@ export function SettingsPage() {
       )}
       <Card>
         <CardContent>
-          <h2 className="text-xl font-bold mb-4">Shortcuts</h2>
+          <h2 className="text-base sm:text-lg font-bold mb-4">Shortcuts</h2>
           <nav className="flex flex-col gap-2">
             <Link to="/markets" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">Markets</Link>
             <Link to="/orders" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">Orders</Link>
@@ -66,7 +66,7 @@ export function SettingsPage() {
       </Card>
       <Card>
         <CardContent>
-          <h2 className="text-xl font-bold mb-4">Appearance</h2>
+          <h2 className="text-base sm:text-lg font-bold mb-4">Appearance</h2>
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 dark:text-gray-400">Dark mode</span>
             <DarkModeToggle />
@@ -75,7 +75,7 @@ export function SettingsPage() {
       </Card>
       <Card>
         <CardContent>
-          <h2 className="text-xl font-bold mb-4">Account</h2>
+          <h2 className="text-base sm:text-lg font-bold mb-4">Account</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Version {APP_VERSION}</p>
           <button
             type="button"

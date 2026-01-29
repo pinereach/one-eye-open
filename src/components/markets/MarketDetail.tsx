@@ -965,7 +965,7 @@ export function MarketDetail() {
         <div className="grid md:grid-cols-2 gap-4 sm:gap-6 mt-6">
           {/* Orderbook Section */}
           <div className="min-w-0">
-            <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Orderbook</h2>
+            <h2 className="text-base sm:text-lg font-bold mb-3 sm:mb-4">Orderbook</h2>
             {selectedOutcomeId && selectedOrderbook ? (
               <Orderbook
                 bids={selectedOrderbook.bids}
@@ -1020,7 +1020,7 @@ export function MarketDetail() {
 
           {/* Desktop: Inline Form */}
           <div className="hidden md:block">
-            <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">
+            <h2 className="text-base sm:text-lg font-bold mb-3 sm:mb-4">
               {orderSide === 'market_maker' ? 'Place Order' : orderSide === 'ask' ? 'Place Sell Order' : 'Place Buy Order'}
             </h2>
             <form onSubmit={handlePlaceOrder} className="space-y-3 sm:space-y-4">
@@ -1268,7 +1268,7 @@ export function MarketDetail() {
           {/* Your open orders (desktop) */}
           <div className="mt-6">
             <div className="flex items-center justify-between gap-2 mb-3">
-              <h2 className="text-lg sm:text-xl font-bold">Your open orders</h2>
+              <h2 className="text-base sm:text-lg font-bold">Your open orders</h2>
               {myOpenOrders.length > 0 && (
                 <button
                   type="button"
@@ -1327,7 +1327,7 @@ export function MarketDetail() {
           {/* Positions Section */}
           {positions && positions.length > 0 && (
             <div className="mt-6">
-              <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Your Positions</h2>
+              <h2 className="text-base sm:text-lg font-bold mb-3 sm:mb-4">Your Positions</h2>
               {loading ? (
                 <div className="animate-pulse space-y-2">
                   {[1, 2].map(i => (
@@ -1397,7 +1397,7 @@ export function MarketDetail() {
 
           {/* Recent Trades Section */}
           <div className="mt-6">
-            <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Recent Trades</h2>
+            <h2 className="text-base sm:text-lg font-bold mb-3 sm:mb-4">Recent Trades</h2>
             {loading ? (
               <div className="animate-pulse space-y-2">
                 {[1, 2, 3].map(i => (

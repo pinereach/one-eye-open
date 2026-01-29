@@ -277,7 +277,7 @@ export function MarketSuggestionsPage() {
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
         {/* Round Over/Under Quick Create */}
         <div className="bg-gray-50 dark:bg-gray-800 p-4 sm:p-6 rounded-lg space-y-4">
-          <h2 className="text-lg sm:text-xl font-bold">Round Over/Under Market</h2>
+          <h2 className="text-base sm:text-lg font-bold">Round Over/Under Market</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Create a Round Over/Under outcome by selecting a participant, round, and strike.
           </p>
@@ -367,7 +367,7 @@ export function MarketSuggestionsPage() {
       {/* Total Birdies (round-agnostic, whole event) */}
       <form onSubmit={handleSubmitTotalBirdies} className="space-y-4 sm:space-y-6">
         <div className="bg-gray-50 dark:bg-gray-800 p-4 sm:p-6 rounded-lg space-y-4">
-          <h2 className="text-lg sm:text-xl font-bold">Total Birdies Market</h2>
+          <h2 className="text-base sm:text-lg font-bold">Total Birdies Market</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Create a Total Birdies outcome for the whole event (all rounds). Select participant and strike.
           </p>
@@ -434,7 +434,7 @@ export function MarketSuggestionsPage() {
       {/* Head-to-Head Matchup */}
       <form onSubmit={handleSubmitH2H} className="space-y-4 sm:space-y-6">
         <div className="bg-gray-50 dark:bg-gray-800 p-4 sm:p-6 rounded-lg space-y-4">
-          <h2 className="text-lg sm:text-xl font-bold">Head-to-Head Matchup</h2>
+          <h2 className="text-base sm:text-lg font-bold">Head-to-Head Matchup</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Create a matchup market: Participant 1 Over Participant 2. Select two participants; the first is &quot;Over&quot; the second.
           </p>

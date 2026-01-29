@@ -82,16 +82,16 @@ export function OrdersPage() {
     const timestamp = order.create_time ? format(new Date(order.create_time * 1000), 'MM/dd/yy, h:mm:ss a') : '—';
 
     const cardContent = (
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-3 border border-gray-300 dark:border-gray-600">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 mb-3 border border-gray-300 dark:border-gray-600">
         <div className="flex items-center justify-between gap-4 mb-2">
           <div className={`font-bold text-sm ${orderTypeColor}`}>{orderType}</div>
           {(order.status === 'open' || order.status === 'partial') && (
-            <button onClick={(e) => { e.stopPropagation(); handleCancelOrder(order.id); }} className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-xl font-bold p-1 touch-manipulation flex-shrink-0" title="Cancel order" aria-label="Cancel order">×</button>
+            <button onClick={(e) => { e.stopPropagation(); handleCancelOrder(order.id); }} className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-base font-bold p-1 touch-manipulation flex-shrink-0" title="Cancel order" aria-label="Cancel order">×</button>
           )}
         </div>
         <div className="flex items-stretch gap-4">
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-1">{order.market_name || 'N/A'}</h3>
+            <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 mb-1">{order.market_name || 'N/A'}</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{order.outcome_name || order.outcome}</p>
             <p className="text-sm text-gray-900 dark:text-gray-100">{actionText}</p>
           </div>
@@ -180,9 +180,9 @@ export function OrdersPage() {
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       <div className="space-y-3 sm:space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">Open Orders</h2>
+          <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Open Orders</h2>
           {activeOrders.length > 0 && (
-            <button onClick={handleCancelAll} className="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-full text-sm touch-manipulation transition-colors" aria-label="Cancel all orders">Cancel All</button>
+            <button onClick={handleCancelAll} className="px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded border border-red-300 dark:border-red-700 touch-manipulation transition-colors" aria-label="Cancel all orders">Cancel All</button>
           )}
         </div>
         <div className="md:hidden space-y-3">
@@ -200,7 +200,7 @@ export function OrdersPage() {
         <div className="hidden md:block">{renderOrderTable(activeOrders, 'No open orders')}</div>
       </div>
       <div className="space-y-3 sm:space-y-4">
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">Order History</h2>
+        <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Order History</h2>
         <div className="md:hidden space-y-3">
           {completedOrders.length === 0 ? (
             <Card><CardContent><p className="text-center text-gray-500 dark:text-gray-400 text-sm py-4">No completed orders</p></CardContent></Card>

@@ -70,7 +70,7 @@ export function PositionsPage() {
         <CardContent>
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0 pr-4">
-              <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-1">{position.outcome_ticker || position.outcome_name || position.outcome}</h3>
+              <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-1">{position.outcome_name || position.outcome_ticker || position.outcome}</h3>
               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">{position.market_name || 'N/A'}</p>
               <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-500">{position.net_position} shares at {formatPriceBasis(position.price_basis)}</div>
             </div>
