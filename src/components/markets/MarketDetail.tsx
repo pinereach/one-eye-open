@@ -1143,17 +1143,12 @@ export function MarketDetail() {
               <div>
                 <label className="block text-sm font-medium mb-1.5">Price ($)</label>
                 {selectedOrderbook && (bestBid || bestAsk) && (
-                  <div className="mb-2 text-xs text-gray-600 dark:text-gray-400 flex gap-4">
-                    {bestBid && (
-                      <span>
-                        No/Sell: <span className="font-medium text-purple-600 dark:text-purple-400">{formatPriceCents(bestBid.price)}</span>
-                      </span>
-                    )}
-                    {bestAsk && (
-                      <span>
-                        Yes/Buy: <span className="font-medium text-blue-600 dark:text-blue-400">{formatPriceCents(bestAsk.price)}</span>
-                      </span>
-                    )}
+                  <div className="mb-2 text-xs text-gray-600 dark:text-gray-400">
+                    <span>
+                      Bid: {bestBid ? <><span className="font-medium text-blue-600 dark:text-blue-400">{formatPriceCents(bestBid.price)}</span> × {bestBid.contract_size ?? '—'}</> : '—'}
+                      {' | '}
+                      Ask: {bestAsk ? <><span className="font-medium text-purple-600 dark:text-purple-400">{formatPriceCents(bestAsk.price)}</span> × {bestAsk.contract_size ?? '—'}</> : '—'}
+                    </span>
                   </div>
                 )}
             <div className="relative">
@@ -1596,17 +1591,12 @@ export function MarketDetail() {
           <div>
             <label className="block text-sm font-medium mb-2">Price ($)</label>
             {selectedOrderbook && (bestBid || bestAsk) && (
-              <div className="mb-2 text-xs text-gray-600 dark:text-gray-400 flex gap-4">
-                {bestBid && (
-                  <span>
-                    No/Sell: <span className="font-medium text-purple-600 dark:text-purple-400">{formatPriceCents(bestBid.price)}</span>
-                  </span>
-                )}
-                {bestAsk && (
-                  <span>
-                    Yes/Buy: <span className="font-medium text-blue-600 dark:text-blue-400">{formatPriceCents(bestAsk.price)}</span>
-                  </span>
-                )}
+              <div className="mb-2 text-xs text-gray-600 dark:text-gray-400">
+                <span>
+                  Bid: {bestBid ? <><span className="font-medium text-blue-600 dark:text-blue-400">{formatPriceCents(bestBid.price)}</span> × {bestBid.contract_size ?? '—'}</> : '—'}
+                  {' | '}
+                  Ask: {bestAsk ? <><span className="font-medium text-purple-600 dark:text-purple-400">{formatPriceCents(bestAsk.price)}</span> × {bestAsk.contract_size ?? '—'}</> : '—'}
+                </span>
               </div>
             )}
           <div className="relative">

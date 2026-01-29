@@ -37,7 +37,7 @@ export function TradesPage() {
   };
 
   const renderTradeCard = (trade: any) => {
-    const displaySide = trade.taker_side ?? trade.side;
+    const displaySide = trade.side ?? trade.taker_side;
     const isSell = displaySide === 1;
     const tradeType = isSell ? 'Sell' : 'Buy';
     const pricePercent = trade.price ? formatPricePercent(trade.price) : '0.0%';
@@ -97,6 +97,7 @@ export function TradesPage() {
             <thead>
               <tr className="border-b border-gray-300 dark:border-gray-600">
                 <th className="py-3 px-2 sm:px-3 text-left text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-300 dark:border-gray-600">Time</th>
+                <th className="py-3 px-2 sm:px-3 text-left text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-300 dark:border-gray-600">Side</th>
                 <th className="py-3 px-2 sm:px-3 text-left text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-300 dark:border-gray-600">Market</th>
                 <th className="py-3 px-2 sm:px-3 text-left text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-300 dark:border-gray-600">Outcome</th>
                 <th className="py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-300 dark:border-gray-600">Price</th>
@@ -107,18 +108,27 @@ export function TradesPage() {
               </tr>
             </thead>
             <tbody>
-              {trades.map((trade) => (
+              {trades.map((trade) => {
+                const displaySide = trade.side ?? trade.taker_side ?? null;
+                const isSell = displaySide === 1;
+                const sideLabel = displaySide === 0 ? 'Buy' : displaySide === 1 ? 'Sell' : '—';
+                return (
                 <tr key={trade.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
                   <td className="py-3 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap">{trade.create_time ? format(new Date(trade.create_time * 1000), 'MMM d, h:mm a') : '—'}</td>
+                  <td className="py-3 px-2 sm:px-3">
+                    <span className={`inline-block font-bold text-xs uppercase px-2 py-0.5 rounded ${isSell ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'}`}>
+                      {sideLabel}
+                    </span>
+                  </td>
                   <td className="py-3 px-2 sm:px-3 text-xs sm:text-sm">{trade.market_short_name || trade.market_id || '—'}</td>
                   <td className="py-3 px-2 sm:px-3 text-xs sm:text-sm"><span className="font-medium">{trade.outcome_name || '—'}</span></td>
                   <td className="py-3 px-2 sm:px-3 text-right font-medium text-xs sm:text-sm">{formatPrice(trade.price)}</td>
                   <td className="py-3 px-2 sm:px-3 text-right text-xs sm:text-sm">{trade.contracts}</td>
-                  <td className="py-3 px-2 sm:px-3 text-right font-medium text-xs sm:text-sm">{formatNotionalBySide(trade.price, trade.contracts, trade.taker_side ?? trade.side ?? 0)}</td>
+                  <td className="py-3 px-2 sm:px-3 text-right font-medium text-xs sm:text-sm">{formatNotionalBySide(trade.price, trade.contracts, displaySide ?? 0)}</td>
                   <td className={`py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-bold ${formatIf0(trade.price, trade.contracts) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>${formatIf0(trade.price, trade.contracts)}</td>
                   <td className={`py-3 px-2 sm:px-3 text-right text-xs sm:text-sm font-bold ${formatIf100(trade.price, trade.contracts) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>${formatIf100(trade.price, trade.contracts)}</td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         </div>

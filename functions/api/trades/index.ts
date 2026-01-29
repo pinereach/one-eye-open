@@ -50,6 +50,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     market_id: string | null;
     market_short_name: string | null;
     taker_side: number | null;
+    taker_user_id: number | null;
+    maker_user_id: number | null;
   }>(
     db,
     `SELECT 
@@ -62,6 +64,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
        t.risk_off_price_diff,
        t.outcome,
        t.taker_side,
+       t.taker_user_id,
+       t.maker_user_id,
        o.name as outcome_name,
        o.ticker as outcome_ticker,
        o.market_id,
@@ -75,21 +79,33 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     [userId, userId, limit]
   );
 
-  const trades = tradesRows.map((t) => ({
-    id: t.id,
-    token: t.token,
-    price: t.price,
-    contracts: t.contracts,
-    create_time: t.create_time,
-    risk_off_contracts: t.risk_off_contracts ?? 0,
-    risk_off_price_diff: t.risk_off_price_diff ?? 0,
-    outcome: t.outcome,
-    outcome_name: t.outcome_name,
-    outcome_ticker: t.outcome_ticker,
-    market_id: t.market_id,
-    market_short_name: t.market_short_name,
-    side: t.taker_side ?? null,
-  }));
+  const trades = tradesRows.map((t) => {
+    // "My side": when user is taker use taker_side; when user is maker use opposite
+    const mySide =
+      t.taker_side != null
+        ? t.taker_user_id === userId
+          ? t.taker_side
+          : t.taker_side === 0
+            ? 1
+            : 0
+        : null;
+    return {
+      id: t.id,
+      token: t.token,
+      price: t.price,
+      contracts: t.contracts,
+      create_time: t.create_time,
+      risk_off_contracts: t.risk_off_contracts ?? 0,
+      risk_off_price_diff: t.risk_off_price_diff ?? 0,
+      outcome: t.outcome,
+      outcome_name: t.outcome_name,
+      outcome_ticker: t.outcome_ticker,
+      market_id: t.market_id,
+      market_short_name: t.market_short_name,
+      side: mySide,
+      taker_side: t.taker_side ?? null,
+    };
+  });
 
   return jsonResponse({ trades });
 };

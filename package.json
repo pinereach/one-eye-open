@@ -31,7 +31,9 @@
     "add-trade-side-users": "wrangler d1 execute golf-trip-db --local --file=./migrations/0033_add_trade_side_users.sql",
     "add-trade-side-users-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0033_add_trade_side_users.sql",
     "fix-loop-position-basis": "wrangler d1 execute golf-trip-db --local --file=./migrations/0045_fix_loop_position_price_basis.sql",
-    "fix-loop-position-basis-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0045_fix_loop_position_price_basis.sql"
+    "fix-loop-position-basis-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0045_fix_loop_position_price_basis.sql",
+    "wipe-trading-reset-sequences": "wrangler d1 execute golf-trip-db --local --file=./migrations/0046_wipe_trading_data_reset_sequences.sql",
+    "wipe-trading-reset-sequences-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0046_wipe_trading_data_reset_sequences.sql"
   },
   "dependencies": {
     "date-fns": "^2.30.0",
