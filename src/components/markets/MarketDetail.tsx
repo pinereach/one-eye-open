@@ -547,7 +547,7 @@ export function MarketDetail() {
           <div className="bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 rounded-lg">
             <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Trading Volume</div>
             <div className="text-sm sm:text-lg font-semibold">
-              {marketStats.volume_contracts.toLocaleString()} × $200 = ${marketStats.volume_dollars.toLocaleString()}
+              ${marketStats.volume_dollars.toLocaleString()}
             </div>
           </div>
         </div>

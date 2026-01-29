@@ -174,7 +174,7 @@ export function MarketList({ tripId }: { tripId?: string }) {
                       {market.short_name}
                     </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      Volume: {(market.volume_contracts ?? 0).toLocaleString()} × $200 = ${((market.volume_contracts ?? 0) * 200).toLocaleString()}
+                      Volume: ${((market.volume_contracts ?? 0) * 200).toLocaleString()}
                     </p>
                   </div>
                   <div className="flex-shrink-0">
