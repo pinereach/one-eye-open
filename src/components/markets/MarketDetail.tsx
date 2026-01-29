@@ -229,7 +229,7 @@ export function MarketDetail() {
 
   function handleBidClick(outcomeId: string, price: number | null) {
     setSelectedOutcomeId(outcomeId);
-    setOrderSide('ask'); // Clicking on a bid = sell to that bid → opens "No" (ask)
+    setOrderSide('bid'); // Clicking Yes/Buy column → prepopulate Yes/Buy (bid)
     if (price) {
       const priceDollars = Math.round(price / 100);
       // Clamp to 1-99 range
@@ -244,7 +244,7 @@ export function MarketDetail() {
 
   function handleAskClick(outcomeId: string, price: number | null) {
     setSelectedOutcomeId(outcomeId);
-    setOrderSide('bid'); // Clicking on an ask = buy at that ask → opens "Yes" (bid)
+    setOrderSide('ask'); // Clicking No/Sell column → prepopulate No/Sell (ask)
     if (price) {
       const priceDollars = Math.round(price / 100);
       // Clamp to 1-99 range
@@ -955,7 +955,7 @@ export function MarketDetail() {
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                     }`}
                   >
-                    No/Sell {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
+                    No/Sell {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
                   </button>
                   <button
                     type="button"
@@ -966,7 +966,7 @@ export function MarketDetail() {
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                     }`}
                   >
-                    Yes/Buy {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
+                    Yes/Buy {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
                   </button>
                   {user?.view_market_maker && (
                   <button
@@ -1412,7 +1412,7 @@ export function MarketDetail() {
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                 }`}
               >
-                No/Sell {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
+                No/Sell {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
               </button>
               <button
                 type="button"
@@ -1423,7 +1423,7 @@ export function MarketDetail() {
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                 }`}
               >
-                Yes/Buy {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
+                Yes/Buy {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
               </button>
               {user?.view_market_maker && (
               <button

@@ -3,10 +3,6 @@ import { dbFirst, type D1Database } from './db';
 export interface User {
   id: number;
   username: string;
-  view_scores: boolean;
-  view_market_maker: boolean;
-  view_market_creation: boolean;
-  admin: boolean;
 }
 
 interface TokenPayload {
@@ -117,43 +113,14 @@ export async function getUserFromToken(
     return null;
   }
 
-  // Always get id and username first (core columns always exist)
-  const base = await dbFirst<{ id: number; username: string }>(
+  // Verify user still exists and get latest data
+  const user = await dbFirst<User>(
     db,
     `SELECT id, username FROM users WHERE id = ?`,
     [payload.userId]
   );
-  if (!base) return null;
 
-  // Fetch view flags in a separate query so missing columns (e.g. migrations not run) don't break /me
-  let view_scores = false;
-  let view_market_maker = false;
-  let view_market_creation = false;
-  let admin = false;
-  try {
-    const flags = await dbFirst<{ view_scores: number; view_market_maker: number; view_market_creation: number; admin: number }>(
-      db,
-      `SELECT view_scores, view_market_maker, view_market_creation, admin FROM users WHERE id = ?`,
-      [payload.userId]
-    );
-    if (flags) {
-      view_scores = Boolean(flags.view_scores ?? 0);
-      view_market_maker = Boolean(flags.view_market_maker ?? 0);
-      view_market_creation = Boolean(flags.view_market_creation ?? 0);
-      admin = Boolean(flags.admin ?? 0);
-    }
-  } catch {
-    // Flag columns may not exist yet; keep defaults false
-  }
-
-  return {
-    id: base.id,
-    username: base.username,
-    view_scores,
-    view_market_maker,
-    view_market_creation,
-    admin,
-  };
+  return user;
 }
 
 export function getCookieValue(cookieHeader: string | null, name: string): string | null {
