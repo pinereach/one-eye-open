@@ -219,11 +219,13 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
                   const hasUserOrders = level.userOrders.length > 0;
                   const userOrdersAtPrice = level.userOrders.filter(o => o.status === 'open' || o.status === 'partial');
                   const canCancel = hasUserOrders && userOrdersAtPrice.length > 0;
-                  
+                  const userSizeAtLevel = userOrdersAtPrice.reduce((sum, o) => sum + (o.contract_size ?? 0), 0);
+                  const showMineLabel = hasUserOrders && userSizeAtLevel > 0 && level.orders.length > 1;
+
                   return (
                     <div
                       key={level.price}
-                      className={`relative flex items-center justify-between text-xs sm:text-sm p-2 rounded transition-colors touch-manipulation ${
+                      className={`relative flex items-center justify-between text-xs sm:text-sm p-2 rounded transition-colors touch-manipulation min-h-[44px] ${
                         hasUserOrders
                           ? 'bg-green-100 dark:bg-green-900/40 border-2 border-primary-500 dark:border-primary-400'
                           : 'bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 cursor-pointer'
@@ -261,6 +263,9 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
                       <div className="relative z-10 flex items-center gap-2">
                         <span className="text-gray-600 dark:text-gray-400">
                           {level.totalSize}
+                          {showMineLabel && (
+                            <span className="text-primary-600 dark:text-primary-400 ml-0.5">({userSizeAtLevel} mine)</span>
+                          )}
                         </span>
                         {canCancel && (
                           <button
@@ -296,11 +301,13 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
                   const hasUserOrders = level.userOrders.length > 0;
                   const userOrdersAtPrice = level.userOrders.filter(o => o.status === 'open' || o.status === 'partial');
                   const canCancel = hasUserOrders && userOrdersAtPrice.length > 0;
-                  
+                  const userSizeAtLevel = userOrdersAtPrice.reduce((sum, o) => sum + (o.contract_size ?? 0), 0);
+                  const showMineLabel = hasUserOrders && userSizeAtLevel > 0 && level.orders.length > 1;
+
                   return (
                     <div
                       key={level.price}
-                      className={`relative flex items-center justify-between text-xs sm:text-sm p-2 rounded transition-colors touch-manipulation ${
+                      className={`relative flex items-center justify-between text-xs sm:text-sm p-2 rounded transition-colors touch-manipulation min-h-[44px] ${
                         hasUserOrders
                           ? 'bg-red-100 dark:bg-red-900/40 border-2 border-primary-500 dark:border-primary-400'
                           : 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 cursor-pointer'
@@ -338,6 +345,9 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
                       <div className="relative z-10 flex items-center gap-2">
                         <span className="text-gray-600 dark:text-gray-400">
                           {level.totalSize}
+                          {showMineLabel && (
+                            <span className="text-primary-600 dark:text-primary-400 ml-0.5">({userSizeAtLevel} mine)</span>
+                          )}
                         </span>
                         {canCancel && (
                           <button

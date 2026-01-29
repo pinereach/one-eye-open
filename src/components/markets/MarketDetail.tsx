@@ -822,9 +822,9 @@ export function MarketDetail() {
                             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">
                               {outcomeLabel}
                             </p>
-                            <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-500">
-                              {position.net_position} shares at {formatPriceBasis(position.price_basis)}
-                            </div>
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${position.net_position > 0 ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
+                              {formatPositionChip(position.net_position, position.price_basis)}
+                            </span>
                           </div>
                           <div className="flex flex-col items-end text-right">
                             <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
@@ -1358,9 +1358,9 @@ export function MarketDetail() {
                               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">
                                 {outcomeLabel}
                               </p>
-                              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-500">
-                                {position.net_position} shares at {formatPriceBasis(position.price_basis)}
-                              </div>
+                              <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${position.net_position > 0 ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
+                                {formatPositionChip(position.net_position, position.price_basis)}
+                              </span>
                             </div>
                             <div className="flex flex-col items-end text-right">
                               <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
