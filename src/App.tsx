@@ -1,23 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { MarketDetail } from './components/markets/MarketDetail';
 import { DarkModeToggle } from './components/ui/DarkModeToggle';
 import { BottomNav } from './components/ui/BottomNav';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { isDevelopment } from './lib/env';
-import {
-  LandingPage,
-  HistoricalScoringPage,
-  MarketsPage,
-  TapePage,
-  OrdersPage,
-  TradesPage,
-  PositionsPage,
-  MarketSuggestionsPage,
-  SettingsPage,
-  AdminPage,
-} from './pages';
+
+// Lazy-load route chunks so nav clicks don't block on parsing/executing whole app (improves INP).
+const LandingPage = lazy(() => import('./pages/LandingPage').then(m => ({ default: m.LandingPage })));
+const HistoricalScoringPage = lazy(() => import('./pages/HistoricalScoringPage').then(m => ({ default: m.HistoricalScoringPage })));
+const MarketsPage = lazy(() => import('./pages/MarketsPage').then(m => ({ default: m.MarketsPage })));
+const MarketDetail = lazy(() => import('./components/markets/MarketDetail').then(m => ({ default: m.MarketDetail })));
+const TapePage = lazy(() => import('./pages/TapePage').then(m => ({ default: m.TapePage })));
+const OrdersPage = lazy(() => import('./pages/OrdersPage').then(m => ({ default: m.OrdersPage })));
+const TradesPage = lazy(() => import('./pages/TradesPage').then(m => ({ default: m.TradesPage })));
+const PositionsPage = lazy(() => import('./pages/PositionsPage').then(m => ({ default: m.PositionsPage })));
+const MarketSuggestionsPage = lazy(() => import('./pages/MarketSuggestionsPage').then(m => ({ default: m.MarketSuggestionsPage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
 
 const DEFAULT_TITLE = 'One Eye Open';
 
@@ -166,19 +166,21 @@ export default function App() {
       <ErrorBoundary onRetry={() => window.location.reload()}>
         <AuthProvider>
           <Layout>
-            <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/scoring" element={<ProtectedRoute><HistoricalScoringPage /></ProtectedRoute>} />
-          <Route path="/markets" element={<ProtectedRoute><MarketsPage /></ProtectedRoute>} />
-          <Route path="/markets/:id" element={<ProtectedRoute><MarketDetail /></ProtectedRoute>} />
-          <Route path="/tape" element={<ProtectedRoute><TapePage /></ProtectedRoute>} />
-          <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
-          <Route path="/trades" element={<ProtectedRoute><TradesPage /></ProtectedRoute>} />
-          <Route path="/positions" element={<ProtectedRoute><PositionsPage /></ProtectedRoute>} />
-          <Route path="/market-suggestions" element={<ProtectedRoute><MarketSuggestionsPage /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
-          </Routes>
+            <Suspense fallback={<div className="flex items-center justify-center min-h-[40vh] text-gray-500 dark:text-gray-400">Loading…</div>}>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/scoring" element={<ProtectedRoute><HistoricalScoringPage /></ProtectedRoute>} />
+                <Route path="/markets" element={<ProtectedRoute><MarketsPage /></ProtectedRoute>} />
+                <Route path="/markets/:id" element={<ProtectedRoute><MarketDetail /></ProtectedRoute>} />
+                <Route path="/tape" element={<ProtectedRoute><TapePage /></ProtectedRoute>} />
+                <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
+                <Route path="/trades" element={<ProtectedRoute><TradesPage /></ProtectedRoute>} />
+                <Route path="/positions" element={<ProtectedRoute><PositionsPage /></ProtectedRoute>} />
+                <Route path="/market-suggestions" element={<ProtectedRoute><MarketSuggestionsPage /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+                <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+              </Routes>
+            </Suspense>
           </Layout>
         </AuthProvider>
       </ErrorBoundary>

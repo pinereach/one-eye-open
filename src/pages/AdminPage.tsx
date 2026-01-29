@@ -66,8 +66,7 @@ export function AdminPage() {
     return () => {
       cancelled = true;
       // Reset throttle after delay so Strict Mode’s second mount doesn’t refetch, but returning to admin later does
-      const t = setTimeout(() => { lastAdminFetchAt = 0; }, ADMIN_FETCH_THROTTLE_MS + 500);
-      return () => clearTimeout(t);
+      setTimeout(() => { lastAdminFetchAt = 0; }, ADMIN_FETCH_THROTTLE_MS + 500);
     };
   }, [user?.admin]);
 

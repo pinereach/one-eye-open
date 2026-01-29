@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 
 interface LoginFormProps {
@@ -8,7 +8,7 @@ interface LoginFormProps {
 
 export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
   const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const passwordRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -17,12 +17,13 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
     e.preventDefault();
     setError('');
     setLoading(true);
+    const password = passwordRef.current?.value ?? '';
 
     try {
       await login(username.trim(), password.trim());
       onSuccess?.();
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -52,10 +53,9 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
           Password
         </label>
         <input
+          ref={passwordRef}
           id="password"
           type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
           required
           autoComplete="current-password"
           className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 min-h-[44px]"
