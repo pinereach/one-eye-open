@@ -299,6 +299,7 @@ export function MarketSuggestionsPage() {
                 <option value={3}>Round 3</option>
                 <option value={4}>Round 4</option>
                 <option value={5}>Round 5</option>
+                <option value={6}>Round 6</option>
               </select>
             </div>
             
