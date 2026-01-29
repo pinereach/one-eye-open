@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from './hooks/useAuth';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { MarketDetail } from './components/markets/MarketDetail';
 import { DarkModeToggle } from './components/ui/DarkModeToggle';
 import { BottomNav } from './components/ui/BottomNav';
@@ -156,8 +156,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <ErrorBoundary onRetry={() => window.location.reload()}>
-        <Layout>
-          <Routes>
+        <AuthProvider>
+          <Layout>
+            <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/scoring" element={<ProtectedRoute><HistoricalScoringPage /></ProtectedRoute>} />
           <Route path="/markets" element={<ProtectedRoute><MarketsPage /></ProtectedRoute>} />
@@ -169,7 +170,8 @@ export default function App() {
           <Route path="/market-suggestions" element={<ProtectedRoute><MarketSuggestionsPage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
           </Routes>
-        </Layout>
+          </Layout>
+        </AuthProvider>
       </ErrorBoundary>
     </BrowserRouter>
   );
