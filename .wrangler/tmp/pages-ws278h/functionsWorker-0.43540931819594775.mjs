@@ -1,7 +1,11 @@
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 
-// .wrangler/tmp/bundle-GmptcN/checked-fetch.js
+// ../.wrangler/tmp/bundle-zilK7o/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -27,148 +31,119 @@ globalThis.fetch = new Proxy(globalThis.fetch, {
   }
 });
 
-// .wrangler/tmp/pages-kutjZM/functionsWorker-0.8517046703055637.mjs
-var __defProp2 = Object.defineProperty;
-var __name2 = /* @__PURE__ */ __name((target, value) => __defProp2(target, "name", { value, configurable: true }), "__name");
-var __export = /* @__PURE__ */ __name((target, all) => {
-  for (var name in all)
-    __defProp2(target, name, { get: all[name], enumerable: true });
-}, "__export");
-var urls2 = /* @__PURE__ */ new Set();
-function checkURL2(request, init) {
-  const url = request instanceof URL ? request : new URL(
-    (typeof request === "string" ? new Request(request, init) : request).url
-  );
-  if (url.port && url.port !== "443" && url.protocol === "https:") {
-    if (!urls2.has(url.toString())) {
-      urls2.add(url.toString());
-      console.warn(
-        `WARNING: known issue with \`fetch()\` requests to custom HTTPS ports in published Workers:
- - ${url.toString()} - the custom port will be ignored when the Worker is published using the \`wrangler deploy\` command.
-`
-      );
-    }
-  }
-}
-__name(checkURL2, "checkURL");
-__name2(checkURL2, "checkURL");
-globalThis.fetch = new Proxy(globalThis.fetch, {
-  apply(target, thisArg, argArray) {
-    const [request, init] = argArray;
-    checkURL2(request, init);
-    return Reflect.apply(target, thisArg, argArray);
-  }
-});
+// ../node_modules/zod/v3/external.js
 var external_exports = {};
 __export(external_exports, {
-  BRAND: /* @__PURE__ */ __name(() => BRAND, "BRAND"),
-  DIRTY: /* @__PURE__ */ __name(() => DIRTY, "DIRTY"),
-  EMPTY_PATH: /* @__PURE__ */ __name(() => EMPTY_PATH, "EMPTY_PATH"),
-  INVALID: /* @__PURE__ */ __name(() => INVALID, "INVALID"),
-  NEVER: /* @__PURE__ */ __name(() => NEVER, "NEVER"),
-  OK: /* @__PURE__ */ __name(() => OK, "OK"),
-  ParseStatus: /* @__PURE__ */ __name(() => ParseStatus, "ParseStatus"),
-  Schema: /* @__PURE__ */ __name(() => ZodType, "Schema"),
-  ZodAny: /* @__PURE__ */ __name(() => ZodAny, "ZodAny"),
-  ZodArray: /* @__PURE__ */ __name(() => ZodArray, "ZodArray"),
-  ZodBigInt: /* @__PURE__ */ __name(() => ZodBigInt, "ZodBigInt"),
-  ZodBoolean: /* @__PURE__ */ __name(() => ZodBoolean, "ZodBoolean"),
-  ZodBranded: /* @__PURE__ */ __name(() => ZodBranded, "ZodBranded"),
-  ZodCatch: /* @__PURE__ */ __name(() => ZodCatch, "ZodCatch"),
-  ZodDate: /* @__PURE__ */ __name(() => ZodDate, "ZodDate"),
-  ZodDefault: /* @__PURE__ */ __name(() => ZodDefault, "ZodDefault"),
-  ZodDiscriminatedUnion: /* @__PURE__ */ __name(() => ZodDiscriminatedUnion, "ZodDiscriminatedUnion"),
-  ZodEffects: /* @__PURE__ */ __name(() => ZodEffects, "ZodEffects"),
-  ZodEnum: /* @__PURE__ */ __name(() => ZodEnum, "ZodEnum"),
-  ZodError: /* @__PURE__ */ __name(() => ZodError, "ZodError"),
-  ZodFirstPartyTypeKind: /* @__PURE__ */ __name(() => ZodFirstPartyTypeKind, "ZodFirstPartyTypeKind"),
-  ZodFunction: /* @__PURE__ */ __name(() => ZodFunction, "ZodFunction"),
-  ZodIntersection: /* @__PURE__ */ __name(() => ZodIntersection, "ZodIntersection"),
-  ZodIssueCode: /* @__PURE__ */ __name(() => ZodIssueCode, "ZodIssueCode"),
-  ZodLazy: /* @__PURE__ */ __name(() => ZodLazy, "ZodLazy"),
-  ZodLiteral: /* @__PURE__ */ __name(() => ZodLiteral, "ZodLiteral"),
-  ZodMap: /* @__PURE__ */ __name(() => ZodMap, "ZodMap"),
-  ZodNaN: /* @__PURE__ */ __name(() => ZodNaN, "ZodNaN"),
-  ZodNativeEnum: /* @__PURE__ */ __name(() => ZodNativeEnum, "ZodNativeEnum"),
-  ZodNever: /* @__PURE__ */ __name(() => ZodNever, "ZodNever"),
-  ZodNull: /* @__PURE__ */ __name(() => ZodNull, "ZodNull"),
-  ZodNullable: /* @__PURE__ */ __name(() => ZodNullable, "ZodNullable"),
-  ZodNumber: /* @__PURE__ */ __name(() => ZodNumber, "ZodNumber"),
-  ZodObject: /* @__PURE__ */ __name(() => ZodObject, "ZodObject"),
-  ZodOptional: /* @__PURE__ */ __name(() => ZodOptional, "ZodOptional"),
-  ZodParsedType: /* @__PURE__ */ __name(() => ZodParsedType, "ZodParsedType"),
-  ZodPipeline: /* @__PURE__ */ __name(() => ZodPipeline, "ZodPipeline"),
-  ZodPromise: /* @__PURE__ */ __name(() => ZodPromise, "ZodPromise"),
-  ZodReadonly: /* @__PURE__ */ __name(() => ZodReadonly, "ZodReadonly"),
-  ZodRecord: /* @__PURE__ */ __name(() => ZodRecord, "ZodRecord"),
-  ZodSchema: /* @__PURE__ */ __name(() => ZodType, "ZodSchema"),
-  ZodSet: /* @__PURE__ */ __name(() => ZodSet, "ZodSet"),
-  ZodString: /* @__PURE__ */ __name(() => ZodString, "ZodString"),
-  ZodSymbol: /* @__PURE__ */ __name(() => ZodSymbol, "ZodSymbol"),
-  ZodTransformer: /* @__PURE__ */ __name(() => ZodEffects, "ZodTransformer"),
-  ZodTuple: /* @__PURE__ */ __name(() => ZodTuple, "ZodTuple"),
-  ZodType: /* @__PURE__ */ __name(() => ZodType, "ZodType"),
-  ZodUndefined: /* @__PURE__ */ __name(() => ZodUndefined, "ZodUndefined"),
-  ZodUnion: /* @__PURE__ */ __name(() => ZodUnion, "ZodUnion"),
-  ZodUnknown: /* @__PURE__ */ __name(() => ZodUnknown, "ZodUnknown"),
-  ZodVoid: /* @__PURE__ */ __name(() => ZodVoid, "ZodVoid"),
-  addIssueToContext: /* @__PURE__ */ __name(() => addIssueToContext, "addIssueToContext"),
-  any: /* @__PURE__ */ __name(() => anyType, "any"),
-  array: /* @__PURE__ */ __name(() => arrayType, "array"),
-  bigint: /* @__PURE__ */ __name(() => bigIntType, "bigint"),
-  boolean: /* @__PURE__ */ __name(() => booleanType, "boolean"),
-  coerce: /* @__PURE__ */ __name(() => coerce, "coerce"),
-  custom: /* @__PURE__ */ __name(() => custom, "custom"),
-  date: /* @__PURE__ */ __name(() => dateType, "date"),
-  datetimeRegex: /* @__PURE__ */ __name(() => datetimeRegex, "datetimeRegex"),
-  defaultErrorMap: /* @__PURE__ */ __name(() => en_default, "defaultErrorMap"),
-  discriminatedUnion: /* @__PURE__ */ __name(() => discriminatedUnionType, "discriminatedUnion"),
-  effect: /* @__PURE__ */ __name(() => effectsType, "effect"),
-  enum: /* @__PURE__ */ __name(() => enumType, "enum"),
-  function: /* @__PURE__ */ __name(() => functionType, "function"),
-  getErrorMap: /* @__PURE__ */ __name(() => getErrorMap, "getErrorMap"),
-  getParsedType: /* @__PURE__ */ __name(() => getParsedType, "getParsedType"),
-  instanceof: /* @__PURE__ */ __name(() => instanceOfType, "instanceof"),
-  intersection: /* @__PURE__ */ __name(() => intersectionType, "intersection"),
-  isAborted: /* @__PURE__ */ __name(() => isAborted, "isAborted"),
-  isAsync: /* @__PURE__ */ __name(() => isAsync, "isAsync"),
-  isDirty: /* @__PURE__ */ __name(() => isDirty, "isDirty"),
-  isValid: /* @__PURE__ */ __name(() => isValid, "isValid"),
-  late: /* @__PURE__ */ __name(() => late, "late"),
-  lazy: /* @__PURE__ */ __name(() => lazyType, "lazy"),
-  literal: /* @__PURE__ */ __name(() => literalType, "literal"),
-  makeIssue: /* @__PURE__ */ __name(() => makeIssue, "makeIssue"),
-  map: /* @__PURE__ */ __name(() => mapType, "map"),
-  nan: /* @__PURE__ */ __name(() => nanType, "nan"),
-  nativeEnum: /* @__PURE__ */ __name(() => nativeEnumType, "nativeEnum"),
-  never: /* @__PURE__ */ __name(() => neverType, "never"),
-  null: /* @__PURE__ */ __name(() => nullType, "null"),
-  nullable: /* @__PURE__ */ __name(() => nullableType, "nullable"),
-  number: /* @__PURE__ */ __name(() => numberType, "number"),
-  object: /* @__PURE__ */ __name(() => objectType, "object"),
-  objectUtil: /* @__PURE__ */ __name(() => objectUtil, "objectUtil"),
-  oboolean: /* @__PURE__ */ __name(() => oboolean, "oboolean"),
-  onumber: /* @__PURE__ */ __name(() => onumber, "onumber"),
-  optional: /* @__PURE__ */ __name(() => optionalType, "optional"),
-  ostring: /* @__PURE__ */ __name(() => ostring, "ostring"),
-  pipeline: /* @__PURE__ */ __name(() => pipelineType, "pipeline"),
-  preprocess: /* @__PURE__ */ __name(() => preprocessType, "preprocess"),
-  promise: /* @__PURE__ */ __name(() => promiseType, "promise"),
-  quotelessJson: /* @__PURE__ */ __name(() => quotelessJson, "quotelessJson"),
-  record: /* @__PURE__ */ __name(() => recordType, "record"),
-  set: /* @__PURE__ */ __name(() => setType, "set"),
-  setErrorMap: /* @__PURE__ */ __name(() => setErrorMap, "setErrorMap"),
-  strictObject: /* @__PURE__ */ __name(() => strictObjectType, "strictObject"),
-  string: /* @__PURE__ */ __name(() => stringType, "string"),
-  symbol: /* @__PURE__ */ __name(() => symbolType, "symbol"),
-  transformer: /* @__PURE__ */ __name(() => effectsType, "transformer"),
-  tuple: /* @__PURE__ */ __name(() => tupleType, "tuple"),
-  undefined: /* @__PURE__ */ __name(() => undefinedType, "undefined"),
-  union: /* @__PURE__ */ __name(() => unionType, "union"),
-  unknown: /* @__PURE__ */ __name(() => unknownType, "unknown"),
-  util: /* @__PURE__ */ __name(() => util, "util"),
-  void: /* @__PURE__ */ __name(() => voidType, "void")
+  BRAND: () => BRAND,
+  DIRTY: () => DIRTY,
+  EMPTY_PATH: () => EMPTY_PATH,
+  INVALID: () => INVALID,
+  NEVER: () => NEVER,
+  OK: () => OK,
+  ParseStatus: () => ParseStatus,
+  Schema: () => ZodType,
+  ZodAny: () => ZodAny,
+  ZodArray: () => ZodArray,
+  ZodBigInt: () => ZodBigInt,
+  ZodBoolean: () => ZodBoolean,
+  ZodBranded: () => ZodBranded,
+  ZodCatch: () => ZodCatch,
+  ZodDate: () => ZodDate,
+  ZodDefault: () => ZodDefault,
+  ZodDiscriminatedUnion: () => ZodDiscriminatedUnion,
+  ZodEffects: () => ZodEffects,
+  ZodEnum: () => ZodEnum,
+  ZodError: () => ZodError,
+  ZodFirstPartyTypeKind: () => ZodFirstPartyTypeKind,
+  ZodFunction: () => ZodFunction,
+  ZodIntersection: () => ZodIntersection,
+  ZodIssueCode: () => ZodIssueCode,
+  ZodLazy: () => ZodLazy,
+  ZodLiteral: () => ZodLiteral,
+  ZodMap: () => ZodMap,
+  ZodNaN: () => ZodNaN,
+  ZodNativeEnum: () => ZodNativeEnum,
+  ZodNever: () => ZodNever,
+  ZodNull: () => ZodNull,
+  ZodNullable: () => ZodNullable,
+  ZodNumber: () => ZodNumber,
+  ZodObject: () => ZodObject,
+  ZodOptional: () => ZodOptional,
+  ZodParsedType: () => ZodParsedType,
+  ZodPipeline: () => ZodPipeline,
+  ZodPromise: () => ZodPromise,
+  ZodReadonly: () => ZodReadonly,
+  ZodRecord: () => ZodRecord,
+  ZodSchema: () => ZodType,
+  ZodSet: () => ZodSet,
+  ZodString: () => ZodString,
+  ZodSymbol: () => ZodSymbol,
+  ZodTransformer: () => ZodEffects,
+  ZodTuple: () => ZodTuple,
+  ZodType: () => ZodType,
+  ZodUndefined: () => ZodUndefined,
+  ZodUnion: () => ZodUnion,
+  ZodUnknown: () => ZodUnknown,
+  ZodVoid: () => ZodVoid,
+  addIssueToContext: () => addIssueToContext,
+  any: () => anyType,
+  array: () => arrayType,
+  bigint: () => bigIntType,
+  boolean: () => booleanType,
+  coerce: () => coerce,
+  custom: () => custom,
+  date: () => dateType,
+  datetimeRegex: () => datetimeRegex,
+  defaultErrorMap: () => en_default,
+  discriminatedUnion: () => discriminatedUnionType,
+  effect: () => effectsType,
+  enum: () => enumType,
+  function: () => functionType,
+  getErrorMap: () => getErrorMap,
+  getParsedType: () => getParsedType,
+  instanceof: () => instanceOfType,
+  intersection: () => intersectionType,
+  isAborted: () => isAborted,
+  isAsync: () => isAsync,
+  isDirty: () => isDirty,
+  isValid: () => isValid,
+  late: () => late,
+  lazy: () => lazyType,
+  literal: () => literalType,
+  makeIssue: () => makeIssue,
+  map: () => mapType,
+  nan: () => nanType,
+  nativeEnum: () => nativeEnumType,
+  never: () => neverType,
+  null: () => nullType,
+  nullable: () => nullableType,
+  number: () => numberType,
+  object: () => objectType,
+  objectUtil: () => objectUtil,
+  oboolean: () => oboolean,
+  onumber: () => onumber,
+  optional: () => optionalType,
+  ostring: () => ostring,
+  pipeline: () => pipelineType,
+  preprocess: () => preprocessType,
+  promise: () => promiseType,
+  quotelessJson: () => quotelessJson,
+  record: () => recordType,
+  set: () => setType,
+  setErrorMap: () => setErrorMap,
+  strictObject: () => strictObjectType,
+  string: () => stringType,
+  symbol: () => symbolType,
+  transformer: () => effectsType,
+  tuple: () => tupleType,
+  undefined: () => undefinedType,
+  union: () => unionType,
+  unknown: () => unknownType,
+  util: () => util,
+  void: () => voidType
 });
+
+// ../node_modules/zod/v3/helpers/util.js
 var util;
 (function(util2) {
   util2.assertEqual = (_) => {
@@ -176,13 +151,11 @@ var util;
   function assertIs(_arg) {
   }
   __name(assertIs, "assertIs");
-  __name2(assertIs, "assertIs");
   util2.assertIs = assertIs;
   function assertNever(_x) {
     throw new Error();
   }
   __name(assertNever, "assertNever");
-  __name2(assertNever, "assertNever");
   util2.assertNever = assertNever;
   util2.arrayToEnum = (items) => {
     const obj = {};
@@ -225,7 +198,6 @@ var util;
     return array.map((val) => typeof val === "string" ? `'${val}'` : val).join(separator);
   }
   __name(joinValues, "joinValues");
-  __name2(joinValues, "joinValues");
   util2.joinValues = joinValues;
   util2.jsonStringifyReplacer = (_, value) => {
     if (typeof value === "bigint") {
@@ -266,7 +238,7 @@ var ZodParsedType = util.arrayToEnum([
   "map",
   "set"
 ]);
-var getParsedType = /* @__PURE__ */ __name2((data) => {
+var getParsedType = /* @__PURE__ */ __name((data) => {
   const t = typeof data;
   switch (t) {
     case "undefined":
@@ -307,6 +279,8 @@ var getParsedType = /* @__PURE__ */ __name2((data) => {
       return ZodParsedType.unknown;
   }
 }, "getParsedType");
+
+// ../node_modules/zod/v3/ZodError.js
 var ZodIssueCode = util.arrayToEnum([
   "invalid_type",
   "invalid_literal",
@@ -325,16 +299,13 @@ var ZodIssueCode = util.arrayToEnum([
   "not_multiple_of",
   "not_finite"
 ]);
-var quotelessJson = /* @__PURE__ */ __name2((obj) => {
+var quotelessJson = /* @__PURE__ */ __name((obj) => {
   const json = JSON.stringify(obj, null, 2);
   return json.replace(/"([^"]+)":/g, "$1:");
 }, "quotelessJson");
 var ZodError = class _ZodError extends Error {
   static {
-    __name(this, "_ZodError");
-  }
-  static {
-    __name2(this, "ZodError");
+    __name(this, "ZodError");
   }
   get errors() {
     return this.issues;
@@ -362,7 +333,7 @@ var ZodError = class _ZodError extends Error {
       return issue.message;
     };
     const fieldErrors = { _errors: [] };
-    const processError = /* @__PURE__ */ __name2((error) => {
+    const processError = /* @__PURE__ */ __name((error) => {
       for (const issue of error.issues) {
         if (issue.code === "invalid_union") {
           issue.unionErrors.map(processError);
@@ -429,7 +400,9 @@ ZodError.create = (issues) => {
   const error = new ZodError(issues);
   return error;
 };
-var errorMap = /* @__PURE__ */ __name2((issue, _ctx) => {
+
+// ../node_modules/zod/v3/locales/en.js
+var errorMap = /* @__PURE__ */ __name((issue, _ctx) => {
   let message;
   switch (issue.code) {
     case ZodIssueCode.invalid_type:
@@ -530,18 +503,20 @@ var errorMap = /* @__PURE__ */ __name2((issue, _ctx) => {
   return { message };
 }, "errorMap");
 var en_default = errorMap;
+
+// ../node_modules/zod/v3/errors.js
 var overrideErrorMap = en_default;
 function setErrorMap(map) {
   overrideErrorMap = map;
 }
 __name(setErrorMap, "setErrorMap");
-__name2(setErrorMap, "setErrorMap");
 function getErrorMap() {
   return overrideErrorMap;
 }
 __name(getErrorMap, "getErrorMap");
-__name2(getErrorMap, "getErrorMap");
-var makeIssue = /* @__PURE__ */ __name2((params) => {
+
+// ../node_modules/zod/v3/helpers/parseUtil.js
+var makeIssue = /* @__PURE__ */ __name((params) => {
   const { data, path, errorMaps, issueData } = params;
   const fullPath = [...path, ...issueData.path || []];
   const fullIssue = {
@@ -587,13 +562,9 @@ function addIssueToContext(ctx, issueData) {
   ctx.common.issues.push(issue);
 }
 __name(addIssueToContext, "addIssueToContext");
-__name2(addIssueToContext, "addIssueToContext");
 var ParseStatus = class _ParseStatus {
   static {
-    __name(this, "_ParseStatus");
-  }
-  static {
-    __name2(this, "ParseStatus");
+    __name(this, "ParseStatus");
   }
   constructor() {
     this.value = "valid";
@@ -651,23 +622,24 @@ var ParseStatus = class _ParseStatus {
 var INVALID = Object.freeze({
   status: "aborted"
 });
-var DIRTY = /* @__PURE__ */ __name2((value) => ({ status: "dirty", value }), "DIRTY");
-var OK = /* @__PURE__ */ __name2((value) => ({ status: "valid", value }), "OK");
-var isAborted = /* @__PURE__ */ __name2((x) => x.status === "aborted", "isAborted");
-var isDirty = /* @__PURE__ */ __name2((x) => x.status === "dirty", "isDirty");
-var isValid = /* @__PURE__ */ __name2((x) => x.status === "valid", "isValid");
-var isAsync = /* @__PURE__ */ __name2((x) => typeof Promise !== "undefined" && x instanceof Promise, "isAsync");
+var DIRTY = /* @__PURE__ */ __name((value) => ({ status: "dirty", value }), "DIRTY");
+var OK = /* @__PURE__ */ __name((value) => ({ status: "valid", value }), "OK");
+var isAborted = /* @__PURE__ */ __name((x) => x.status === "aborted", "isAborted");
+var isDirty = /* @__PURE__ */ __name((x) => x.status === "dirty", "isDirty");
+var isValid = /* @__PURE__ */ __name((x) => x.status === "valid", "isValid");
+var isAsync = /* @__PURE__ */ __name((x) => typeof Promise !== "undefined" && x instanceof Promise, "isAsync");
+
+// ../node_modules/zod/v3/helpers/errorUtil.js
 var errorUtil;
 (function(errorUtil2) {
   errorUtil2.errToObj = (message) => typeof message === "string" ? { message } : message || {};
   errorUtil2.toString = (message) => typeof message === "string" ? message : message?.message;
 })(errorUtil || (errorUtil = {}));
+
+// ../node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
   static {
     __name(this, "ParseInputLazyPath");
-  }
-  static {
-    __name2(this, "ParseInputLazyPath");
   }
   constructor(parent, value, path, key) {
     this._cachedPath = [];
@@ -687,7 +659,7 @@ var ParseInputLazyPath = class {
     return this._cachedPath;
   }
 };
-var handleResult = /* @__PURE__ */ __name2((ctx, result) => {
+var handleResult = /* @__PURE__ */ __name((ctx, result) => {
   if (isValid(result)) {
     return { success: true, data: result.value };
   } else {
@@ -715,7 +687,7 @@ function processCreateParams(params) {
   }
   if (errorMap2)
     return { errorMap: errorMap2, description };
-  const customMap = /* @__PURE__ */ __name2((iss, ctx) => {
+  const customMap = /* @__PURE__ */ __name((iss, ctx) => {
     const { message } = params;
     if (iss.code === "invalid_enum_value") {
       return { message: message ?? ctx.defaultError };
@@ -730,13 +702,9 @@ function processCreateParams(params) {
   return { errorMap: customMap, description };
 }
 __name(processCreateParams, "processCreateParams");
-__name2(processCreateParams, "processCreateParams");
 var ZodType = class {
   static {
     __name(this, "ZodType");
-  }
-  static {
-    __name2(this, "ZodType");
   }
   get description() {
     return this._def.description;
@@ -860,7 +828,7 @@ var ZodType = class {
     return handleResult(ctx, result);
   }
   refine(check, message) {
-    const getIssueProperties = /* @__PURE__ */ __name2((val) => {
+    const getIssueProperties = /* @__PURE__ */ __name((val) => {
       if (typeof message === "string" || typeof message === "undefined") {
         return { message };
       } else if (typeof message === "function") {
@@ -871,7 +839,7 @@ var ZodType = class {
     }, "getIssueProperties");
     return this._refinement((val, ctx) => {
       const result = check(val);
-      const setError = /* @__PURE__ */ __name2(() => ctx.addIssue({
+      const setError = /* @__PURE__ */ __name(() => ctx.addIssue({
         code: ZodIssueCode.custom,
         ...getIssueProperties(val)
       }), "setError");
@@ -943,7 +911,7 @@ var ZodType = class {
     this["~standard"] = {
       version: 1,
       vendor: "zod",
-      validate: /* @__PURE__ */ __name2((data) => this["~validate"](data), "validate")
+      validate: /* @__PURE__ */ __name((data) => this["~validate"](data), "validate")
     };
   }
   optional() {
@@ -1049,12 +1017,10 @@ function timeRegexSource(args) {
   return `([01]\\d|2[0-3]):[0-5]\\d(:${secondsRegexSource})${secondsQuantifier}`;
 }
 __name(timeRegexSource, "timeRegexSource");
-__name2(timeRegexSource, "timeRegexSource");
 function timeRegex(args) {
   return new RegExp(`^${timeRegexSource(args)}$`);
 }
 __name(timeRegex, "timeRegex");
-__name2(timeRegex, "timeRegex");
 function datetimeRegex(args) {
   let regex = `${dateRegexSource}T${timeRegexSource(args)}`;
   const opts = [];
@@ -1065,7 +1031,6 @@ function datetimeRegex(args) {
   return new RegExp(`^${regex}$`);
 }
 __name(datetimeRegex, "datetimeRegex");
-__name2(datetimeRegex, "datetimeRegex");
 function isValidIP(ip, version) {
   if ((version === "v4" || !version) && ipv4Regex.test(ip)) {
     return true;
@@ -1076,7 +1041,6 @@ function isValidIP(ip, version) {
   return false;
 }
 __name(isValidIP, "isValidIP");
-__name2(isValidIP, "isValidIP");
 function isValidJWT(jwt, alg) {
   if (!jwtRegex.test(jwt))
     return false;
@@ -1100,7 +1064,6 @@ function isValidJWT(jwt, alg) {
   }
 }
 __name(isValidJWT, "isValidJWT");
-__name2(isValidJWT, "isValidJWT");
 function isValidCidr(ip, version) {
   if ((version === "v4" || !version) && ipv4CidrRegex.test(ip)) {
     return true;
@@ -1111,13 +1074,9 @@ function isValidCidr(ip, version) {
   return false;
 }
 __name(isValidCidr, "isValidCidr");
-__name2(isValidCidr, "isValidCidr");
 var ZodString = class _ZodString extends ZodType {
   static {
-    __name(this, "_ZodString");
-  }
-  static {
-    __name2(this, "ZodString");
+    __name(this, "ZodString");
   }
   _parse(input) {
     if (this._def.coerce) {
@@ -1673,13 +1632,9 @@ function floatSafeRemainder(val, step) {
   return valInt % stepInt / 10 ** decCount;
 }
 __name(floatSafeRemainder, "floatSafeRemainder");
-__name2(floatSafeRemainder, "floatSafeRemainder");
 var ZodNumber = class _ZodNumber extends ZodType {
   static {
-    __name(this, "_ZodNumber");
-  }
-  static {
-    __name2(this, "ZodNumber");
+    __name(this, "ZodNumber");
   }
   constructor() {
     super(...arguments);
@@ -1914,10 +1869,7 @@ ZodNumber.create = (params) => {
 };
 var ZodBigInt = class _ZodBigInt extends ZodType {
   static {
-    __name(this, "_ZodBigInt");
-  }
-  static {
-    __name2(this, "ZodBigInt");
+    __name(this, "ZodBigInt");
   }
   constructor() {
     super(...arguments);
@@ -2094,9 +2046,6 @@ var ZodBoolean = class extends ZodType {
   static {
     __name(this, "ZodBoolean");
   }
-  static {
-    __name2(this, "ZodBoolean");
-  }
   _parse(input) {
     if (this._def.coerce) {
       input.data = Boolean(input.data);
@@ -2123,10 +2072,7 @@ ZodBoolean.create = (params) => {
 };
 var ZodDate = class _ZodDate extends ZodType {
   static {
-    __name(this, "_ZodDate");
-  }
-  static {
-    __name2(this, "ZodDate");
+    __name(this, "ZodDate");
   }
   _parse(input) {
     if (this._def.coerce) {
@@ -2240,9 +2186,6 @@ var ZodSymbol = class extends ZodType {
   static {
     __name(this, "ZodSymbol");
   }
-  static {
-    __name2(this, "ZodSymbol");
-  }
   _parse(input) {
     const parsedType = this._getType(input);
     if (parsedType !== ZodParsedType.symbol) {
@@ -2266,9 +2209,6 @@ ZodSymbol.create = (params) => {
 var ZodUndefined = class extends ZodType {
   static {
     __name(this, "ZodUndefined");
-  }
-  static {
-    __name2(this, "ZodUndefined");
   }
   _parse(input) {
     const parsedType = this._getType(input);
@@ -2294,9 +2234,6 @@ var ZodNull = class extends ZodType {
   static {
     __name(this, "ZodNull");
   }
-  static {
-    __name2(this, "ZodNull");
-  }
   _parse(input) {
     const parsedType = this._getType(input);
     if (parsedType !== ZodParsedType.null) {
@@ -2321,9 +2258,6 @@ var ZodAny = class extends ZodType {
   static {
     __name(this, "ZodAny");
   }
-  static {
-    __name2(this, "ZodAny");
-  }
   constructor() {
     super(...arguments);
     this._any = true;
@@ -2342,9 +2276,6 @@ var ZodUnknown = class extends ZodType {
   static {
     __name(this, "ZodUnknown");
   }
-  static {
-    __name2(this, "ZodUnknown");
-  }
   constructor() {
     super(...arguments);
     this._unknown = true;
@@ -2362,9 +2293,6 @@ ZodUnknown.create = (params) => {
 var ZodNever = class extends ZodType {
   static {
     __name(this, "ZodNever");
-  }
-  static {
-    __name2(this, "ZodNever");
   }
   _parse(input) {
     const ctx = this._getOrReturnCtx(input);
@@ -2385,9 +2313,6 @@ ZodNever.create = (params) => {
 var ZodVoid = class extends ZodType {
   static {
     __name(this, "ZodVoid");
-  }
-  static {
-    __name2(this, "ZodVoid");
   }
   _parse(input) {
     const parsedType = this._getType(input);
@@ -2411,10 +2336,7 @@ ZodVoid.create = (params) => {
 };
 var ZodArray = class _ZodArray extends ZodType {
   static {
-    __name(this, "_ZodArray");
-  }
-  static {
-    __name2(this, "ZodArray");
+    __name(this, "ZodArray");
   }
   _parse(input) {
     const { ctx, status } = this._processInputParams(input);
@@ -2525,7 +2447,7 @@ function deepPartialify(schema) {
     }
     return new ZodObject({
       ...schema._def,
-      shape: /* @__PURE__ */ __name2(() => newShape, "shape")
+      shape: /* @__PURE__ */ __name(() => newShape, "shape")
     });
   } else if (schema instanceof ZodArray) {
     return new ZodArray({
@@ -2543,13 +2465,9 @@ function deepPartialify(schema) {
   }
 }
 __name(deepPartialify, "deepPartialify");
-__name2(deepPartialify, "deepPartialify");
 var ZodObject = class _ZodObject extends ZodType {
   static {
-    __name(this, "_ZodObject");
-  }
-  static {
-    __name2(this, "ZodObject");
+    __name(this, "ZodObject");
   }
   constructor() {
     super(...arguments);
@@ -2660,7 +2578,7 @@ var ZodObject = class _ZodObject extends ZodType {
       ...this._def,
       unknownKeys: "strict",
       ...message !== void 0 ? {
-        errorMap: /* @__PURE__ */ __name2((issue, ctx) => {
+        errorMap: /* @__PURE__ */ __name((issue, ctx) => {
           const defaultError = this._def.errorMap?.(issue, ctx).message ?? ctx.defaultError;
           if (issue.code === "unrecognized_keys")
             return {
@@ -2705,7 +2623,7 @@ var ZodObject = class _ZodObject extends ZodType {
   extend(augmentation) {
     return new _ZodObject({
       ...this._def,
-      shape: /* @__PURE__ */ __name2(() => ({
+      shape: /* @__PURE__ */ __name(() => ({
         ...this._def.shape(),
         ...augmentation
       }), "shape")
@@ -2720,7 +2638,7 @@ var ZodObject = class _ZodObject extends ZodType {
     const merged = new _ZodObject({
       unknownKeys: merging._def.unknownKeys,
       catchall: merging._def.catchall,
-      shape: /* @__PURE__ */ __name2(() => ({
+      shape: /* @__PURE__ */ __name(() => ({
         ...this._def.shape(),
         ...merging._def.shape()
       }), "shape"),
@@ -2802,7 +2720,7 @@ var ZodObject = class _ZodObject extends ZodType {
     }
     return new _ZodObject({
       ...this._def,
-      shape: /* @__PURE__ */ __name2(() => shape, "shape")
+      shape: /* @__PURE__ */ __name(() => shape, "shape")
     });
   }
   omit(mask) {
@@ -2814,7 +2732,7 @@ var ZodObject = class _ZodObject extends ZodType {
     }
     return new _ZodObject({
       ...this._def,
-      shape: /* @__PURE__ */ __name2(() => shape, "shape")
+      shape: /* @__PURE__ */ __name(() => shape, "shape")
     });
   }
   /**
@@ -2835,7 +2753,7 @@ var ZodObject = class _ZodObject extends ZodType {
     }
     return new _ZodObject({
       ...this._def,
-      shape: /* @__PURE__ */ __name2(() => newShape, "shape")
+      shape: /* @__PURE__ */ __name(() => newShape, "shape")
     });
   }
   required(mask) {
@@ -2854,7 +2772,7 @@ var ZodObject = class _ZodObject extends ZodType {
     }
     return new _ZodObject({
       ...this._def,
-      shape: /* @__PURE__ */ __name2(() => newShape, "shape")
+      shape: /* @__PURE__ */ __name(() => newShape, "shape")
     });
   }
   keyof() {
@@ -2863,7 +2781,7 @@ var ZodObject = class _ZodObject extends ZodType {
 };
 ZodObject.create = (shape, params) => {
   return new ZodObject({
-    shape: /* @__PURE__ */ __name2(() => shape, "shape"),
+    shape: /* @__PURE__ */ __name(() => shape, "shape"),
     unknownKeys: "strip",
     catchall: ZodNever.create(),
     typeName: ZodFirstPartyTypeKind.ZodObject,
@@ -2872,7 +2790,7 @@ ZodObject.create = (shape, params) => {
 };
 ZodObject.strictCreate = (shape, params) => {
   return new ZodObject({
-    shape: /* @__PURE__ */ __name2(() => shape, "shape"),
+    shape: /* @__PURE__ */ __name(() => shape, "shape"),
     unknownKeys: "strict",
     catchall: ZodNever.create(),
     typeName: ZodFirstPartyTypeKind.ZodObject,
@@ -2891,9 +2809,6 @@ ZodObject.lazycreate = (shape, params) => {
 var ZodUnion = class extends ZodType {
   static {
     __name(this, "ZodUnion");
-  }
-  static {
-    __name2(this, "ZodUnion");
   }
   _parse(input) {
     const { ctx } = this._processInputParams(input);
@@ -2918,7 +2833,6 @@ var ZodUnion = class extends ZodType {
       return INVALID;
     }
     __name(handleResults, "handleResults");
-    __name2(handleResults, "handleResults");
     if (ctx.common.async) {
       return Promise.all(options.map(async (option) => {
         const childCtx = {
@@ -2987,7 +2901,7 @@ ZodUnion.create = (types, params) => {
     ...processCreateParams(params)
   });
 };
-var getDiscriminator = /* @__PURE__ */ __name2((type) => {
+var getDiscriminator = /* @__PURE__ */ __name((type) => {
   if (type instanceof ZodLazy) {
     return getDiscriminator(type.schema);
   } else if (type instanceof ZodEffects) {
@@ -3020,10 +2934,7 @@ var getDiscriminator = /* @__PURE__ */ __name2((type) => {
 }, "getDiscriminator");
 var ZodDiscriminatedUnion = class _ZodDiscriminatedUnion extends ZodType {
   static {
-    __name(this, "_ZodDiscriminatedUnion");
-  }
-  static {
-    __name2(this, "ZodDiscriminatedUnion");
+    __name(this, "ZodDiscriminatedUnion");
   }
   _parse(input) {
     const { ctx } = this._processInputParams(input);
@@ -3139,17 +3050,13 @@ function mergeValues(a, b) {
   }
 }
 __name(mergeValues, "mergeValues");
-__name2(mergeValues, "mergeValues");
 var ZodIntersection = class extends ZodType {
   static {
     __name(this, "ZodIntersection");
   }
-  static {
-    __name2(this, "ZodIntersection");
-  }
   _parse(input) {
     const { status, ctx } = this._processInputParams(input);
-    const handleParsed = /* @__PURE__ */ __name2((parsedLeft, parsedRight) => {
+    const handleParsed = /* @__PURE__ */ __name((parsedLeft, parsedRight) => {
       if (isAborted(parsedLeft) || isAborted(parsedRight)) {
         return INVALID;
       }
@@ -3201,10 +3108,7 @@ ZodIntersection.create = (left, right, params) => {
 };
 var ZodTuple = class _ZodTuple extends ZodType {
   static {
-    __name(this, "_ZodTuple");
-  }
-  static {
-    __name2(this, "ZodTuple");
+    __name(this, "ZodTuple");
   }
   _parse(input) {
     const { status, ctx } = this._processInputParams(input);
@@ -3274,10 +3178,7 @@ ZodTuple.create = (schemas, params) => {
 };
 var ZodRecord = class _ZodRecord extends ZodType {
   static {
-    __name(this, "_ZodRecord");
-  }
-  static {
-    __name2(this, "ZodRecord");
+    __name(this, "ZodRecord");
   }
   get keySchema() {
     return this._def.keyType;
@@ -3334,9 +3235,6 @@ var ZodRecord = class _ZodRecord extends ZodType {
 var ZodMap = class extends ZodType {
   static {
     __name(this, "ZodMap");
-  }
-  static {
-    __name2(this, "ZodMap");
   }
   get keySchema() {
     return this._def.keyType;
@@ -3405,10 +3303,7 @@ ZodMap.create = (keyType, valueType, params) => {
 };
 var ZodSet = class _ZodSet extends ZodType {
   static {
-    __name(this, "_ZodSet");
-  }
-  static {
-    __name2(this, "ZodSet");
+    __name(this, "ZodSet");
   }
   _parse(input) {
     const { status, ctx } = this._processInputParams(input);
@@ -3460,7 +3355,6 @@ var ZodSet = class _ZodSet extends ZodType {
       return { status: status.value, value: parsedSet };
     }
     __name(finalizeSet, "finalizeSet");
-    __name2(finalizeSet, "finalizeSet");
     const elements = [...ctx.data.values()].map((item, i) => valueType._parse(new ParseInputLazyPath(ctx, item, ctx.path, i)));
     if (ctx.common.async) {
       return Promise.all(elements).then((elements2) => finalizeSet(elements2));
@@ -3498,10 +3392,7 @@ ZodSet.create = (valueType, params) => {
 };
 var ZodFunction = class _ZodFunction extends ZodType {
   static {
-    __name(this, "_ZodFunction");
-  }
-  static {
-    __name2(this, "ZodFunction");
+    __name(this, "ZodFunction");
   }
   constructor() {
     super(...arguments);
@@ -3529,7 +3420,6 @@ var ZodFunction = class _ZodFunction extends ZodType {
       });
     }
     __name(makeArgsIssue, "makeArgsIssue");
-    __name2(makeArgsIssue, "makeArgsIssue");
     function makeReturnsIssue(returns, error) {
       return makeIssue({
         data: returns,
@@ -3542,7 +3432,6 @@ var ZodFunction = class _ZodFunction extends ZodType {
       });
     }
     __name(makeReturnsIssue, "makeReturnsIssue");
-    __name2(makeReturnsIssue, "makeReturnsIssue");
     const params = { errorMap: ctx.common.contextualErrorMap };
     const fn = ctx.data;
     if (this._def.returns instanceof ZodPromise) {
@@ -3615,9 +3504,6 @@ var ZodLazy = class extends ZodType {
   static {
     __name(this, "ZodLazy");
   }
-  static {
-    __name2(this, "ZodLazy");
-  }
   get schema() {
     return this._def.getter();
   }
@@ -3637,9 +3523,6 @@ ZodLazy.create = (getter, params) => {
 var ZodLiteral = class extends ZodType {
   static {
     __name(this, "ZodLiteral");
-  }
-  static {
-    __name2(this, "ZodLiteral");
   }
   _parse(input) {
     if (input.data !== this._def.value) {
@@ -3672,13 +3555,9 @@ function createZodEnum(values, params) {
   });
 }
 __name(createZodEnum, "createZodEnum");
-__name2(createZodEnum, "createZodEnum");
 var ZodEnum = class _ZodEnum extends ZodType {
   static {
-    __name(this, "_ZodEnum");
-  }
-  static {
-    __name2(this, "ZodEnum");
+    __name(this, "ZodEnum");
   }
   _parse(input) {
     if (typeof input.data !== "string") {
@@ -3748,9 +3627,6 @@ var ZodNativeEnum = class extends ZodType {
   static {
     __name(this, "ZodNativeEnum");
   }
-  static {
-    __name2(this, "ZodNativeEnum");
-  }
   _parse(input) {
     const nativeEnumValues = util.getValidEnumValues(this._def.values);
     const ctx = this._getOrReturnCtx(input);
@@ -3792,9 +3668,6 @@ var ZodPromise = class extends ZodType {
   static {
     __name(this, "ZodPromise");
   }
-  static {
-    __name2(this, "ZodPromise");
-  }
   unwrap() {
     return this._def.type;
   }
@@ -3828,9 +3701,6 @@ var ZodEffects = class extends ZodType {
   static {
     __name(this, "ZodEffects");
   }
-  static {
-    __name2(this, "ZodEffects");
-  }
   innerType() {
     return this._def.schema;
   }
@@ -3841,7 +3711,7 @@ var ZodEffects = class extends ZodType {
     const { status, ctx } = this._processInputParams(input);
     const effect = this._def.effect || null;
     const checkCtx = {
-      addIssue: /* @__PURE__ */ __name2((arg) => {
+      addIssue: /* @__PURE__ */ __name((arg) => {
         addIssueToContext(ctx, arg);
         if (arg.fatal) {
           status.abort();
@@ -3891,7 +3761,7 @@ var ZodEffects = class extends ZodType {
       }
     }
     if (effect.type === "refinement") {
-      const executeRefinement = /* @__PURE__ */ __name2((acc) => {
+      const executeRefinement = /* @__PURE__ */ __name((acc) => {
         const result = effect.refinement(acc, checkCtx);
         if (ctx.common.async) {
           return Promise.resolve(result);
@@ -3973,9 +3843,6 @@ var ZodOptional = class extends ZodType {
   static {
     __name(this, "ZodOptional");
   }
-  static {
-    __name2(this, "ZodOptional");
-  }
   _parse(input) {
     const parsedType = this._getType(input);
     if (parsedType === ZodParsedType.undefined) {
@@ -3998,9 +3865,6 @@ var ZodNullable = class extends ZodType {
   static {
     __name(this, "ZodNullable");
   }
-  static {
-    __name2(this, "ZodNullable");
-  }
   _parse(input) {
     const parsedType = this._getType(input);
     if (parsedType === ZodParsedType.null) {
@@ -4022,9 +3886,6 @@ ZodNullable.create = (type, params) => {
 var ZodDefault = class extends ZodType {
   static {
     __name(this, "ZodDefault");
-  }
-  static {
-    __name2(this, "ZodDefault");
   }
   _parse(input) {
     const { ctx } = this._processInputParams(input);
@@ -4053,9 +3914,6 @@ ZodDefault.create = (type, params) => {
 var ZodCatch = class extends ZodType {
   static {
     __name(this, "ZodCatch");
-  }
-  static {
-    __name2(this, "ZodCatch");
   }
   _parse(input) {
     const { ctx } = this._processInputParams(input);
@@ -4113,9 +3971,6 @@ var ZodNaN = class extends ZodType {
   static {
     __name(this, "ZodNaN");
   }
-  static {
-    __name2(this, "ZodNaN");
-  }
   _parse(input) {
     const parsedType = this._getType(input);
     if (parsedType !== ZodParsedType.nan) {
@@ -4141,9 +3996,6 @@ var ZodBranded = class extends ZodType {
   static {
     __name(this, "ZodBranded");
   }
-  static {
-    __name2(this, "ZodBranded");
-  }
   _parse(input) {
     const { ctx } = this._processInputParams(input);
     const data = ctx.data;
@@ -4159,15 +4011,12 @@ var ZodBranded = class extends ZodType {
 };
 var ZodPipeline = class _ZodPipeline extends ZodType {
   static {
-    __name(this, "_ZodPipeline");
-  }
-  static {
-    __name2(this, "ZodPipeline");
+    __name(this, "ZodPipeline");
   }
   _parse(input) {
     const { status, ctx } = this._processInputParams(input);
     if (ctx.common.async) {
-      const handleAsync = /* @__PURE__ */ __name2(async () => {
+      const handleAsync = /* @__PURE__ */ __name(async () => {
         const inResult = await this._def.in._parseAsync({
           data: ctx.data,
           path: ctx.path,
@@ -4222,12 +4071,9 @@ var ZodReadonly = class extends ZodType {
   static {
     __name(this, "ZodReadonly");
   }
-  static {
-    __name2(this, "ZodReadonly");
-  }
   _parse(input) {
     const result = this._def.innerType._parse(input);
-    const freeze = /* @__PURE__ */ __name2((data) => {
+    const freeze = /* @__PURE__ */ __name((data) => {
       if (isValid(data)) {
         data.value = Object.freeze(data.value);
       }
@@ -4252,7 +4098,6 @@ function cleanParams(params, data) {
   return p2;
 }
 __name(cleanParams, "cleanParams");
-__name2(cleanParams, "cleanParams");
 function custom(check, _params = {}, fatal) {
   if (check)
     return ZodAny.create().superRefine((data, ctx) => {
@@ -4276,7 +4121,6 @@ function custom(check, _params = {}, fatal) {
   return ZodAny.create();
 }
 __name(custom, "custom");
-__name2(custom, "custom");
 var late = {
   object: ZodObject.lazycreate
 };
@@ -4319,7 +4163,7 @@ var ZodFirstPartyTypeKind;
   ZodFirstPartyTypeKind2["ZodPipeline"] = "ZodPipeline";
   ZodFirstPartyTypeKind2["ZodReadonly"] = "ZodReadonly";
 })(ZodFirstPartyTypeKind || (ZodFirstPartyTypeKind = {}));
-var instanceOfType = /* @__PURE__ */ __name2((cls, params = {
+var instanceOfType = /* @__PURE__ */ __name((cls, params = {
   message: `Input not instance of ${cls.name}`
 }) => custom((data) => data instanceof cls, params), "instanceOfType");
 var stringType = ZodString.create;
@@ -4356,20 +4200,22 @@ var optionalType = ZodOptional.create;
 var nullableType = ZodNullable.create;
 var preprocessType = ZodEffects.createWithPreprocess;
 var pipelineType = ZodPipeline.create;
-var ostring = /* @__PURE__ */ __name2(() => stringType().optional(), "ostring");
-var onumber = /* @__PURE__ */ __name2(() => numberType().optional(), "onumber");
-var oboolean = /* @__PURE__ */ __name2(() => booleanType().optional(), "oboolean");
+var ostring = /* @__PURE__ */ __name(() => stringType().optional(), "ostring");
+var onumber = /* @__PURE__ */ __name(() => numberType().optional(), "onumber");
+var oboolean = /* @__PURE__ */ __name(() => booleanType().optional(), "oboolean");
 var coerce = {
-  string: /* @__PURE__ */ __name2(((arg) => ZodString.create({ ...arg, coerce: true })), "string"),
-  number: /* @__PURE__ */ __name2(((arg) => ZodNumber.create({ ...arg, coerce: true })), "number"),
-  boolean: /* @__PURE__ */ __name2(((arg) => ZodBoolean.create({
+  string: /* @__PURE__ */ __name(((arg) => ZodString.create({ ...arg, coerce: true })), "string"),
+  number: /* @__PURE__ */ __name(((arg) => ZodNumber.create({ ...arg, coerce: true })), "number"),
+  boolean: /* @__PURE__ */ __name(((arg) => ZodBoolean.create({
     ...arg,
     coerce: true
   })), "boolean"),
-  bigint: /* @__PURE__ */ __name2(((arg) => ZodBigInt.create({ ...arg, coerce: true })), "bigint"),
-  date: /* @__PURE__ */ __name2(((arg) => ZodDate.create({ ...arg, coerce: true })), "date")
+  bigint: /* @__PURE__ */ __name(((arg) => ZodBigInt.create({ ...arg, coerce: true })), "bigint"),
+  date: /* @__PURE__ */ __name(((arg) => ZodDate.create({ ...arg, coerce: true })), "date")
 };
 var NEVER = INVALID;
+
+// lib/db.ts
 function getDb(env) {
   if (!env.DB) {
     throw new Error('Database binding "DB" is not configured. Please configure D1 database binding in Cloudflare Dashboard > Pages > Settings > Bindings.');
@@ -4377,7 +4223,6 @@ function getDb(env) {
   return env.DB;
 }
 __name(getDb, "getDb");
-__name2(getDb, "getDb");
 async function dbQuery(db, sql, params = []) {
   try {
     const result = await db.prepare(sql).bind(...params).all();
@@ -4388,7 +4233,6 @@ async function dbQuery(db, sql, params = []) {
   }
 }
 __name(dbQuery, "dbQuery");
-__name2(dbQuery, "dbQuery");
 async function dbFirst(db, sql, params = []) {
   try {
     const result = await db.prepare(sql).bind(...params).first();
@@ -4399,7 +4243,6 @@ async function dbFirst(db, sql, params = []) {
   }
 }
 __name(dbFirst, "dbFirst");
-__name2(dbFirst, "dbFirst");
 async function dbRun(db, sql, params = []) {
   try {
     return await db.prepare(sql).bind(...params).run();
@@ -4409,23 +4252,21 @@ async function dbRun(db, sql, params = []) {
   }
 }
 __name(dbRun, "dbRun");
-__name2(dbRun, "dbRun");
+
+// lib/auth.ts
 var SESSION_DURATION_DAYS = 14;
 async function hashPassword(password) {
   return password;
 }
 __name(hashPassword, "hashPassword");
-__name2(hashPassword, "hashPassword");
 async function verifyPassword(password, storedPassword) {
   return password === storedPassword;
 }
 __name(verifyPassword, "verifyPassword");
-__name2(verifyPassword, "verifyPassword");
 function getSessionExpiry(days = SESSION_DURATION_DAYS) {
   return Math.floor(Date.now() / 1e3) + days * 24 * 60 * 60;
 }
 __name(getSessionExpiry, "getSessionExpiry");
-__name2(getSessionExpiry, "getSessionExpiry");
 async function getSecretKey(env) {
   const secret = env.SESSION_SECRET || "default-secret-key-change-in-production";
   const encoder = new TextEncoder();
@@ -4440,7 +4281,6 @@ async function getSecretKey(env) {
   );
 }
 __name(getSecretKey, "getSecretKey");
-__name2(getSecretKey, "getSecretKey");
 async function createToken(user, env) {
   const payload = {
     userId: user.id,
@@ -4457,7 +4297,6 @@ async function createToken(user, env) {
   return `${payloadB64}.${sigB64}`;
 }
 __name(createToken, "createToken");
-__name2(createToken, "createToken");
 async function verifyToken(token, env) {
   try {
     const [payloadB64, sigB64] = token.split(".");
@@ -4481,21 +4320,37 @@ async function verifyToken(token, env) {
   }
 }
 __name(verifyToken, "verifyToken");
-__name2(verifyToken, "verifyToken");
 async function getUserFromToken(db, token, env) {
   const payload = await verifyToken(token, env);
   if (!payload) {
     return null;
   }
-  const user = await dbFirst(
-    db,
-    `SELECT id, username FROM users WHERE id = ?`,
-    [payload.userId]
-  );
-  return user;
+  try {
+    const row = await dbFirst(
+      db,
+      `SELECT id, username, view_scores, view_market_maker, view_market_creation, admin FROM users WHERE id = ?`,
+      [payload.userId]
+    );
+    if (!row) return null;
+    return {
+      id: row.id,
+      username: row.username,
+      view_scores: Boolean(row.view_scores ?? 0),
+      view_market_maker: Boolean(row.view_market_maker ?? 0),
+      view_market_creation: Boolean(row.view_market_creation ?? 0),
+      admin: Boolean(row.admin ?? 0)
+    };
+  } catch {
+    const user = await dbFirst(
+      db,
+      `SELECT id, username FROM users WHERE id = ?`,
+      [payload.userId]
+    );
+    if (!user) return null;
+    return { id: user.id, username: user.username };
+  }
 }
 __name(getUserFromToken, "getUserFromToken");
-__name2(getUserFromToken, "getUserFromToken");
 function getCookieValue(cookieHeader, name) {
   if (!cookieHeader) return null;
   const cookies = cookieHeader.split(";").map((c) => c.trim());
@@ -4508,18 +4363,17 @@ function getCookieValue(cookieHeader, name) {
   return null;
 }
 __name(getCookieValue, "getCookieValue");
-__name2(getCookieValue, "getCookieValue");
 function setSessionCookie(token, days = SESSION_DURATION_DAYS) {
   const maxAge = days * 24 * 60 * 60;
   return `session=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
 }
 __name(setSessionCookie, "setSessionCookie");
-__name2(setSessionCookie, "setSessionCookie");
 function clearSessionCookie() {
   return `session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
 }
 __name(clearSessionCookie, "clearSessionCookie");
-__name2(clearSessionCookie, "clearSessionCookie");
+
+// middleware.ts
 async function requireAuth(request, env) {
   const cookieHeader = request.headers.get("Cookie");
   const token = getCookieValue(cookieHeader, "session");
@@ -4544,7 +4398,6 @@ async function requireAuth(request, env) {
   return { user };
 }
 __name(requireAuth, "requireAuth");
-__name2(requireAuth, "requireAuth");
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -4552,12 +4405,12 @@ function jsonResponse(data, status = 200) {
   });
 }
 __name(jsonResponse, "jsonResponse");
-__name2(jsonResponse, "jsonResponse");
 function errorResponse(message, status = 400) {
   return jsonResponse({ error: message }, status);
 }
 __name(errorResponse, "errorResponse");
-__name2(errorResponse, "errorResponse");
+
+// lib/matching.ts
 var PRICE_BASIS_MIN_CENTS = 100;
 var PRICE_BASIS_MAX_CENTS = 9900;
 async function getOppositeOrders(db, outcomeId, side, excludeUserId) {
@@ -4602,12 +4455,10 @@ async function getOppositeOrders(db, outcomeId, side, excludeUserId) {
   }
 }
 __name(getOppositeOrders, "getOppositeOrders");
-__name2(getOppositeOrders, "getOppositeOrders");
 function canMatch(bidPrice, askPrice) {
   return bidPrice >= askPrice;
 }
 __name(canMatch, "canMatch");
-__name2(canMatch, "canMatch");
 async function matchOrder(_db, takerOrder, oppositeOrders) {
   const fills = [];
   let remainingQty = takerOrder.qty_remaining;
@@ -4629,7 +4480,6 @@ async function matchOrder(_db, takerOrder, oppositeOrders) {
   return fills;
 }
 __name(matchOrder, "matchOrder");
-__name2(matchOrder, "matchOrder");
 async function updateOrderStatus(db, orderId, qtyFilled) {
   if (qtyFilled <= 0) return;
   const orderIdNum = typeof orderId === "string" ? parseInt(orderId, 10) : orderId;
@@ -4653,7 +4503,6 @@ async function updateOrderStatus(db, orderId, qtyFilled) {
   );
 }
 __name(updateOrderStatus, "updateOrderStatus");
-__name2(updateOrderStatus, "updateOrderStatus");
 async function createTrade(db, _marketId, _takerOrderId, _makerOrderId, priceCents, qtyContracts, outcomeId, takerUserId, makerUserId, takerSide) {
   const token = crypto.randomUUID();
   const createTime = Math.floor(Date.now() / 1e3);
@@ -4697,7 +4546,6 @@ async function createTrade(db, _marketId, _takerOrderId, _makerOrderId, priceCen
   }
 }
 __name(createTrade, "createTrade");
-__name2(createTrade, "createTrade");
 async function updatePosition(db, outcomeId, userId, side, priceCents, qtyContracts) {
   const userIdNum = typeof userId === "string" ? parseInt(userId, 10) : userId;
   const positionDb = await dbFirst(
@@ -4791,7 +4639,6 @@ async function updatePosition(db, outcomeId, userId, side, priceCents, qtyContra
   }
 }
 __name(updatePosition, "updatePosition");
-__name2(updatePosition, "updatePosition");
 async function calculateExposure(db, userId, _maxExposureCents) {
   const positions = await dbQuery(
     db,
@@ -4825,7 +4672,6 @@ async function calculateExposure(db, userId, _maxExposureCents) {
   };
 }
 __name(calculateExposure, "calculateExposure");
-__name2(calculateExposure, "calculateExposure");
 async function executeMatching(db, takerOrder, outcomeId) {
   console.log(`[executeMatching] Starting matching for order ${takerOrder.id}, outcomeId=${outcomeId}, side=${takerOrder.side}`);
   const fills = [];
@@ -4901,7 +4747,8 @@ async function executeMatching(db, takerOrder, outcomeId) {
   return { fills, trades };
 }
 __name(executeMatching, "executeMatching");
-__name2(executeMatching, "executeMatching");
+
+// api/markets/[marketId]/orders.ts
 var orderSchema = external_exports.object({
   outcome_id: external_exports.string(),
   side: external_exports.enum(["bid", "ask"]),
@@ -4912,7 +4759,7 @@ var orderSchema = external_exports.object({
   // Time in force, default to Good Till Cancel
   token: external_exports.string().optional()
 });
-var onRequestPost = /* @__PURE__ */ __name2(async (context) => {
+var onRequestPost = /* @__PURE__ */ __name(async (context) => {
   const { request, env, params } = context;
   const marketId = params.marketId;
   const authResult = await requireAuth(request, env);
@@ -5119,7 +4966,9 @@ var onRequestPost = /* @__PURE__ */ __name2(async (context) => {
     return errorResponse("Failed to place order", 500);
   }
 }, "onRequestPost");
-var onRequestGet = /* @__PURE__ */ __name2(async (context) => {
+
+// api/markets/[marketId]/positions.ts
+var onRequestGet = /* @__PURE__ */ __name(async (context) => {
   const { request, env, params } = context;
   const marketId = params.marketId;
   const authResult = await requireAuth(request, env);
@@ -5177,7 +5026,7 @@ var onRequestGet = /* @__PURE__ */ __name2(async (context) => {
     asksRows.forEach((r) => {
       if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price;
     });
-    const clampPriceBasis2 = /* @__PURE__ */ __name2((cents, netPosition) => netPosition !== 0 && cents > 0 ? Math.max(100, Math.min(9900, cents)) : cents, "clampPriceBasis");
+    const clampPriceBasis2 = /* @__PURE__ */ __name((cents, netPosition) => netPosition !== 0 && cents > 0 ? Math.max(100, Math.min(9900, cents)) : cents, "clampPriceBasis");
     positionsWithPrice = positionsDb.map((p) => {
       const bidPrice = bestBidByOutcome[p.outcome] ?? null;
       const askPrice = bestAskByOutcome[p.outcome] ?? null;
@@ -5201,6 +5050,8 @@ var onRequestGet = /* @__PURE__ */ __name2(async (context) => {
   }
   return jsonResponse({ positions: positionsWithPrice });
 }, "onRequestGet");
+
+// lib/settlement.ts
 var CONTRACT_SIZE_CENTS = 1e4;
 async function settleMarket(db, marketId, settleValue) {
   if (settleValue !== 0 && settleValue !== CONTRACT_SIZE_CENTS) {
@@ -5249,13 +5100,14 @@ async function settleMarket(db, marketId, settleValue) {
   return pnlResults;
 }
 __name(settleMarket, "settleMarket");
-__name2(settleMarket, "settleMarket");
+
+// api/markets/[marketId]/settle.ts
 var settleSchema = external_exports.object({
   settle_value: external_exports.number().int().refine((v) => v === 0 || v === 1e4, {
     message: "Settle value must be 0 or 10000"
   })
 });
-var onRequestPost2 = /* @__PURE__ */ __name2(async (context) => {
+var onRequestPost2 = /* @__PURE__ */ __name(async (context) => {
   const { request, env, params } = context;
   const marketId = params.marketId;
   const authResult = await requireAuth(request, env);
@@ -5288,7 +5140,9 @@ var onRequestPost2 = /* @__PURE__ */ __name2(async (context) => {
     return errorResponse("Settlement failed", 500);
   }
 }, "onRequestPost");
-var onRequestGet2 = /* @__PURE__ */ __name2(async (context) => {
+
+// api/markets/[marketId]/trades.ts
+var onRequestGet2 = /* @__PURE__ */ __name(async (context) => {
   const { request, env, params } = context;
   const marketId = params.marketId;
   const url = new URL(request.url);
@@ -5379,11 +5233,13 @@ var onRequestGet2 = /* @__PURE__ */ __name2(async (context) => {
   });
   return jsonResponse({ trades });
 }, "onRequestGet");
+
+// api/auth/login.ts
 var loginSchema = external_exports.object({
   username: external_exports.string().min(1),
   password: external_exports.string().min(1)
 });
-var onRequestPost3 = /* @__PURE__ */ __name2(async (context) => {
+var onRequestPost3 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   try {
     const body = await request.json();
@@ -5434,7 +5290,9 @@ var onRequestPost3 = /* @__PURE__ */ __name2(async (context) => {
     return errorResponse("Login failed", 500);
   }
 }, "onRequestPost");
-var onRequestPost4 = /* @__PURE__ */ __name2(async (context) => {
+
+// api/auth/logout.ts
+var onRequestPost4 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   const authResult = await requireAuth(request, env);
   if ("error" in authResult) {
@@ -5444,7 +5302,9 @@ var onRequestPost4 = /* @__PURE__ */ __name2(async (context) => {
   response.headers.set("Set-Cookie", clearSessionCookie());
   return response;
 }, "onRequestPost");
-var onRequestGet3 = /* @__PURE__ */ __name2(async (context) => {
+
+// api/auth/me.ts
+var onRequestGet3 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   const cookieHeader = request.headers.get("Cookie");
   const token = getCookieValue(cookieHeader, "session");
@@ -5459,11 +5319,13 @@ var onRequestGet3 = /* @__PURE__ */ __name2(async (context) => {
   response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
   return response;
 }, "onRequestGet");
+
+// api/auth/register.ts
 var registerSchema = external_exports.object({
   username: external_exports.string().min(1).max(100),
   password: external_exports.string().min(1)
 });
-var onRequestPost5 = /* @__PURE__ */ __name2(async (context) => {
+var onRequestPost5 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   try {
     const body = await request.json();
@@ -5540,7 +5402,9 @@ var onRequestPost5 = /* @__PURE__ */ __name2(async (context) => {
     return errorResponse("Registration failed", 500);
   }
 }, "onRequestPost");
-var onRequestGet4 = /* @__PURE__ */ __name2(async (context) => {
+
+// api/debug/schema.ts
+var onRequestGet4 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
   const key = url.searchParams.get("key");
@@ -5567,6 +5431,8 @@ var onRequestGet4 = /* @__PURE__ */ __name2(async (context) => {
     _hint: "Paste this JSON when asked for production schema. key tables: orders, trades, positions."
   });
 }, "onRequestGet");
+
+// api/markets/suggest.ts
 var outcomeSchema = external_exports.object({
   name: external_exports.string().min(1, "Outcome name is required"),
   ticker: external_exports.string().min(1, "Ticker is required"),
@@ -5583,7 +5449,7 @@ var marketSuggestionSchema = external_exports.object({
   round_number: external_exports.number().optional()
   // Optional round number for Round O/U markets
 });
-var onRequestPost6 = /* @__PURE__ */ __name2(async (context) => {
+var onRequestPost6 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   const authResult = await requireAuth(request, env);
   if ("error" in authResult) {
@@ -5744,7 +5610,9 @@ var onRequestPost6 = /* @__PURE__ */ __name2(async (context) => {
     return errorResponse("Failed to create market suggestion", 500);
   }
 }, "onRequestPost");
-var onRequestGet5 = /* @__PURE__ */ __name2(async (context) => {
+
+// api/scoring/rounds.ts
+var onRequestGet5 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   const authResult = await requireAuth(request, env);
   if ("error" in authResult) {
@@ -5752,7 +5620,7 @@ var onRequestGet5 = /* @__PURE__ */ __name2(async (context) => {
   }
   return jsonResponse({ rounds: [], roundScores: [] });
 }, "onRequestGet");
-var onRequestPost7 = /* @__PURE__ */ __name2(async (context) => {
+var onRequestPost7 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   const authResult = await requireAuth(request, env);
   if ("error" in authResult) {
@@ -5760,7 +5628,9 @@ var onRequestPost7 = /* @__PURE__ */ __name2(async (context) => {
   }
   return errorResponse("rounds API is deprecated; use /scoring/scores for scoring", 410);
 }, "onRequestPost");
-var onRequestGet6 = /* @__PURE__ */ __name2(async (context) => {
+
+// api/scoring/scores.ts
+var onRequestGet6 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
   const course = url.searchParams.get("course");
@@ -5798,7 +5668,7 @@ var onRequestGet6 = /* @__PURE__ */ __name2(async (context) => {
     return errorResponse(err.message || "Failed to fetch scores", 500);
   }
 }, "onRequestGet");
-var onRequestPost8 = /* @__PURE__ */ __name2(async (context) => {
+var onRequestPost8 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   const authResult = await requireAuth(request, env);
   if ("error" in authResult) {
@@ -5842,7 +5712,9 @@ var onRequestPost8 = /* @__PURE__ */ __name2(async (context) => {
     return errorResponse(err.message || "Failed to update score", 500);
   }
 }, "onRequestPost");
-var onRequestGet7 = /* @__PURE__ */ __name2(async (context) => {
+
+// api/markets/[marketId]/index.ts
+var onRequestGet7 = /* @__PURE__ */ __name(async (context) => {
   const { request, env, params } = context;
   const marketId = params.marketId;
   const db = getDb(env);
@@ -5899,7 +5771,7 @@ var onRequestGet7 = /* @__PURE__ */ __name2(async (context) => {
        ORDER BY outcome, price ASC, create_time ASC`,
       outcomeIds
     );
-    const mapOrder = /* @__PURE__ */ __name2((o) => ({
+    const mapOrder = /* @__PURE__ */ __name((o) => ({
       id: o.id,
       create_time: o.create_time,
       user_id: o.user_id,
@@ -6035,7 +5907,9 @@ var onRequestGet7 = /* @__PURE__ */ __name2(async (context) => {
     positions
   });
 }, "onRequestGet");
-var onRequestDelete = /* @__PURE__ */ __name2(async (context) => {
+
+// api/orders/[orderId].ts
+var onRequestDelete = /* @__PURE__ */ __name(async (context) => {
   const { request, env, params } = context;
   const orderId = params.orderId;
   const authResult = await requireAuth(request, env);
@@ -6065,6 +5939,8 @@ var onRequestDelete = /* @__PURE__ */ __name2(async (context) => {
   );
   return jsonResponse({ success: true });
 }, "onRequestDelete");
+
+// api/export.ts
 function arrayToCSV(data) {
   if (data.length === 0) return "";
   const headers = Object.keys(data[0]);
@@ -6082,8 +5958,7 @@ function arrayToCSV(data) {
   return [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
 }
 __name(arrayToCSV, "arrayToCSV");
-__name2(arrayToCSV, "arrayToCSV");
-var onRequestGet8 = /* @__PURE__ */ __name2(async (context) => {
+var onRequestGet8 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
   const type = url.searchParams.get("type");
@@ -6116,7 +5991,9 @@ var onRequestGet8 = /* @__PURE__ */ __name2(async (context) => {
   }
   return errorResponse("Invalid export type. Use: trades", 400);
 }, "onRequestGet");
-var onRequestGet9 = /* @__PURE__ */ __name2(async (context) => {
+
+// api/markets/index.ts
+var onRequestGet9 = /* @__PURE__ */ __name(async (context) => {
   try {
     const { request, env } = context;
     const url = new URL(request.url);
@@ -6149,7 +6026,9 @@ var onRequestGet9 = /* @__PURE__ */ __name2(async (context) => {
     return errorResponse(error.message || "Failed to fetch markets", 500);
   }
 }, "onRequestGet");
-var onRequestGet10 = /* @__PURE__ */ __name2(async (context) => {
+
+// api/orders/index.ts
+var onRequestGet10 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
   const limit = parseInt(url.searchParams.get("limit") || "100", 10);
@@ -6193,7 +6072,7 @@ var onRequestGet10 = /* @__PURE__ */ __name2(async (context) => {
       params
     );
   }
-  const key = /* @__PURE__ */ __name2((outcome, price) => `${outcome}\0${price}`, "key");
+  const key = /* @__PURE__ */ __name((outcome, price) => `${outcome}\0${price}`, "key");
   const byPair = {};
   uniquePairs.forEach((p) => {
     byPair[key(p.outcome, p.price)] = { latestContracts: 0, sumContracts: 0 };
@@ -6258,7 +6137,9 @@ var onRequestGet10 = /* @__PURE__ */ __name2(async (context) => {
   });
   return jsonResponse({ orders });
 }, "onRequestGet");
-var onRequestGet11 = /* @__PURE__ */ __name2(async (context) => {
+
+// api/participants/index.ts
+var onRequestGet11 = /* @__PURE__ */ __name(async (context) => {
   try {
     const { env } = context;
     if (!env.DB) {
@@ -6278,6 +6159,8 @@ var onRequestGet11 = /* @__PURE__ */ __name2(async (context) => {
     );
   }
 }, "onRequestGet");
+
+// api/positions/index.ts
 var PRICE_BASIS_MIN_CENTS2 = 100;
 var PRICE_BASIS_MAX_CENTS2 = 9900;
 function clampPriceBasis(cents) {
@@ -6285,7 +6168,6 @@ function clampPriceBasis(cents) {
   return Math.max(PRICE_BASIS_MIN_CENTS2, Math.min(PRICE_BASIS_MAX_CENTS2, cents));
 }
 __name(clampPriceBasis, "clampPriceBasis");
-__name2(clampPriceBasis, "clampPriceBasis");
 async function recalculatePriceBasisFromTrades(db, userId, outcomeId, currentNetPosition) {
   const rows = await dbQuery(
     db,
@@ -6360,7 +6242,6 @@ async function recalculatePriceBasisFromTrades(db, userId, outcomeId, currentNet
   return null;
 }
 __name(recalculatePriceBasisFromTrades, "recalculatePriceBasisFromTrades");
-__name2(recalculatePriceBasisFromTrades, "recalculatePriceBasisFromTrades");
 async function recalculatePriceBasis(db, userId, outcomeId, currentNetPosition) {
   const orders = await dbQuery(
     db,
@@ -6444,8 +6325,7 @@ async function recalculatePriceBasis(db, userId, outcomeId, currentNetPosition) 
   return null;
 }
 __name(recalculatePriceBasis, "recalculatePriceBasis");
-__name2(recalculatePriceBasis, "recalculatePriceBasis");
-var onRequestGet12 = /* @__PURE__ */ __name2(async (context) => {
+var onRequestGet12 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   const authResult = await requireAuth(request, env);
   if ("error" in authResult) {
@@ -6470,7 +6350,7 @@ var onRequestGet12 = /* @__PURE__ */ __name2(async (context) => {
      ORDER BY p.create_time DESC`,
     [userIdNum]
   );
-  const needsRecalc = /* @__PURE__ */ __name2((p) => p.net_position !== 0 && (p.price_basis === 0 || p.price_basis > PRICE_BASIS_MAX_CENTS2 || p.price_basis > 0 && p.price_basis < PRICE_BASIS_MIN_CENTS2), "needsRecalc");
+  const needsRecalc = /* @__PURE__ */ __name((p) => p.net_position !== 0 && (p.price_basis === 0 || p.price_basis > PRICE_BASIS_MAX_CENTS2 || p.price_basis > 0 && p.price_basis < PRICE_BASIS_MIN_CENTS2), "needsRecalc");
   for (const position of positionsDb) {
     if (!needsRecalc(position)) continue;
     const recalculatedBasis = await recalculatePriceBasisFromTrades(
@@ -6488,7 +6368,7 @@ var onRequestGet12 = /* @__PURE__ */ __name2(async (context) => {
       position.price_basis = recalculatedBasis;
     }
   }
-  const clampBasis = /* @__PURE__ */ __name2((p) => p.net_position !== 0 && p.price_basis > 0 ? clampPriceBasis(p.price_basis) : p.price_basis, "clampBasis");
+  const clampBasis = /* @__PURE__ */ __name((p) => p.net_position !== 0 && p.price_basis > 0 ? clampPriceBasis(p.price_basis) : p.price_basis, "clampBasis");
   let positionsWithOrderbook = positionsDb.map((p) => ({ ...p, price_basis: clampBasis(p), current_price: null }));
   if (positionsDb.length > 0) {
     const posOutcomeIds = [...new Set(positionsDb.map((p) => p.outcome))];
@@ -6520,7 +6400,9 @@ var onRequestGet12 = /* @__PURE__ */ __name2(async (context) => {
   }
   return jsonResponse({ positions: positionsWithOrderbook });
 }, "onRequestGet");
-var onRequestGet13 = /* @__PURE__ */ __name2(async (context) => {
+
+// api/trades/index.ts
+var onRequestGet13 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
   const limit = parseInt(url.searchParams.get("limit") || "100", 10);
@@ -6586,7 +6468,9 @@ var onRequestGet13 = /* @__PURE__ */ __name2(async (context) => {
   }));
   return jsonResponse({ trades });
 }, "onRequestGet");
-var onRequest = /* @__PURE__ */ __name2(async (context) => {
+
+// _middleware.ts
+var onRequest = /* @__PURE__ */ __name(async (context) => {
   const { request, env, next } = context;
   const url = new URL(request.url);
   if (url.pathname.startsWith("/api/")) {
@@ -6601,6 +6485,8 @@ var onRequest = /* @__PURE__ */ __name2(async (context) => {
   }
   return next();
 }, "onRequest");
+
+// ../.wrangler/tmp/pages-ws278h/functionsRoutes-0.3755640703097476.mjs
 var routes = [
   {
     routePath: "/api/markets/:marketId/orders",
@@ -6764,6 +6650,8 @@ var routes = [
     modules: []
   }
 ];
+
+// ../node_modules/path-to-regexp/dist.es2015/index.js
 function lexer(str) {
   var tokens = [];
   var i = 0;
@@ -6848,7 +6736,6 @@ function lexer(str) {
   return tokens;
 }
 __name(lexer, "lexer");
-__name2(lexer, "lexer");
 function parse(str, options) {
   if (options === void 0) {
     options = {};
@@ -6859,18 +6746,18 @@ function parse(str, options) {
   var key = 0;
   var i = 0;
   var path = "";
-  var tryConsume = /* @__PURE__ */ __name2(function(type) {
+  var tryConsume = /* @__PURE__ */ __name(function(type) {
     if (i < tokens.length && tokens[i].type === type)
       return tokens[i++].value;
   }, "tryConsume");
-  var mustConsume = /* @__PURE__ */ __name2(function(type) {
+  var mustConsume = /* @__PURE__ */ __name(function(type) {
     var value2 = tryConsume(type);
     if (value2 !== void 0)
       return value2;
     var _a2 = tokens[i], nextType = _a2.type, index = _a2.index;
     throw new TypeError("Unexpected ".concat(nextType, " at ").concat(index, ", expected ").concat(type));
   }, "mustConsume");
-  var consumeText = /* @__PURE__ */ __name2(function() {
+  var consumeText = /* @__PURE__ */ __name(function() {
     var result2 = "";
     var value2;
     while (value2 = tryConsume("CHAR") || tryConsume("ESCAPED_CHAR")) {
@@ -6878,7 +6765,7 @@ function parse(str, options) {
     }
     return result2;
   }, "consumeText");
-  var isSafe = /* @__PURE__ */ __name2(function(value2) {
+  var isSafe = /* @__PURE__ */ __name(function(value2) {
     for (var _i = 0, delimiter_1 = delimiter; _i < delimiter_1.length; _i++) {
       var char2 = delimiter_1[_i];
       if (value2.indexOf(char2) > -1)
@@ -6886,7 +6773,7 @@ function parse(str, options) {
     }
     return false;
   }, "isSafe");
-  var safePattern = /* @__PURE__ */ __name2(function(prefix2) {
+  var safePattern = /* @__PURE__ */ __name(function(prefix2) {
     var prev = result[result.length - 1];
     var prevText = prefix2 || (prev && typeof prev === "string" ? prev : "");
     if (prev && !prevText) {
@@ -6949,14 +6836,12 @@ function parse(str, options) {
   return result;
 }
 __name(parse, "parse");
-__name2(parse, "parse");
 function match(str, options) {
   var keys = [];
   var re = pathToRegexp(str, keys, options);
   return regexpToFunction(re, keys, options);
 }
 __name(match, "match");
-__name2(match, "match");
 function regexpToFunction(re, keys, options) {
   if (options === void 0) {
     options = {};
@@ -6970,7 +6855,7 @@ function regexpToFunction(re, keys, options) {
       return false;
     var path = m[0], index = m.index;
     var params = /* @__PURE__ */ Object.create(null);
-    var _loop_1 = /* @__PURE__ */ __name2(function(i2) {
+    var _loop_1 = /* @__PURE__ */ __name(function(i2) {
       if (m[i2] === void 0)
         return "continue";
       var key = keys[i2 - 1];
@@ -6989,17 +6874,14 @@ function regexpToFunction(re, keys, options) {
   };
 }
 __name(regexpToFunction, "regexpToFunction");
-__name2(regexpToFunction, "regexpToFunction");
 function escapeString(str) {
   return str.replace(/([.+*?=^!:${}()[\]|/\\])/g, "\\$1");
 }
 __name(escapeString, "escapeString");
-__name2(escapeString, "escapeString");
 function flags(options) {
   return options && options.sensitive ? "" : "i";
 }
 __name(flags, "flags");
-__name2(flags, "flags");
 function regexpToRegexp(path, keys) {
   if (!keys)
     return path;
@@ -7020,7 +6902,6 @@ function regexpToRegexp(path, keys) {
   return path;
 }
 __name(regexpToRegexp, "regexpToRegexp");
-__name2(regexpToRegexp, "regexpToRegexp");
 function arrayToRegexp(paths, keys, options) {
   var parts = paths.map(function(path) {
     return pathToRegexp(path, keys, options).source;
@@ -7028,12 +6909,10 @@ function arrayToRegexp(paths, keys, options) {
   return new RegExp("(?:".concat(parts.join("|"), ")"), flags(options));
 }
 __name(arrayToRegexp, "arrayToRegexp");
-__name2(arrayToRegexp, "arrayToRegexp");
 function stringToRegexp(path, keys, options) {
   return tokensToRegexp(parse(path, options), keys, options);
 }
 __name(stringToRegexp, "stringToRegexp");
-__name2(stringToRegexp, "stringToRegexp");
 function tokensToRegexp(tokens, keys, options) {
   if (options === void 0) {
     options = {};
@@ -7089,7 +6968,6 @@ function tokensToRegexp(tokens, keys, options) {
   return new RegExp(route, flags(options));
 }
 __name(tokensToRegexp, "tokensToRegexp");
-__name2(tokensToRegexp, "tokensToRegexp");
 function pathToRegexp(path, keys, options) {
   if (path instanceof RegExp)
     return regexpToRegexp(path, keys);
@@ -7098,7 +6976,8 @@ function pathToRegexp(path, keys, options) {
   return stringToRegexp(path, keys, options);
 }
 __name(pathToRegexp, "pathToRegexp");
-__name2(pathToRegexp, "pathToRegexp");
+
+// ../node_modules/wrangler/templates/pages-template-worker.ts
 var escapeRegex = /[.+?^${}()|[\]\\]/g;
 function* executeRequest(request) {
   const requestPath = new URL(request.url).pathname;
@@ -7149,14 +7028,13 @@ function* executeRequest(request) {
   }
 }
 __name(executeRequest, "executeRequest");
-__name2(executeRequest, "executeRequest");
 var pages_template_worker_default = {
   async fetch(originalRequest, env, workerContext) {
     let request = originalRequest;
     const handlerIterator = executeRequest(request);
     let data = {};
     let isFailOpen = false;
-    const next = /* @__PURE__ */ __name2(async (input, init) => {
+    const next = /* @__PURE__ */ __name(async (input, init) => {
       if (input !== void 0) {
         let url = input;
         if (typeof input === "string") {
@@ -7183,7 +7061,7 @@ var pages_template_worker_default = {
           },
           env,
           waitUntil: workerContext.waitUntil.bind(workerContext),
-          passThroughOnException: /* @__PURE__ */ __name2(() => {
+          passThroughOnException: /* @__PURE__ */ __name(() => {
             isFailOpen = true;
           }, "passThroughOnException")
         };
@@ -7211,14 +7089,16 @@ var pages_template_worker_default = {
     }
   }
 };
-var cloneResponse = /* @__PURE__ */ __name2((response) => (
+var cloneResponse = /* @__PURE__ */ __name((response) => (
   // https://fetch.spec.whatwg.org/#null-body-status
   new Response(
     [101, 204, 205, 304].includes(response.status) ? null : response.body,
     response
   )
 ), "cloneResponse");
-var drainBody = /* @__PURE__ */ __name2(async (request, env, _ctx, middlewareCtx) => {
+
+// ../node_modules/wrangler/templates/middleware/middleware-ensure-req-body-drained.ts
+var drainBody = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx) => {
   try {
     return await middlewareCtx.next(request, env);
   } finally {
@@ -7234,6 +7114,8 @@ var drainBody = /* @__PURE__ */ __name2(async (request, env, _ctx, middlewareCtx
   }
 }, "drainBody");
 var middleware_ensure_req_body_drained_default = drainBody;
+
+// ../node_modules/wrangler/templates/middleware/middleware-miniflare3-json-error.ts
 function reduceError(e) {
   return {
     name: e?.name,
@@ -7243,8 +7125,7 @@ function reduceError(e) {
   };
 }
 __name(reduceError, "reduceError");
-__name2(reduceError, "reduceError");
-var jsonError = /* @__PURE__ */ __name2(async (request, env, _ctx, middlewareCtx) => {
+var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx) => {
   try {
     return await middlewareCtx.next(request, env);
   } catch (e) {
@@ -7256,17 +7137,20 @@ var jsonError = /* @__PURE__ */ __name2(async (request, env, _ctx, middlewareCtx
   }
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
+
+// ../.wrangler/tmp/bundle-zilK7o/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
 ];
 var middleware_insertion_facade_default = pages_template_worker_default;
+
+// ../node_modules/wrangler/templates/middleware/common.ts
 var __facade_middleware__ = [];
 function __facade_register__(...args) {
   __facade_middleware__.push(...args.flat());
 }
 __name(__facade_register__, "__facade_register__");
-__name2(__facade_register__, "__facade_register__");
 function __facade_invokeChain__(request, env, ctx, dispatch, middlewareChain) {
   const [head, ...tail] = middlewareChain;
   const middlewareCtx = {
@@ -7278,7 +7162,6 @@ function __facade_invokeChain__(request, env, ctx, dispatch, middlewareChain) {
   return head(request, env, ctx, middlewareCtx);
 }
 __name(__facade_invokeChain__, "__facade_invokeChain__");
-__name2(__facade_invokeChain__, "__facade_invokeChain__");
 function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
   return __facade_invokeChain__(request, env, ctx, dispatch, [
     ...__facade_middleware__,
@@ -7286,18 +7169,16 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
   ]);
 }
 __name(__facade_invoke__, "__facade_invoke__");
-__name2(__facade_invoke__, "__facade_invoke__");
+
+// ../.wrangler/tmp/bundle-zilK7o/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
-  static {
-    __name(this, "___Facade_ScheduledController__");
-  }
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;
     this.cron = cron;
     this.#noRetry = noRetry;
   }
   static {
-    __name2(this, "__Facade_ScheduledController__");
+    __name(this, "__Facade_ScheduledController__");
   }
   #noRetry;
   noRetry() {
@@ -7314,7 +7195,7 @@ function wrapExportedHandler(worker) {
   for (const middleware of __INTERNAL_WRANGLER_MIDDLEWARE__) {
     __facade_register__(middleware);
   }
-  const fetchDispatcher = /* @__PURE__ */ __name2(function(request, env, ctx) {
+  const fetchDispatcher = /* @__PURE__ */ __name(function(request, env, ctx) {
     if (worker.fetch === void 0) {
       throw new Error("Handler does not export a fetch() function.");
     }
@@ -7323,7 +7204,7 @@ function wrapExportedHandler(worker) {
   return {
     ...worker,
     fetch(request, env, ctx) {
-      const dispatcher = /* @__PURE__ */ __name2(function(type, init) {
+      const dispatcher = /* @__PURE__ */ __name(function(type, init) {
         if (type === "scheduled" && worker.scheduled !== void 0) {
           const controller = new __Facade_ScheduledController__(
             Date.now(),
@@ -7339,7 +7220,6 @@ function wrapExportedHandler(worker) {
   };
 }
 __name(wrapExportedHandler, "wrapExportedHandler");
-__name2(wrapExportedHandler, "wrapExportedHandler");
 function wrapWorkerEntrypoint(klass) {
   if (__INTERNAL_WRANGLER_MIDDLEWARE__ === void 0 || __INTERNAL_WRANGLER_MIDDLEWARE__.length === 0) {
     return klass;
@@ -7348,7 +7228,7 @@ function wrapWorkerEntrypoint(klass) {
     __facade_register__(middleware);
   }
   return class extends klass {
-    #fetchDispatcher = /* @__PURE__ */ __name2((request, env, ctx) => {
+    #fetchDispatcher = /* @__PURE__ */ __name((request, env, ctx) => {
       this.env = env;
       this.ctx = ctx;
       if (super.fetch === void 0) {
@@ -7356,7 +7236,7 @@ function wrapWorkerEntrypoint(klass) {
       }
       return super.fetch(request);
     }, "#fetchDispatcher");
-    #dispatcher = /* @__PURE__ */ __name2((type, init) => {
+    #dispatcher = /* @__PURE__ */ __name((type, init) => {
       if (type === "scheduled" && super.scheduled !== void 0) {
         const controller = new __Facade_ScheduledController__(
           Date.now(),
@@ -7379,7 +7259,6 @@ function wrapWorkerEntrypoint(klass) {
   };
 }
 __name(wrapWorkerEntrypoint, "wrapWorkerEntrypoint");
-__name2(wrapWorkerEntrypoint, "wrapWorkerEntrypoint");
 var WRAPPED_ENTRY;
 if (typeof middleware_insertion_facade_default === "object") {
   WRAPPED_ENTRY = wrapExportedHandler(middleware_insertion_facade_default);
@@ -7387,178 +7266,8 @@ if (typeof middleware_insertion_facade_default === "object") {
   WRAPPED_ENTRY = wrapWorkerEntrypoint(middleware_insertion_facade_default);
 }
 var middleware_loader_entry_default = WRAPPED_ENTRY;
-
-// node_modules/wrangler/templates/middleware/middleware-ensure-req-body-drained.ts
-var drainBody2 = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx) => {
-  try {
-    return await middlewareCtx.next(request, env);
-  } finally {
-    try {
-      if (request.body !== null && !request.bodyUsed) {
-        const reader = request.body.getReader();
-        while (!(await reader.read()).done) {
-        }
-      }
-    } catch (e) {
-      console.error("Failed to drain the unused request body.", e);
-    }
-  }
-}, "drainBody");
-var middleware_ensure_req_body_drained_default2 = drainBody2;
-
-// node_modules/wrangler/templates/middleware/middleware-miniflare3-json-error.ts
-function reduceError2(e) {
-  return {
-    name: e?.name,
-    message: e?.message ?? String(e),
-    stack: e?.stack,
-    cause: e?.cause === void 0 ? void 0 : reduceError2(e.cause)
-  };
-}
-__name(reduceError2, "reduceError");
-var jsonError2 = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx) => {
-  try {
-    return await middlewareCtx.next(request, env);
-  } catch (e) {
-    const error = reduceError2(e);
-    return Response.json(error, {
-      status: 500,
-      headers: { "MF-Experimental-Error-Stack": "true" }
-    });
-  }
-}, "jsonError");
-var middleware_miniflare3_json_error_default2 = jsonError2;
-
-// .wrangler/tmp/bundle-GmptcN/middleware-insertion-facade.js
-var __INTERNAL_WRANGLER_MIDDLEWARE__2 = [
-  middleware_ensure_req_body_drained_default2,
-  middleware_miniflare3_json_error_default2
-];
-var middleware_insertion_facade_default2 = middleware_loader_entry_default;
-
-// node_modules/wrangler/templates/middleware/common.ts
-var __facade_middleware__2 = [];
-function __facade_register__2(...args) {
-  __facade_middleware__2.push(...args.flat());
-}
-__name(__facade_register__2, "__facade_register__");
-function __facade_invokeChain__2(request, env, ctx, dispatch, middlewareChain) {
-  const [head, ...tail] = middlewareChain;
-  const middlewareCtx = {
-    dispatch,
-    next(newRequest, newEnv) {
-      return __facade_invokeChain__2(newRequest, newEnv, ctx, dispatch, tail);
-    }
-  };
-  return head(request, env, ctx, middlewareCtx);
-}
-__name(__facade_invokeChain__2, "__facade_invokeChain__");
-function __facade_invoke__2(request, env, ctx, dispatch, finalMiddleware) {
-  return __facade_invokeChain__2(request, env, ctx, dispatch, [
-    ...__facade_middleware__2,
-    finalMiddleware
-  ]);
-}
-__name(__facade_invoke__2, "__facade_invoke__");
-
-// .wrangler/tmp/bundle-GmptcN/middleware-loader.entry.ts
-var __Facade_ScheduledController__2 = class ___Facade_ScheduledController__2 {
-  constructor(scheduledTime, cron, noRetry) {
-    this.scheduledTime = scheduledTime;
-    this.cron = cron;
-    this.#noRetry = noRetry;
-  }
-  static {
-    __name(this, "__Facade_ScheduledController__");
-  }
-  #noRetry;
-  noRetry() {
-    if (!(this instanceof ___Facade_ScheduledController__2)) {
-      throw new TypeError("Illegal invocation");
-    }
-    this.#noRetry();
-  }
-};
-function wrapExportedHandler2(worker) {
-  if (__INTERNAL_WRANGLER_MIDDLEWARE__2 === void 0 || __INTERNAL_WRANGLER_MIDDLEWARE__2.length === 0) {
-    return worker;
-  }
-  for (const middleware of __INTERNAL_WRANGLER_MIDDLEWARE__2) {
-    __facade_register__2(middleware);
-  }
-  const fetchDispatcher = /* @__PURE__ */ __name(function(request, env, ctx) {
-    if (worker.fetch === void 0) {
-      throw new Error("Handler does not export a fetch() function.");
-    }
-    return worker.fetch(request, env, ctx);
-  }, "fetchDispatcher");
-  return {
-    ...worker,
-    fetch(request, env, ctx) {
-      const dispatcher = /* @__PURE__ */ __name(function(type, init) {
-        if (type === "scheduled" && worker.scheduled !== void 0) {
-          const controller = new __Facade_ScheduledController__2(
-            Date.now(),
-            init.cron ?? "",
-            () => {
-            }
-          );
-          return worker.scheduled(controller, env, ctx);
-        }
-      }, "dispatcher");
-      return __facade_invoke__2(request, env, ctx, dispatcher, fetchDispatcher);
-    }
-  };
-}
-__name(wrapExportedHandler2, "wrapExportedHandler");
-function wrapWorkerEntrypoint2(klass) {
-  if (__INTERNAL_WRANGLER_MIDDLEWARE__2 === void 0 || __INTERNAL_WRANGLER_MIDDLEWARE__2.length === 0) {
-    return klass;
-  }
-  for (const middleware of __INTERNAL_WRANGLER_MIDDLEWARE__2) {
-    __facade_register__2(middleware);
-  }
-  return class extends klass {
-    #fetchDispatcher = /* @__PURE__ */ __name((request, env, ctx) => {
-      this.env = env;
-      this.ctx = ctx;
-      if (super.fetch === void 0) {
-        throw new Error("Entrypoint class does not define a fetch() function.");
-      }
-      return super.fetch(request);
-    }, "#fetchDispatcher");
-    #dispatcher = /* @__PURE__ */ __name((type, init) => {
-      if (type === "scheduled" && super.scheduled !== void 0) {
-        const controller = new __Facade_ScheduledController__2(
-          Date.now(),
-          init.cron ?? "",
-          () => {
-          }
-        );
-        return super.scheduled(controller);
-      }
-    }, "#dispatcher");
-    fetch(request) {
-      return __facade_invoke__2(
-        request,
-        this.env,
-        this.ctx,
-        this.#dispatcher,
-        this.#fetchDispatcher
-      );
-    }
-  };
-}
-__name(wrapWorkerEntrypoint2, "wrapWorkerEntrypoint");
-var WRAPPED_ENTRY2;
-if (typeof middleware_insertion_facade_default2 === "object") {
-  WRAPPED_ENTRY2 = wrapExportedHandler2(middleware_insertion_facade_default2);
-} else if (typeof middleware_insertion_facade_default2 === "function") {
-  WRAPPED_ENTRY2 = wrapWorkerEntrypoint2(middleware_insertion_facade_default2);
-}
-var middleware_loader_entry_default2 = WRAPPED_ENTRY2;
 export {
-  __INTERNAL_WRANGLER_MIDDLEWARE__2 as __INTERNAL_WRANGLER_MIDDLEWARE__,
-  middleware_loader_entry_default2 as default
+  __INTERNAL_WRANGLER_MIDDLEWARE__,
+  middleware_loader_entry_default as default
 };
-//# sourceMappingURL=functionsWorker-0.8517046703055637.js.map
+//# sourceMappingURL=functionsWorker-0.43540931819594775.mjs.map
