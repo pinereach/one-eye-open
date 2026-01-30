@@ -2,15 +2,21 @@ import type { OnRequest } from '@cloudflare/pages';
 import { getDb, dbQuery, type Env } from '../../lib/db';
 import { requireAuth, jsonResponse } from '../../middleware';
 
+const TAPE_DEFAULT_LIMIT = 20;
+const TAPE_MAX_LIMIT = 20;
+
 /**
- * GET /api/tape — global trade tape: all taker trades across the app.
- * Requires auth. Use /api/trades for "my trades" only.
- * Note: Backfill of trades.outcome is not run here (was causing heavy D1 reads). Run via cron or admin if needed.
+ * GET /api/tape — global trade tape: last N taker trades (default 20, max 20).
+ * Requires auth. Uses idx_trades_create_time; single query with LIMIT for efficiency.
  */
 export const onRequestGet: OnRequest<Env> = async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
-  const limit = Math.min(parseInt(url.searchParams.get('limit') || '40', 10), 100);
+  const limitParam = url.searchParams.get('limit');
+  const limit = Math.min(
+    parseInt(limitParam || String(TAPE_DEFAULT_LIMIT), 10) || TAPE_DEFAULT_LIMIT,
+    TAPE_MAX_LIMIT
+  );
 
   const authResult = await requireAuth(request, env);
   if ('error' in authResult) {
@@ -152,5 +158,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     };
   });
 
-  return jsonResponse({ trades });
+  const response = jsonResponse({ trades });
+  response.headers.set('Cache-Control', 'private, max-age=30'); // Short cache to reduce repeated DB hits
+  return response;
 };

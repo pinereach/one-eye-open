@@ -5,7 +5,7 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// ../.wrangler/tmp/bundle-EsI0gE/checked-fetch.js
+// ../.wrangler/tmp/bundle-itRiw8/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -6568,10 +6568,16 @@ var onRequestGet15 = /* @__PURE__ */ __name(async (context) => {
 }, "onRequestGet");
 
 // api/tape/index.ts
+var TAPE_DEFAULT_LIMIT = 20;
+var TAPE_MAX_LIMIT = 20;
 var onRequestGet16 = /* @__PURE__ */ __name(async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "40", 10), 100);
+  const limitParam = url.searchParams.get("limit");
+  const limit = Math.min(
+    parseInt(limitParam || String(TAPE_DEFAULT_LIMIT), 10) || TAPE_DEFAULT_LIMIT,
+    TAPE_MAX_LIMIT
+  );
   const authResult = await requireAuth(request, env);
   if ("error" in authResult) {
     return authResult.error;
@@ -6689,7 +6695,9 @@ var onRequestGet16 = /* @__PURE__ */ __name(async (context) => {
       seller_username
     };
   });
-  return jsonResponse({ trades });
+  const response = jsonResponse({ trades });
+  response.headers.set("Cache-Control", "private, max-age=30");
+  return response;
 }, "onRequestGet");
 
 // api/trades/index.ts
@@ -7493,7 +7501,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// ../.wrangler/tmp/bundle-EsI0gE/middleware-insertion-facade.js
+// ../.wrangler/tmp/bundle-itRiw8/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -7525,7 +7533,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// ../.wrangler/tmp/bundle-EsI0gE/middleware-loader.entry.ts
+// ../.wrangler/tmp/bundle-itRiw8/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

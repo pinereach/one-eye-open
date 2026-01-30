@@ -6689,10 +6689,16 @@ var onRequestGet15 = /* @__PURE__ */ __name2(async (context) => {
   }
   return jsonResponse({ positions: positionsWithOrderbook });
 }, "onRequestGet");
+var TAPE_DEFAULT_LIMIT = 20;
+var TAPE_MAX_LIMIT = 20;
 var onRequestGet16 = /* @__PURE__ */ __name2(async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "40", 10), 100);
+  const limitParam = url.searchParams.get("limit");
+  const limit = Math.min(
+    parseInt(limitParam || String(TAPE_DEFAULT_LIMIT), 10) || TAPE_DEFAULT_LIMIT,
+    TAPE_MAX_LIMIT
+  );
   const authResult = await requireAuth(request, env);
   if ("error" in authResult) {
     return authResult.error;
@@ -6810,7 +6816,9 @@ var onRequestGet16 = /* @__PURE__ */ __name2(async (context) => {
       seller_username
     };
   });
-  return jsonResponse({ trades });
+  const response = jsonResponse({ trades });
+  response.headers.set("Cache-Control", "private, max-age=30");
+  return response;
 }, "onRequestGet");
 var onRequestGet17 = /* @__PURE__ */ __name2(async (context) => {
   const { request, env } = context;
