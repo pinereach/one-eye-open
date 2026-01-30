@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../lib/api';
@@ -14,16 +14,53 @@ type LeaderboardRow = {
   portfolio_value_cents: number;
 };
 
-function formatPortfolio(cents: number): string {
+type SortKey = 'username' | 'trade_count' | 'open_orders_count' | 'shares_traded' | 'portfolio_value_cents';
+type SortDir = 'asc' | 'desc';
+
+function formatPortfolio(cents: number, signed = false): string {
   const dollars = cents / 100;
-  return `$${dollars.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const abs = Math.abs(dollars);
+  const str = abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (!signed) return `$${str}`;
+  return cents >= 0 ? `+$${str}` : `-$${str}`;
 }
+
+const DEFAULT_SORT: SortKey = 'shares_traded';
+const DEFAULT_SORT_DIR: SortDir = 'desc';
 
 export function LeaderboardPage() {
   const { user } = useAuth();
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortKey>(DEFAULT_SORT);
+  const [sortDir, setSortDir] = useState<SortDir>(DEFAULT_SORT_DIR);
+
+  const sortedLeaderboard = useMemo(() => {
+    if (leaderboard.length === 0) return [];
+    const key = sortBy;
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...leaderboard].sort((a, b) => {
+      let cmp = 0;
+      if (key === 'username') {
+        cmp = (a.username ?? '').localeCompare(b.username ?? '');
+      } else {
+        const va = key === 'portfolio_value_cents' ? a.portfolio_value_cents : key === 'trade_count' ? a.trade_count : key === 'open_orders_count' ? a.open_orders_count : a.shares_traded;
+        const vb = key === 'portfolio_value_cents' ? b.portfolio_value_cents : key === 'trade_count' ? b.trade_count : key === 'open_orders_count' ? b.open_orders_count : b.shares_traded;
+        cmp = va - vb;
+      }
+      return cmp * dir;
+    });
+  }, [leaderboard, sortBy, sortDir]);
+
+  function handleSort(key: SortKey) {
+    if (sortBy === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(key);
+      setSortDir(key === 'username' ? 'asc' : 'desc');
+    }
+  }
 
   async function loadLeaderboard() {
     setLoading(true);
@@ -73,14 +110,14 @@ export function LeaderboardPage() {
     <PullToRefresh onRefresh={loadLeaderboard}>
       <div className="space-y-4 sm:space-y-6">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Leaderboard</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Per-user stats: trades, open orders, shares traded, portfolio value (cost basis).</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Per-user stats: trades, open orders, shares traded, portfolio value (P&amp;L). Zero-sum: totals should net to $0.</p>
 
         {/* Mobile: cards */}
         <div className="md:hidden space-y-3">
-          {leaderboard.length === 0 ? (
+          {sortedLeaderboard.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400 py-4">No users.</p>
           ) : (
-            leaderboard.map((row) => (
+            sortedLeaderboard.map((row) => (
               <Card key={row.user_id}>
                 <CardContent className="p-4">
                   <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">{row.username}</div>
@@ -92,7 +129,7 @@ export function LeaderboardPage() {
                     <span className="text-gray-500 dark:text-gray-400">Shares traded</span>
                     <span className="text-right font-medium">{row.shares_traded}</span>
                     <span className="text-gray-500 dark:text-gray-400">Portfolio value</span>
-                    <span className="text-right font-medium">{formatPortfolio(row.portfolio_value_cents)}</span>
+                    <span className={`text-right font-medium ${row.portfolio_value_cents > 0 ? 'text-green-600 dark:text-green-400' : row.portfolio_value_cents < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{formatPortfolio(row.portfolio_value_cents, true)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -100,37 +137,90 @@ export function LeaderboardPage() {
           )}
         </div>
 
+        {/* Summary (all participants) — mobile: below cards */}
+        {leaderboard.length > 0 && (() => {
+          const totalPortfolio = leaderboard.reduce((s, r) => s + r.portfolio_value_cents, 0);
+          return (
+            <div className="md:hidden rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 p-4">
+              <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Summary (all participants)</div>
+              <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                <span><span className="text-gray-600 dark:text-gray-400">Trades:</span> <span className="font-semibold">{leaderboard.reduce((s, r) => s + r.trade_count, 0)}</span></span>
+                <span><span className="text-gray-600 dark:text-gray-400">Open orders:</span> <span className="font-semibold">{leaderboard.reduce((s, r) => s + r.open_orders_count, 0)}</span></span>
+                <span><span className="text-gray-600 dark:text-gray-400">Shares traded:</span> <span className="font-semibold">{leaderboard.reduce((s, r) => s + r.shares_traded, 0)}</span></span>
+                <span><span className="text-gray-600 dark:text-gray-400">Portfolio value (net):</span> <span className={`font-semibold ${totalPortfolio > 0 ? 'text-green-600 dark:text-green-400' : totalPortfolio < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalPortfolio, true)}</span></span>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Desktop: table */}
         <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
           <table className="w-full min-w-[600px] border-collapse">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">
-                <th className="py-3 px-4 text-left text-xs font-bold text-gray-600 dark:text-gray-400">User</th>
-                <th className="py-3 px-4 text-right text-xs font-bold text-gray-600 dark:text-gray-400">Trades</th>
-                <th className="py-3 px-4 text-right text-xs font-bold text-gray-600 dark:text-gray-400">Open orders</th>
-                <th className="py-3 px-4 text-right text-xs font-bold text-gray-600 dark:text-gray-400">Shares traded</th>
-                <th className="py-3 px-4 text-right text-xs font-bold text-gray-600 dark:text-gray-400">Portfolio value</th>
+                <th className="py-3 px-4 text-left text-xs font-bold text-gray-600 dark:text-gray-400">
+                  <button type="button" onClick={() => handleSort('username')} className="flex items-center gap-1 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded" aria-sort={sortBy === 'username' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}>
+                    User {sortBy === 'username' && (sortDir === 'asc' ? '↑' : '↓')}
+                  </button>
+                </th>
+                <th className="py-3 px-4 text-right text-xs font-bold text-gray-600 dark:text-gray-400">
+                  <button type="button" onClick={() => handleSort('trade_count')} className="inline-flex items-center gap-1 ml-auto hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded" aria-sort={sortBy === 'trade_count' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}>
+                    Trades {sortBy === 'trade_count' && (sortDir === 'asc' ? '↑' : '↓')}
+                  </button>
+                </th>
+                <th className="py-3 px-4 text-right text-xs font-bold text-gray-600 dark:text-gray-400">
+                  <button type="button" onClick={() => handleSort('open_orders_count')} className="inline-flex items-center gap-1 ml-auto hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded" aria-sort={sortBy === 'open_orders_count' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}>
+                    Open orders {sortBy === 'open_orders_count' && (sortDir === 'asc' ? '↑' : '↓')}
+                  </button>
+                </th>
+                <th className="py-3 px-4 text-right text-xs font-bold text-gray-600 dark:text-gray-400">
+                  <button type="button" onClick={() => handleSort('shares_traded')} className="inline-flex items-center gap-1 ml-auto hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded" aria-sort={sortBy === 'shares_traded' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}>
+                    Shares traded {sortBy === 'shares_traded' && (sortDir === 'asc' ? '↑' : '↓')}
+                  </button>
+                </th>
+                <th className="py-3 px-4 text-right text-xs font-bold text-gray-600 dark:text-gray-400">
+                  <button type="button" onClick={() => handleSort('portfolio_value_cents')} className="inline-flex items-center gap-1 ml-auto hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded" aria-sort={sortBy === 'portfolio_value_cents' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}>
+                    Portfolio value {sortBy === 'portfolio_value_cents' && (sortDir === 'asc' ? '↑' : '↓')}
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>
-              {leaderboard.length === 0 ? (
+              {sortedLeaderboard.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-gray-500 dark:text-gray-400">
                     No users.
                   </td>
                 </tr>
               ) : (
-                leaderboard.map((row) => (
+                sortedLeaderboard.map((row) => (
                   <tr key={row.user_id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="py-3 px-4 font-medium text-gray-900 dark:text-gray-100">{row.username}</td>
                     <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{row.trade_count}</td>
                     <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{row.open_orders_count}</td>
                     <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{row.shares_traded}</td>
-                    <td className="py-3 px-4 text-right font-medium text-gray-900 dark:text-gray-100">{formatPortfolio(row.portfolio_value_cents)}</td>
+                    <td className={`py-3 px-4 text-right font-medium ${row.portfolio_value_cents > 0 ? 'text-green-600 dark:text-green-400' : row.portfolio_value_cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>{formatPortfolio(row.portfolio_value_cents, true)}</td>
                   </tr>
                 ))
               )}
             </tbody>
+            {leaderboard.length > 0 && (() => {
+              const totalTrades = leaderboard.reduce((s, r) => s + r.trade_count, 0);
+              const totalOrders = leaderboard.reduce((s, r) => s + r.open_orders_count, 0);
+              const totalShares = leaderboard.reduce((s, r) => s + r.shares_traded, 0);
+              const totalPortfolio = leaderboard.reduce((s, r) => s + r.portfolio_value_cents, 0);
+              return (
+                <tfoot>
+                  <tr className="border-t-2 border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-800 font-semibold">
+                    <td className="py-3 px-4 text-gray-900 dark:text-gray-100">All participants</td>
+                    <td className="py-3 px-4 text-right">{totalTrades}</td>
+                    <td className="py-3 px-4 text-right">{totalOrders}</td>
+                    <td className="py-3 px-4 text-right">{totalShares}</td>
+                    <td className={`py-3 px-4 text-right ${totalPortfolio > 0 ? 'text-green-600 dark:text-green-400' : totalPortfolio < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalPortfolio, true)}</td>
+                  </tr>
+                </tfoot>
+              );
+            })()}
           </table>
         </div>
       </div>

@@ -67,14 +67,53 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     const sharesByUser = new Map<number, number>();
     sharesRows.forEach((r) => sharesByUser.set(r.user_id, r.total ?? 0));
 
-    // Portfolio value (cost basis): sum of net_position * price_basis per user
-    const portfolioRows = await dbQuery<{ user_id: number; value_cents: number }>(
+    // Portfolio value = total P&L (unrealized + closed + settled), matching Positions page
+    const positionsRows = await dbQuery<{ user_id: number; outcome: string; net_position: number; price_basis: number; closed_profit: number; settled_profit: number }>(
       db,
-      `SELECT user_id, SUM(net_position * COALESCE(NULLIF(price_basis, 0), 0)) AS value_cents FROM positions WHERE user_id IS NOT NULL GROUP BY user_id`,
+      `SELECT user_id, outcome, net_position, COALESCE(NULLIF(price_basis, 0), 0) AS price_basis, COALESCE(closed_profit, 0) AS closed_profit, COALESCE(settled_profit, 0) AS settled_profit FROM positions WHERE user_id IS NOT NULL`,
       []
     );
+    const outcomeIds = [...new Set(positionsRows.map((p) => p.outcome))];
+    const bestBidByOutcome: Record<string, number> = {};
+    const bestAskByOutcome: Record<string, number> = {};
+    if (outcomeIds.length > 0) {
+      const ph = outcomeIds.map(() => '?').join(',');
+      const bidsRows = await dbQuery<{ outcome: string; price: number }>(
+        db,
+        `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 0 AND status IN ('open','partial') ORDER BY outcome, price DESC, create_time ASC`,
+        outcomeIds
+      );
+      const asksRows = await dbQuery<{ outcome: string; price: number }>(
+        db,
+        `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 1 AND status IN ('open','partial') ORDER BY outcome, price ASC, create_time ASC`,
+        outcomeIds
+      );
+      bidsRows.forEach((r) => { if (bestBidByOutcome[r.outcome] == null) bestBidByOutcome[r.outcome] = r.price; });
+      asksRows.forEach((r) => { if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price; });
+    }
+    const currentPriceByOutcome: Record<string, number> = {};
+    outcomeIds.forEach((outcome) => {
+      const bid = bestBidByOutcome[outcome] ?? null;
+      const ask = bestAskByOutcome[outcome] ?? null;
+      const mid = (bid != null && ask != null) ? (bid + ask) / 2 : (bid ?? ask ?? null);
+      if (mid != null) currentPriceByOutcome[outcome] = mid;
+    });
     const portfolioByUser = new Map<number, number>();
-    portfolioRows.forEach((r) => portfolioByUser.set(r.user_id, r.value_cents ?? 0));
+    for (const p of positionsRows) {
+      let contribution = (p.closed_profit ?? 0) + (p.settled_profit ?? 0);
+      if (p.net_position !== 0) {
+        const currentPrice = currentPriceByOutcome[p.outcome] ?? null;
+        if (currentPrice != null) {
+          const costCents = p.net_position * p.price_basis;
+          if (p.net_position < 0) {
+            contribution += (p.price_basis - currentPrice) * Math.abs(p.net_position);
+          } else {
+            contribution += p.net_position * currentPrice - costCents;
+          }
+        }
+      }
+      portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + contribution);
+    }
 
     const leaderboard: LeaderboardRow[] = users.map((u) => ({
       user_id: u.id,
