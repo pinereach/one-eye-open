@@ -77,9 +77,9 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
                 <div className="px-3 sm:px-4 py-3 text-sm text-gray-800 dark:text-gray-200 leading-snug">
                   <span className="font-medium text-green-600 dark:text-green-400">{buyer}</span>
                   {' bought '}
-                  {shares} {shareWord} of <span className="font-medium text-gray-900 dark:text-gray-100">{outcomeName}</span>
+                  <span className="font-bold text-gray-900 dark:text-gray-100">{shares}</span> {shareWord} of <span className="font-medium text-gray-900 dark:text-gray-100">{outcomeName}</span>
                   {' at '}
-                  <span className="font-medium text-gray-900 dark:text-gray-100">{formatPrice(trade.price)}</span>
+                  <span className="font-bold text-gray-900 dark:text-gray-100">{formatPrice(trade.price)}</span>
                   {' from '}
                   <span className="font-medium text-red-600 dark:text-red-400">{seller}</span>.
                 </div>

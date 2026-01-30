@@ -5,7 +5,7 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// ../.wrangler/tmp/bundle-BrOAZt/checked-fetch.js
+// ../.wrangler/tmp/bundle-MGqt7r/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -625,14 +625,18 @@ var onRequestPost2 = /* @__PURE__ */ __name(async (context) => {
   const db = getDb(env);
   try {
     const body = await request.json().catch(() => ({}));
-    const userId = body?.user_id != null ? Number(body.user_id) : void 0;
+    const takerUserId = body?.taker_user_id != null ? Number(body.taker_user_id) : body?.user_id != null ? Number(body.user_id) : void 0;
+    const makerUserId = body?.maker_user_id != null ? Number(body.maker_user_id) : null;
     const marketId = body?.market_id;
     const outcomeId = body?.outcome_id;
     const side = body?.side;
     const price = body?.price != null ? Number(body.price) : void 0;
     const contractSize = body?.contract_size != null ? Number(body.contract_size) : void 0;
-    if (userId == null || !Number.isInteger(userId) || userId < 1) {
-      return errorResponse("Invalid or missing user_id", 400);
+    if (takerUserId == null || !Number.isInteger(takerUserId) || takerUserId < 1) {
+      return errorResponse("Invalid or missing taker_user_id", 400);
+    }
+    if (makerUserId != null && (!Number.isInteger(makerUserId) || makerUserId < 1)) {
+      return errorResponse("maker_user_id must be a positive integer or omitted", 400);
     }
     const marketIdSanitized = typeof marketId === "string" ? marketId.trim() : "";
     const outcomeIdSanitized = typeof outcomeId === "string" ? outcomeId.trim() : "";
@@ -643,7 +647,7 @@ var onRequestPost2 = /* @__PURE__ */ __name(async (context) => {
       return errorResponse("Invalid or missing outcome_id", 400);
     }
     if (side !== "bid" && side !== "ask") {
-      return errorResponse('side must be "bid" or "ask"', 400);
+      return errorResponse(`side must be "bid" or "ask" (taker's side)`, 400);
     }
     if (price == null || !Number.isInteger(price) || price < 100 || price > 9900) {
       return errorResponse("price must be an integer between 100 and 9900 (cents)", 400);
@@ -651,9 +655,18 @@ var onRequestPost2 = /* @__PURE__ */ __name(async (context) => {
     if (contractSize == null || !Number.isInteger(contractSize) || contractSize < 1) {
       return errorResponse("contract_size must be a positive integer", 400);
     }
-    const user = await dbFirst(db, "SELECT id FROM users WHERE id = ?", [userId]);
-    if (!user) {
-      return errorResponse("User not found", 404);
+    const takerUser = await dbFirst(db, "SELECT id FROM users WHERE id = ?", [takerUserId]);
+    if (!takerUser) {
+      return errorResponse("Taker user not found", 404);
+    }
+    if (makerUserId != null) {
+      const makerUser = await dbFirst(db, "SELECT id FROM users WHERE id = ?", [makerUserId]);
+      if (!makerUser) {
+        return errorResponse("Maker user not found", 404);
+      }
+      if (takerUserId === makerUserId) {
+        return errorResponse("Taker and maker cannot be the same user", 400);
+      }
     }
     const market = await dbFirst(db, "SELECT market_id FROM markets WHERE market_id = ?", [marketIdSanitized]);
     if (!market) {
@@ -676,11 +689,15 @@ var onRequestPost2 = /* @__PURE__ */ __name(async (context) => {
       price,
       contractSize,
       outcomeIdSanitized,
-      userId,
-      null,
+      takerUserId,
+      makerUserId,
       takerSide
     );
-    await updatePosition(db, outcomeIdSanitized, userId, side, price, contractSize);
+    await updatePosition(db, outcomeIdSanitized, takerUserId, side, price, contractSize);
+    if (makerUserId != null) {
+      const makerSide = side === "bid" ? "ask" : "bid";
+      await updatePosition(db, outcomeIdSanitized, makerUserId, makerSide, price, contractSize);
+    }
     return jsonResponse(
       {
         trade: {
@@ -689,7 +706,9 @@ var onRequestPost2 = /* @__PURE__ */ __name(async (context) => {
           outcome_id: outcomeIdSanitized,
           side,
           price,
-          contracts: contractSize
+          contracts: contractSize,
+          taker_user_id: takerUserId,
+          maker_user_id: makerUserId
         }
       },
       201
@@ -7474,7 +7493,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// ../.wrangler/tmp/bundle-BrOAZt/middleware-insertion-facade.js
+// ../.wrangler/tmp/bundle-MGqt7r/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -7506,7 +7525,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// ../.wrangler/tmp/bundle-BrOAZt/middleware-loader.entry.ts
+// ../.wrangler/tmp/bundle-MGqt7r/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

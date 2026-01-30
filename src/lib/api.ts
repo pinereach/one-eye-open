@@ -186,14 +186,15 @@ export const api = {
     }),
 
   adminCreateManualTrade: (data: {
-    user_id: number;
+    taker_user_id: number;
+    maker_user_id?: number | null;
     market_id: string;
     outcome_id: string;
     side: 'bid' | 'ask';
     price: number;
     contract_size: number;
   }) =>
-    apiRequest<{ trade: { id: number; market_id: string; outcome_id: string; side: string; price: number; contracts: number } }>('/admin/trades/manual', {
+    apiRequest<{ trade: { id: number; market_id: string; outcome_id: string; side: string; price: number; contracts: number; taker_user_id?: number; maker_user_id?: number | null } }>('/admin/trades/manual', {
       method: 'POST',
       body: JSON.stringify(data),
     }),

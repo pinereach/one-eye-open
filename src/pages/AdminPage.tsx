@@ -28,8 +28,9 @@ export function AdminPage() {
   const [pauseBusy, setPauseBusy] = useState<Record<string, boolean>>({});
   const [manualTradeBusy, setManualTradeBusy] = useState(false);
 
-  // Manual trade form
-  const [manualUserId, setManualUserId] = useState<number | ''>('');
+  // Manual trade form (taker = user who took; maker = user whose order was hit; side = taker's side)
+  const [manualTakerUserId, setManualTakerUserId] = useState<number | ''>('');
+  const [manualMakerUserId, setManualMakerUserId] = useState<number | ''>('');
   const [manualMarketId, setManualMarketId] = useState<string>('');
   const [manualOutcomeId, setManualOutcomeId] = useState<string>('');
   const [manualSide, setManualSide] = useState<'bid' | 'ask'>('bid');
@@ -124,17 +125,19 @@ export function AdminPage() {
 
   async function handleManualTrade(e: React.FormEvent) {
     e.preventDefault();
-    const uid = manualUserId === '' ? null : Number(manualUserId);
+    const takerId = manualTakerUserId === '' ? null : Number(manualTakerUserId);
+    const makerId = manualMakerUserId === '' ? null : Number(manualMakerUserId);
     const price = manualPrice.trim() ? parseInt(manualPrice, 10) : NaN;
     const contracts = manualContracts.trim() ? parseInt(manualContracts, 10) : NaN;
-    if (uid == null || !manualMarketId || !manualOutcomeId || Number.isNaN(price) || price < 100 || price > 9900 || Number.isNaN(contracts) || contracts < 1) {
-      showToast('Fill all fields: user, market, outcome, price (100–9900), contracts (≥1)', 'error');
+    if (takerId == null || !manualMarketId || !manualOutcomeId || Number.isNaN(price) || price < 100 || price > 9900 || Number.isNaN(contracts) || contracts < 1) {
+      showToast('Fill required fields: taker, market, outcome, price (100–9900), contracts (≥1)', 'error');
       return;
     }
     setManualTradeBusy(true);
     try {
       await api.adminCreateManualTrade({
-        user_id: uid,
+        taker_user_id: takerId,
+        maker_user_id: makerId ?? undefined,
         market_id: manualMarketId,
         outcome_id: manualOutcomeId,
         side: manualSide,
@@ -242,16 +245,34 @@ export function AdminPage() {
       <Card>
         <CardContent>
           <h2 className="text-base sm:text-lg font-bold mb-3">Add manual trade</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+            Record a trade like normal matching: taker is the one who took (placed the crossing order); maker is whose order was hit. Side is the taker&apos;s side (bid = buy, ask = sell). Both positions are updated when maker is set.
+          </p>
           <form onSubmit={handleManualTrade} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium mb-1">User</label>
+              <label className="block text-sm font-medium mb-1">Taker (required)</label>
               <select
-                value={manualUserId === '' ? '' : manualUserId}
-                onChange={(e) => setManualUserId(e.target.value ? Number(e.target.value) : '')}
+                value={manualTakerUserId === '' ? '' : manualTakerUserId}
+                onChange={(e) => setManualTakerUserId(e.target.value ? Number(e.target.value) : '')}
                 required
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
               >
-                <option value="">Select user</option>
+                <option value="">Select taker</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.username} (id: {u.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Maker (optional)</label>
+              <select
+                value={manualMakerUserId === '' || manualMakerUserId === 'none' ? '' : manualMakerUserId}
+                onChange={(e) => setManualMakerUserId(e.target.value ? Number(e.target.value) : '')}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
+              >
+                <option value="">None (house / system)</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.username} (id: {u.id})
@@ -295,14 +316,14 @@ export function AdminPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Side</label>
+              <label className="block text-sm font-medium mb-1">Taker side</label>
               <select
                 value={manualSide}
                 onChange={(e) => setManualSide(e.target.value as 'bid' | 'ask')}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
               >
-                <option value="bid">Bid (buy)</option>
-                <option value="ask">Ask (sell)</option>
+                <option value="bid">Bid (taker bought)</option>
+                <option value="ask">Ask (taker sold)</option>
               </select>
             </div>
             <div>
