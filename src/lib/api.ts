@@ -120,9 +120,12 @@ export const api = {
   getAllPositions: () =>
     apiRequest<{ positions: any[] }>('/positions'),
 
-  getAllOrders: (limit?: number) => {
-    const query = limit ? `?limit=${limit}` : '';
-    return apiRequest<{ orders: any[] }>(`/orders${query}`);
+  getAllOrders: (options?: { limit?: number; offset?: number }) => {
+    const params = new URLSearchParams();
+    if (options?.limit != null) params.set('limit', String(options.limit));
+    if (options?.offset != null && options.offset > 0) params.set('offset', String(options.offset));
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiRequest<{ orders: any[]; hasMore?: boolean }>(`/orders${query}`);
   },
 
   cancelOrder: (orderId: number) => {

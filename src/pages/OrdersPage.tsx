@@ -11,9 +11,16 @@ import { SwipeableCard } from '../components/ui/SwipeableCard';
 import { ToastContainer, useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 
+const INITIAL_LIMIT = 30;
+const HISTORY_PAGE_SIZE = 10;
+const INITIAL_HISTORY_VISIBLE = 10;
+
 export function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [completedVisibleCount, setCompletedVisibleCount] = useState(INITIAL_HISTORY_VISIBLE);
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
   const [cancelAllOpen, setCancelAllOpen] = useState(false);
   const { toasts, showToast, removeToast } = useToast();
@@ -22,16 +29,25 @@ export function OrdersPage() {
     loadOrders();
   }, []);
 
-  async function loadOrders() {
-    setLoading(true);
+  async function loadOrders(append = false) {
+    if (!append) setLoading(true);
     try {
-      const { orders } = await api.getAllOrders(100);
-      setOrders(orders);
+      const offset = append ? orders.length : 0;
+      const limit = append ? HISTORY_PAGE_SIZE : INITIAL_LIMIT;
+      const { orders: data, hasMore: more } = await api.getAllOrders({ limit, offset });
+      if (append) {
+        setOrders((prev) => [...prev, ...data]);
+      } else {
+        setOrders(data ?? []);
+        setCompletedVisibleCount(INITIAL_HISTORY_VISIBLE);
+      }
+      setHasMore(more ?? false);
     } catch (err) {
       console.error('Failed to load orders:', err);
       showToast('Failed to load orders', 'error');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }
 
@@ -42,11 +58,11 @@ export function OrdersPage() {
     try {
       await api.cancelOrder(orderId);
       showToast('Order canceled successfully', 'success');
-      await loadOrders();
+      await loadOrders(false);
     } catch (err: any) {
       console.error('Failed to cancel order:', err);
       showToast(err.message || 'Failed to cancel order', 'error');
-      await loadOrders();
+      await loadOrders(false);
     }
   }
 
@@ -56,13 +72,38 @@ export function OrdersPage() {
 
   const activeOrders = orders.filter(order => order.status === 'open' || order.status === 'partial');
   const completedOrders = orders.filter(order => order.status === 'filled' || order.status === 'canceled');
+  const completedVisible = completedOrders.slice(0, completedVisibleCount);
+  const canShowMore = completedOrders.length > completedVisibleCount || hasMore;
+
+  async function handleShowMore() {
+    if (completedOrders.length > completedVisibleCount) {
+      setCompletedVisibleCount((c) => c + HISTORY_PAGE_SIZE);
+      return;
+    }
+    if (!hasMore) return;
+    setLoadingMore(true);
+    try {
+      const { orders: data, hasMore: more } = await api.getAllOrders({
+        limit: HISTORY_PAGE_SIZE,
+        offset: orders.length,
+      });
+      setOrders((prev) => [...prev, ...(data ?? [])]);
+      setHasMore(more ?? false);
+      setCompletedVisibleCount((c) => c + HISTORY_PAGE_SIZE);
+    } catch (err) {
+      console.error('Failed to load more orders:', err);
+      showToast('Failed to load more orders', 'error');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   async function doCancelAll() {
     try {
       const cancelPromises = activeOrders.map(order => api.cancelOrder(order.id));
       await Promise.all(cancelPromises);
       showToast('All orders canceled successfully', 'success');
-      await loadOrders();
+      await loadOrders(false);
     } catch (err: any) {
       console.error('Failed to cancel orders:', err);
       showToast(err.message || 'Failed to cancel all orders', 'error');
@@ -206,13 +247,26 @@ export function OrdersPage() {
       <div className="space-y-3 sm:space-y-4">
         <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Order History</h2>
         <div className="md:hidden space-y-3">
-          {completedOrders.length === 0 ? (
+          {completedVisible.length === 0 ? (
             <Card><CardContent><p className="text-center text-gray-500 dark:text-gray-400 text-sm py-4">No completed orders</p></CardContent></Card>
           ) : (
-            completedOrders.map(renderOrderCard)
+            completedVisible.map(renderOrderCard)
           )}
         </div>
-        <div className="hidden md:block">{renderOrderTable(completedOrders, 'No completed orders')}</div>
+        <div className="hidden md:block">{renderOrderTable(completedVisible, 'No completed orders')}</div>
+        {canShowMore && (
+          <div className="flex justify-center pt-2">
+            <button
+              type="button"
+              onClick={handleShowMore}
+              disabled={loadingMore}
+              className="px-4 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg border border-primary-300 dark:border-primary-700 touch-manipulation disabled:opacity-50 transition-colors"
+              aria-label="Show more orders"
+            >
+              {loadingMore ? 'Loading…' : 'Show more'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
 

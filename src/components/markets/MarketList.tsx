@@ -19,6 +19,17 @@ function getMarketIcon(marketId: string) {
       </svg>
     );
   }
+  // Same icon for tournament (H2H), round matchups, and special matchups
+  if (marketId.includes('h2h') || marketId.includes('matchup') || marketId.includes('round-matchups') || marketId.includes('special-matchups')) {
+    return (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {/* Matchup: two sides with vs in the middle (tournament, round, special) */}
+        <circle cx="6" cy="12" r="4" strokeWidth={2} />
+        <circle cx="18" cy="12" r="4" strokeWidth={2} />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v6M10.5 12h3" />
+      </svg>
+    );
+  }
   if (marketId.includes('round') || marketId.includes('ou')) {
     return (
       <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -33,16 +44,6 @@ function getMarketIcon(marketId: string) {
     return (
       <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-      </svg>
-    );
-  }
-  if (marketId.includes('h2h') || marketId.includes('matchup')) {
-    return (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        {/* Matchup: two sides with vs in the middle */}
-        <circle cx="6" cy="12" r="4" strokeWidth={2} />
-        <circle cx="18" cy="12" r="4" strokeWidth={2} />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v6M10.5 12h3" />
       </svg>
     );
   }

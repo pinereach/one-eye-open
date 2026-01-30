@@ -6,6 +6,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
   const limit = parseInt(url.searchParams.get('limit') || '100', 10);
+  const offset = parseInt(url.searchParams.get('offset') || '0', 10);
 
   const authResult = await requireAuth(request, env);
   if ('error' in authResult) {
@@ -44,8 +45,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
      JOIN markets m ON oc.market_id = m.market_id
      WHERE o.user_id = ?
      ORDER BY o.create_time DESC
-     LIMIT ?`,
-    [userId, limit]
+     LIMIT ? OFFSET ?`,
+    [userId, limit, offset]
   );
 
   // Orders that need trade fallback (filled/partial with missing original_contract_size)
@@ -141,5 +142,6 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     };
   });
 
-  return jsonResponse({ orders });
+  const hasMore = ordersDb.length === limit;
+  return jsonResponse({ orders, hasMore });
 };
