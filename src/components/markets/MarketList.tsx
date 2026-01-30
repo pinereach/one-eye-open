@@ -69,6 +69,7 @@ function getMarketIcon(marketId: string) {
 export function MarketList({ tripId }: { tripId?: string }) {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -76,30 +77,31 @@ export function MarketList({ tripId }: { tripId?: string }) {
     loadMarkets();
   }, [tripId]);
 
-  async function loadMarkets(retry = false) {
-    if (!retry) {
+  async function loadMarkets(retry = false, cacheBust = false) {
+    const isRefresh = cacheBust && markets.length > 0;
+    if (!retry && !isRefresh) {
       setLoading(true);
       setError(null);
     }
+    if (isRefresh) setRefreshing(true);
     try {
-      const { markets } = await api.getMarkets();
-      setMarkets(markets);
+      const { markets: data } = await api.getMarkets(cacheBust ? { cacheBust: true } : undefined);
+      setMarkets(data ?? []);
       setError(null);
       setRetryCount(0);
     } catch (err: any) {
       console.error('Failed to load markets:', err);
       const errorMessage = err?.message || 'Failed to load markets';
       setError(errorMessage);
-      
-      // Auto-retry once after 2 seconds if this is the first failure
-      if (retryCount === 0) {
+      if (!retry && retryCount === 0) {
         setTimeout(() => {
           setRetryCount(1);
-          loadMarkets(true);
+          loadMarkets(true, false);
         }, 2000);
       }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -108,11 +110,13 @@ export function MarketList({ tripId }: { tripId?: string }) {
     const labels: Record<string, string> = {
       'team_champion': 'Team',
       'individual_champion': 'Individual',
+      'matchups': 'Matchups',
       'h2h_matchups': 'Head-to-Head',
       'round_matchups': 'Round Matchups',
       'special_matchups': 'Special Matchups',
       'round_ou': 'Round Over/Under',
       'total_birdies': 'Totals',
+      'specials': 'Special Events',
       'hole_in_one': 'Special Events',
     };
     return labels[marketType] || 'Other';
@@ -128,8 +132,8 @@ export function MarketList({ tripId }: { tripId?: string }) {
     return acc;
   }, {} as Record<string, Market[]>);
 
-  // Define display order for market types
-  const typeOrder = ['team_champion', 'individual_champion', 'h2h_matchups', 'round_matchups', 'special_matchups', 'round_ou', 'total_birdies', 'hole_in_one', 'other'];
+  // Define display order for market types (matchups/specials = production; *_matchups/hole_in_one = legacy)
+  const typeOrder = ['team_champion', 'individual_champion', 'matchups', 'h2h_matchups', 'round_matchups', 'special_matchups', 'round_ou', 'total_birdies', 'specials', 'hole_in_one', 'other'];
   
   // Get all types that have markets, preserving order for known types, then adding any unknown types
   const knownTypes = typeOrder.filter(type => marketsByType[type]?.length > 0);
@@ -157,6 +161,31 @@ export function MarketList({ tripId }: { tripId?: string }) {
   } else {
     content = (
     <div className="space-y-4 sm:space-y-6">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => loadMarkets(false, true)}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md border border-gray-300 dark:border-gray-600 disabled:opacity-50 transition-colors"
+          title="Bypass cache and reload markets"
+        >
+          {refreshing ? (
+            <>
+              <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refreshing…
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </>
+          )}
+        </button>
+      </div>
       {sortedTypes.map((type) => {
         const typeMarkets = marketsByType[type];
         const typeLabel = getMarketTypeLabel(type);
@@ -205,7 +234,7 @@ export function MarketList({ tripId }: { tripId?: string }) {
   }
 
   return (
-    <PullToRefresh onRefresh={() => loadMarkets(true)}>
+    <PullToRefresh onRefresh={() => loadMarkets(false, true)}>
       {content}
     </PullToRefresh>
   );

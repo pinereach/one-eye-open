@@ -84,8 +84,8 @@ export const api = {
   getParticipants: () => apiRequest<{ participants: any[] }>('/participants'),
 
   // Markets
-  getMarkets: () => {
-    return apiRequest<{ markets: any[] }>('/markets');
+  getMarkets: (options?: { cacheBust?: boolean }) => {
+    return apiRequest<{ markets: any[] }>('/markets', options);
   },
 
   getMarket: (id: string, options?: { cacheBust?: boolean }) =>
