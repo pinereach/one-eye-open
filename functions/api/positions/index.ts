@@ -273,7 +273,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       const bidPrice = bestBidByOutcome[p.outcome] ?? null;
       const askPrice = bestAskByOutcome[p.outcome] ?? null;
       const current_price = (bidPrice !== null && askPrice !== null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
-      return { ...p, price_basis: clampBasis(p), current_price };
+      return { ...p, price_basis: clampBasis(p), current_price, best_bid: bidPrice, best_ask: askPrice };
     });
   }
 

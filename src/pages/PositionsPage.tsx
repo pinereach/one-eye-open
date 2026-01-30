@@ -144,9 +144,14 @@ export function PositionsPage() {
               </div>
             )}
           </div>
-          <div className="mt-3 -mx-4 sm:-mx-5 -mb-4 sm:-mb-5 px-4 sm:px-5 py-2 rounded-b-lg bg-gray-100 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-            <span>Closed profit: <span className={`font-medium ${closedProfitCents >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(closedProfitCents)}</span></span>
-            <span>Settled profit: <span className={`font-medium ${settledProfitCents >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(settledProfitCents)}</span></span>
+          <div className="mt-3 -mx-4 sm:-mx-5 -mb-4 sm:-mb-5 px-4 sm:px-5 py-2 rounded-b-lg bg-gray-100 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              <span>Closed profit: <span className={`font-medium ${closedProfitCents >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(closedProfitCents)}</span></span>
+              <span>Settled profit: <span className={`font-medium ${settledProfitCents >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(settledProfitCents)}</span></span>
+            </div>
+            <div className="text-right shrink-0">
+              Bid: {position.best_bid != null ? formatPriceBasis(position.best_bid) : '—'} | Ask: {position.best_ask != null ? formatPriceBasis(position.best_ask) : '—'}
+            </div>
           </div>
         </CardContent>
       </Card>

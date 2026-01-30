@@ -215,6 +215,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
           outcome_name: p.outcome_name,
           outcome_ticker: p.outcome_ticker,
           current_price,
+          best_bid: bidPrice,
+          best_ask: askPrice,
         };
       });
     }

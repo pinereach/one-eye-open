@@ -89,6 +89,8 @@ export interface Position {
   price_basis: number;
   is_settled: number; // 0 = false, 1 = true
   current_price?: number | null; // Current midpoint price from orderbook
+  best_bid?: number | null; // Best bid from orderbook (cents)
+  best_ask?: number | null; // Best ask from orderbook (cents)
   market_id?: string; // Market ID for navigation
   market_name?: string; // For display
   outcome_ticker?: string; // For display
