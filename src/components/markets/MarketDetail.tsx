@@ -562,6 +562,20 @@ export function MarketDetail() {
   const bestBid = selectedOrderbook?.bids?.[0];
   const bestAsk = selectedOrderbook?.asks?.[0];
 
+  // Last traded price per outcome (most recent trade per outcome_id)
+  const lastTradePriceByOutcome = useMemo(() => {
+    const byOutcome: Record<string, number> = {};
+    const sorted = [...trades].sort((a, b) => b.create_time - a.create_time);
+    for (const t of sorted) {
+      const oid = t.outcome ?? '';
+      if (oid && byOutcome[oid] === undefined) byOutcome[oid] = t.price;
+    }
+    return byOutcome;
+  }, [trades]);
+
+  const selectedOutcomeName = outcomes.find(o => o.outcome_id === selectedOutcomeId)?.name ?? '';
+  const lastPriceSelected = selectedOutcomeId ? lastTradePriceByOutcome[selectedOutcomeId] : undefined;
+
   // Resolve position display names (API may not return market_name/outcome_name for market-scoped positions)
   function getPositionDisplayNames(position: Position) {
     const marketName = position.market_name ?? market?.short_name ?? 'N/A';
@@ -1272,7 +1286,12 @@ export function MarketDetail() {
                                 <td colSpan={desktopColSpan} className="p-0 align-top">
                                   <div className="px-3 py-3 sm:px-4 sm:py-4 border-t border-gray-200 dark:border-gray-600">
                                     <div className="flex items-center justify-between gap-2 mb-2">
-                                      <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Orderbook — {outcome.name}</span>
+                                      <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                                        Orderbook — {outcome.name}
+                                        {lastTradePriceByOutcome[outcome.outcome_id] != null && (
+                                          <> | Last: {formatPriceCents(lastTradePriceByOutcome[outcome.outcome_id])}</>
+                                        )}
+                                      </span>
                                       {myOrdersInThisOutcome.length > 0 && (
                                         <button
                                           type="button"
@@ -1334,7 +1353,12 @@ export function MarketDetail() {
           {/* Orderbook Section — hidden on desktop (orderbook shown in accordion under outcome) */}
           <div className="min-w-0 max-md:block md:hidden">
             <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
-              <h2 className="text-base sm:text-lg font-bold">Orderbook</h2>
+              <h2 className="text-base sm:text-lg font-bold">
+                Orderbook
+                {selectedOutcomeId && selectedOutcomeName && (
+                  <> — {selectedOutcomeName}{lastPriceSelected != null ? ` | Last: ${formatPriceCents(lastPriceSelected)}` : ''}</>
+                )}
+              </h2>
               {selectedOutcomeId && selectedOrderbook && myOrdersInSelectedOutcome.length > 0 && (
                 <button
                   type="button"
@@ -1527,12 +1551,15 @@ export function MarketDetail() {
               ) : (
               <div>
                 <label className="block text-sm font-medium mb-1.5">Price ($)</label>
-                {selectedOrderbook && (bestBid || bestAsk) && (
+                {selectedOrderbook && (bestBid || bestAsk || lastPriceSelected != null) && (
                   <div className="mb-2 text-xs text-gray-600 dark:text-gray-400">
                     <span>
                       Bid: {bestBid ? <><span className="font-medium text-blue-600 dark:text-blue-400">{formatPriceCents(bestBid.price)}</span> × {bestBid.contract_size ?? '—'}</> : '—'}
                       {' | '}
                       Ask: {bestAsk ? <><span className="font-medium text-purple-600 dark:text-purple-400">{formatPriceCents(bestAsk.price)}</span> × {bestAsk.contract_size ?? '—'}</> : '—'}
+                      {lastPriceSelected != null && (
+                        <> {' | '} Last: <span className="font-medium text-gray-700 dark:text-gray-300">{formatPriceCents(lastPriceSelected)}</span></>
+                      )}
                     </span>
                   </div>
                 )}
@@ -2023,12 +2050,15 @@ export function MarketDetail() {
           ) : (
           <div>
             <label className="block text-sm font-medium mb-2">Price ($)</label>
-            {selectedOrderbook && (bestBid || bestAsk) && (
+            {selectedOrderbook && (bestBid || bestAsk || lastPriceSelected != null) && (
               <div className="mb-2 text-xs text-gray-600 dark:text-gray-400">
                 <span>
                   Bid: {bestBid ? <><span className="font-medium text-blue-600 dark:text-blue-400">{formatPriceCents(bestBid.price)}</span> × {bestBid.contract_size ?? '—'}</> : '—'}
                   {' | '}
                   Ask: {bestAsk ? <><span className="font-medium text-purple-600 dark:text-purple-400">{formatPriceCents(bestAsk.price)}</span> × {bestAsk.contract_size ?? '—'}</> : '—'}
+                  {lastPriceSelected != null && (
+                    <> {' | '} Last: <span className="font-medium text-gray-700 dark:text-gray-300">{formatPriceCents(lastPriceSelected)}</span></>
+                  )}
                 </span>
               </div>
             )}

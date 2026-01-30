@@ -1,0 +1,7 @@
+# Ensure index.html is never cached so after deploys users get new chunk URLs.
+# Otherwise old HTML can request removed chunks and get HTML 404 → MIME type error.
+/
+  Cache-Control: no-cache, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, max-age=0, must-revalidate
