@@ -757,27 +757,6 @@ export function MarketDetail() {
             {market.description}
           </p>
         )}
-        {/* Market Summary Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-1 gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <div className="bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 rounded-lg">
-            <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Trading Volume</div>
-            <div className="text-sm sm:text-lg font-semibold">
-              ${marketStats.volume_dollars.toLocaleString()}
-            </div>
-          </div>
-        </div>
-        {lastFetchedAt != null && (
-          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-2">
-            <span>Updated {formatLastUpdated(lastFetchedAt)}</span>
-            <button
-              type="button"
-              onClick={() => loadMarket()}
-              className="text-primary-600 dark:text-primary-400 hover:underline font-medium"
-            >
-              Refresh
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Mobile Tabs */}
@@ -2192,6 +2171,14 @@ export function MarketDetail() {
         cancelLabel="Keep"
         variant="danger"
       />
+
+      {/* Trading volume chip at bottom */}
+      <div className="flex justify-center pt-4 pb-2 md:pt-6 md:pb-4">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium bg-gray-100 dark:bg-gray-700/80 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
+          <span>Trading volume</span>
+          <span className="font-semibold text-gray-900 dark:text-gray-200">${marketStats.volume_dollars.toLocaleString()}</span>
+        </span>
+      </div>
 
       {/* Spacer for mobile bottom nav and FAB */}
       <div className="md:hidden h-24"></div>
