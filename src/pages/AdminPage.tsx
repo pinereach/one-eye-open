@@ -268,7 +268,7 @@ export function AdminPage() {
             <div>
               <label className="block text-sm font-medium mb-1">Maker (optional)</label>
               <select
-                value={manualMakerUserId === '' || manualMakerUserId === 'none' ? '' : manualMakerUserId}
+                value={manualMakerUserId === '' ? '' : String(manualMakerUserId)}
                 onChange={(e) => setManualMakerUserId(e.target.value ? Number(e.target.value) : '')}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
               >
