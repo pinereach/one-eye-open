@@ -583,8 +583,7 @@ export function MarketDetail() {
 
   const formatPositionChip = (netPosition: number, priceBasisCents: number) => {
     const sign = netPosition >= 0 ? '+' : '';
-    const priceStr = (priceBasisCents / 100).toFixed(1);
-    return `${sign}${netPosition} @ $${priceStr}`;
+    return `${sign}${netPosition} @ ${formatPriceBasis(priceBasisCents)}`;
   };
 
   const getPositionValueCents = (position: Position, currentPrice: number | null) => {
@@ -767,7 +766,7 @@ export function MarketDetail() {
       <div className="md:hidden">
         {activeTab === 'outcomes' && outcomes && outcomes.length > 0 && (
           <div className="mt-4">
-            <div className="overflow-x-auto -mx-3 sm:mx-0">
+            <div className="overflow-x-auto -mx-2 sm:mx-0">
               <div className="inline-block min-w-full align-middle">
                 <table className="w-full min-w-[320px] sm:min-w-[640px]">
                   <thead>
@@ -1078,7 +1077,7 @@ export function MarketDetail() {
                           )}
                         </div>
                         {(position.closed_profit != null && position.closed_profit !== 0) || (position.settled_profit != null && position.settled_profit !== 0) ? (
-                          <div className="mt-3 -mx-4 sm:-mx-5 -mb-4 sm:-mb-5 px-4 sm:px-5 py-2 rounded-b-lg bg-gray-100 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                          <div className="mt-3 -mx-2 sm:-mx-5 -mb-4 sm:-mb-5 px-2 sm:px-5 py-2 rounded-b-lg bg-gray-100 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                             <span>Closed profit: <span className={`font-medium ${(position.closed_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(position.closed_profit ?? 0)}</span></span>
                             <span>Settled profit: <span className={`font-medium ${(position.settled_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(position.settled_profit ?? 0)}</span></span>
                           </div>
@@ -1098,7 +1097,7 @@ export function MarketDetail() {
         {outcomes && outcomes.length > 0 ? (
           <div>
             {/* Outcomes Table */}
-            <div className="overflow-x-auto -mx-3 sm:mx-0">
+            <div className="overflow-x-auto -mx-2 sm:mx-0">
               <div className="inline-block min-w-full align-middle">
                 <table className="w-full min-w-[320px] sm:min-w-[640px]">
                   <thead>
@@ -1318,7 +1317,7 @@ export function MarketDetail() {
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                     }`}
                   >
-                    No/Sell {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
+                    No/Sell {bestBid ? formatPriceCents(bestBid.price) : ''}
                   </button>
                   <button
                     type="button"
@@ -1329,7 +1328,7 @@ export function MarketDetail() {
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                     }`}
                   >
-                    Yes/Buy {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
+                    Yes/Buy {bestAsk ? formatPriceCents(bestAsk.price) : ''}
                   </button>
                   {user?.view_market_maker && (
                   <button
@@ -1666,7 +1665,7 @@ export function MarketDetail() {
                             )}
                           </div>
                           {(position.closed_profit != null && position.closed_profit !== 0) || (position.settled_profit != null && position.settled_profit !== 0) ? (
-                            <div className="mt-3 -mx-4 sm:-mx-5 -mb-4 sm:-mb-5 px-4 sm:px-5 py-2 rounded-b-lg bg-gray-100 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                            <div className="mt-3 -mx-2 sm:-mx-5 -mb-4 sm:-mb-5 px-2 sm:px-5 py-2 rounded-b-lg bg-gray-100 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                               <span>Closed profit: <span className={`font-medium ${(position.closed_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(position.closed_profit ?? 0)}</span></span>
                               <span>Settled profit: <span className={`font-medium ${(position.settled_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(position.settled_profit ?? 0)}</span></span>
                             </div>
@@ -1793,7 +1792,7 @@ export function MarketDetail() {
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                 }`}
               >
-                No/Sell {bestBid ? `$${Math.round(bestBid.price / 100)}` : ''}
+                No/Sell {bestBid ? formatPriceCents(bestBid.price) : ''}
               </button>
               <button
                 type="button"
@@ -1804,7 +1803,7 @@ export function MarketDetail() {
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                 }`}
               >
-                Yes/Buy {bestAsk ? `$${Math.round(bestAsk.price / 100)}` : ''}
+                Yes/Buy {bestAsk ? formatPriceCents(bestAsk.price) : ''}
               </button>
               {user?.view_market_maker && (
               <button

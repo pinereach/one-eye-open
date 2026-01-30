@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
@@ -50,6 +50,21 @@ export function PositionsPage() {
     (p) => p.net_position !== 0 || (p.closed_profit ?? 0) !== 0 || (p.settled_profit ?? 0) !== 0
   );
 
+  // Group by market (market_id or market_name) for header + cards
+  const positionsByMarket = useMemo(() => {
+    const toShow = positions.filter(
+      (p) => p.net_position !== 0 || (p.closed_profit ?? 0) !== 0 || (p.settled_profit ?? 0) !== 0
+    );
+    const map: Record<string, { marketLabel: string; positions: typeof toShow }> = {};
+    for (const p of toShow) {
+      const key = p.market_id ?? p.market_name ?? 'other';
+      const label = p.market_name ?? p.market_id ?? 'Other';
+      if (!map[key]) map[key] = { marketLabel: label, positions: [] };
+      map[key].positions.push(p);
+    }
+    return Object.entries(map);
+  }, [positions]);
+
   const getPositionValueCents = (position: any, currentPrice: number | null) => {
     if (currentPrice === null) return null;
     if (position.net_position < 0) {
@@ -79,7 +94,7 @@ export function PositionsPage() {
     const closedProfitCents = position.closed_profit ?? 0;
     const settledProfitCents = position.settled_profit ?? 0;
     const isLong = position.net_position > 0;
-    const positionChipText = `${position.net_position >= 0 ? '+' : ''}${position.net_position} @ $${(position.price_basis / 100).toFixed(1)}`;
+    const positionChipText = `${position.net_position >= 0 ? '+' : ''}${position.net_position} @ ${formatPriceBasis(position.price_basis)}`;
 
     const { riskCents, toProfitCents } =
       position.net_position < 0
@@ -103,7 +118,6 @@ export function PositionsPage() {
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0 pr-4">
               <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-1">{position.outcome_name || position.outcome_ticker || position.outcome}</h3>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">{position.market_name || 'N/A'}</p>
               {hasOpenPosition && (
                 <>
                   <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${isLong ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
@@ -157,7 +171,7 @@ export function PositionsPage() {
           </span>
         </div>
       )}
-      <div className="md:hidden space-y-3">
+      <div className="md:hidden space-y-6">
         {positionsToShow.length === 0 ? (
           <EmptyState
             icon={<svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
@@ -166,10 +180,19 @@ export function PositionsPage() {
             action={<Link to="/markets" className="text-primary-600 dark:text-primary-400 font-medium hover:underline">Browse markets</Link>}
           />
         ) : (
-          positionsToShow.map(renderPositionCard)
+          positionsByMarket.map(([marketKey, { marketLabel, positions: groupPositions }]) => (
+            <div key={marketKey} className="space-y-2">
+              <h2 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide sticky top-0 bg-white dark:bg-gray-900 py-1 z-10">
+                {marketLabel}
+              </h2>
+              <div className="space-y-3">
+                {groupPositions.map(renderPositionCard)}
+              </div>
+            </div>
+          ))
         )}
       </div>
-      <div className="hidden md:block space-y-3">
+      <div className="hidden md:block space-y-6">
         {positionsToShow.length === 0 ? (
           <EmptyState
             icon={<svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
@@ -178,7 +201,16 @@ export function PositionsPage() {
             action={<Link to="/markets" className="text-primary-600 dark:text-primary-400 font-medium hover:underline">Browse markets</Link>}
           />
         ) : (
-          positionsToShow.map(renderPositionCard)
+          positionsByMarket.map(([marketKey, { marketLabel, positions: groupPositions }]) => (
+            <div key={marketKey} className="space-y-2">
+              <h2 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                {marketLabel}
+              </h2>
+              <div className="space-y-3">
+                {groupPositions.map(renderPositionCard)}
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>

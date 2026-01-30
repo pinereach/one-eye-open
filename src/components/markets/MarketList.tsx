@@ -120,7 +120,7 @@ export function MarketList({ tripId }: { tripId?: string }) {
   }, {} as Record<string, Market[]>);
 
   // Define display order for market types
-  const typeOrder = ['team_champion', 'individual_champion', 'round_ou', 'total_birdies', 'h2h_matchups', 'hole_in_one', 'other'];
+  const typeOrder = ['team_champion', 'individual_champion', 'h2h_matchups', 'round_ou', 'total_birdies', 'hole_in_one', 'other'];
   
   // Get all types that have markets, preserving order for known types, then adding any unknown types
   const knownTypes = typeOrder.filter(type => marketsByType[type]?.length > 0);

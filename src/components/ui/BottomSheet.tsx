@@ -105,7 +105,7 @@ export function BottomSheet({ isOpen, onClose, children, title }: BottomSheetPro
         
         {/* Header */}
         {title && (
-          <div className="px-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-3 pb-2 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{title}</h2>
               <button
@@ -122,7 +122,7 @@ export function BottomSheet({ isOpen, onClose, children, title }: BottomSheetPro
         )}
         
         {/* Content */}
-        <div className="px-4 pt-4 pb-24">
+        <div className="px-3 pt-3 pb-24">
           {children}
         </div>
       </div>

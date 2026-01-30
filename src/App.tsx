@@ -136,7 +136,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           )}
         </div>
       </nav>
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 pb-20 md:pb-4 sm:pb-6 lg:pb-8">{children}</main>
+      <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-3 sm:py-6 lg:py-8 pb-20 md:pb-4 sm:pb-6 lg:pb-8">{children}</main>
       {(user || isDevelopment) && <BottomNav />}
     </div>
   );
