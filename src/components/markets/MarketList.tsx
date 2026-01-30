@@ -51,6 +51,13 @@ function getMarketIcon(marketId: string) {
       </svg>
     );
   }
+  if (marketId.includes('eagles')) {
+    return (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+      </svg>
+    );
+  }
   // Default icon
   return (
     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -101,9 +108,11 @@ export function MarketList({ tripId }: { tripId?: string }) {
     const labels: Record<string, string> = {
       'team_champion': 'Team',
       'individual_champion': 'Individual',
+      'h2h_matchups': 'Head-to-Head',
+      'round_matchups': 'Round Matchups',
+      'special_matchups': 'Special Matchups',
       'round_ou': 'Round Over/Under',
       'total_birdies': 'Totals',
-      'h2h_matchups': 'Head-to-Head',
       'hole_in_one': 'Special Events',
     };
     return labels[marketType] || 'Other';
@@ -120,7 +129,7 @@ export function MarketList({ tripId }: { tripId?: string }) {
   }, {} as Record<string, Market[]>);
 
   // Define display order for market types
-  const typeOrder = ['team_champion', 'individual_champion', 'h2h_matchups', 'round_ou', 'total_birdies', 'hole_in_one', 'other'];
+  const typeOrder = ['team_champion', 'individual_champion', 'h2h_matchups', 'round_matchups', 'special_matchups', 'round_ou', 'total_birdies', 'hole_in_one', 'other'];
   
   // Get all types that have markets, preserving order for known types, then adding any unknown types
   const knownTypes = typeOrder.filter(type => marketsByType[type]?.length > 0);
