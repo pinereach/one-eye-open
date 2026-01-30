@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { formatPrice, formatPriceBasis, formatPriceDecimal, formatPriceCents, formatNotionalBySide } from '../../lib/format';
@@ -857,7 +857,7 @@ export function MarketDetail() {
                                         const isProfit = totalClosedCents >= 0;
                                         return (
                                           <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium ${isProfit ? 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20' : 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20'}`}>
-                                            {isProfit ? '+' : ''}{formatPriceBasis(totalClosedCents)} closed
+                                            {isProfit ? '+' : ''}{formatPriceBasis(totalClosedCents)}
                                           </span>
                                         );
                                       }
@@ -1114,7 +1114,7 @@ export function MarketDetail() {
                                 const isProfitCard = totalClosedCard >= 0;
                                 return (
                                   <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${isProfitCard ? 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20' : 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20'}`}>
-                                    {isProfitCard ? '+' : ''}{formatPriceBasis(totalClosedCard)} closed
+                                    {isProfitCard ? '+' : ''}{formatPriceBasis(totalClosedCard)}
                                   </span>
                                 );
                               }
@@ -1195,102 +1195,153 @@ export function MarketDetail() {
                           ? formatScoreToPar(currentScoreDesktop?.score_gross)
                           : formatScoreToPar(currentScoreDesktop?.score_net);
                         
+                        const desktopColSpan = showCurrentColumn ? 5 : 4;
+                        const myOrdersInThisOutcome = (orderbook?.bids ?? []).concat(orderbook?.asks ?? []).filter((o: Order) => o.user_id === user?.id && (o.status === 'open' || o.status === 'partial'));
                         return (
-                          <tr
-                            key={outcome.id}
-                            className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer touch-manipulation transition-colors ${
-                              isSelected ? 'bg-primary-50 dark:bg-primary-900/20 border-l-4 border-l-primary-600 dark:border-l-primary-400' : ''
-                            }`}
-                            onClick={() => setSelectedOutcomeId(outcome.outcome_id)}
-                          >
-                            <td className="py-1.5 px-2 sm:py-2 sm:px-3">
-                              <div className="flex items-center gap-1 sm:gap-2">
-                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-4 sm:w-6 flex-shrink-0">
-                                  {index + 1}
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                  <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
-                                    {market?.market_id === 'market-h2h-matchups'
-                                      ? formatH2HOutcomeWithIndexes(outcome.name, false)
-                                      : (
-                                          <>
-                                            {outcome.name}
-                                            {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null && (
-                                              <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-normal"> ({handicaps[outcome.name]})</span>
-                                            )}
-                                          </>
-                                        )}
-                                  </div>
-                                  {positionByOutcome[outcome.outcome_id] && (() => {
-                                    const pos = positionByOutcome[outcome.outcome_id];
-                                    const { net_position, price_basis } = pos;
-                                    const totalClosedCentsDesktop = (pos.closed_profit ?? 0) + (pos.settled_profit ?? 0);
-                                    if (net_position === 0) {
-                                      if (totalClosedCentsDesktop !== 0) {
-                                        const isProfitDesktop = totalClosedCentsDesktop >= 0;
-                                        return (
-                                          <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium ${isProfitDesktop ? 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20' : 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20'}`}>
-                                            {isProfitDesktop ? '+' : ''}{formatPriceBasis(totalClosedCentsDesktop)} closed
-                                          </span>
-                                        );
+                          <Fragment key={outcome.id}>
+                            <tr
+                              className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer touch-manipulation transition-colors ${
+                                isSelected ? 'bg-primary-50 dark:bg-primary-900/20 border-l-4 border-l-primary-600 dark:border-l-primary-400' : ''
+                              }`}
+                              onClick={() => setSelectedOutcomeId(outcome.outcome_id)}
+                            >
+                              <td className="py-1.5 px-2 sm:py-2 sm:px-3">
+                                <div className="flex items-center gap-1 sm:gap-2">
+                                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-4 sm:w-6 flex-shrink-0">
+                                    {index + 1}
+                                  </span>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
+                                      {market?.market_id === 'market-h2h-matchups'
+                                        ? formatH2HOutcomeWithIndexes(outcome.name, false)
+                                        : (
+                                            <>
+                                              {outcome.name}
+                                              {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null && (
+                                                <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-normal"> ({handicaps[outcome.name]})</span>
+                                              )}
+                                            </>
+                                          )}
+                                    </div>
+                                    {positionByOutcome[outcome.outcome_id] && (() => {
+                                      const pos = positionByOutcome[outcome.outcome_id];
+                                      const { net_position, price_basis } = pos;
+                                      const totalClosedCentsDesktop = (pos.closed_profit ?? 0) + (pos.settled_profit ?? 0);
+                                      if (net_position === 0) {
+                                        if (totalClosedCentsDesktop !== 0) {
+                                          const isProfitDesktop = totalClosedCentsDesktop >= 0;
+                                          return (
+                                            <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium ${isProfitDesktop ? 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20' : 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20'}`}>
+                                              {isProfitDesktop ? '+' : ''}{formatPriceBasis(totalClosedCentsDesktop)}
+                                            </span>
+                                          );
+                                        }
+                                        return null;
                                       }
-                                      return null;
-                                    }
-                                    const isLong = net_position > 0;
-                                    return (
-                                      <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold ${isLong ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
-                                        {formatPositionChip(net_position, price_basis)}
-                                      </span>
-                                    );
-                                  })()}
+                                      const isLong = net_position > 0;
+                                      return (
+                                        <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold ${isLong ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
+                                          {formatPositionChip(net_position, price_basis)}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
                                 </div>
-                              </div>
-                            </td>
-                            {showCurrentColumn && (
+                              </td>
+                              {showCurrentColumn && (
+                                <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
+                                  <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100">
+                                    {currentDisplayDesktop}
+                                  </span>
+                                </td>
+                              )}
                               <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                                 <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100">
-                                  {currentDisplayDesktop}
+                                  {chance}%
                                 </span>
                               </td>
+                              <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
+                                <div className="flex justify-center">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleAskClick(outcome.outcome_id, bestBid?.price || null);
+                                    }}
+                                    className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-800 active:bg-purple-300 dark:active:bg-purple-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
+                                  >
+                                    {bestBid ? formatPriceCents(bestBid.price) : '-'}
+                                    {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
+                                      <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestBid.contract_size}</span>
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
+                                <div className="flex justify-center">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleBidClick(outcome.outcome_id, bestAsk?.price || null);
+                                    }}
+                                    className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800 active:bg-blue-300 dark:active:bg-blue-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
+                                  >
+                                    {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
+                                    {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
+                                      <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestAsk.contract_size}</span>
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                            {isSelected && orderbook && (
+                              <tr className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+                                <td colSpan={desktopColSpan} className="p-0 align-top">
+                                  <div className="px-3 py-3 sm:px-4 sm:py-4 border-t border-gray-200 dark:border-gray-600">
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                      <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Orderbook — {outcome.name}</span>
+                                      {myOrdersInThisOutcome.length > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); handleCancelAllOrdersForOutcome(); }}
+                                          disabled={cancelingAllForOutcome}
+                                          className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50 p-1 rounded touch-manipulation font-bold text-sm leading-none"
+                                          title="Cancel all your orders for this outcome"
+                                          aria-label="Cancel all your orders for this outcome"
+                                        >
+                                          Cancel all my orders
+                                        </button>
+                                      )}
+                                    </div>
+                                    <div className="max-h-[280px] overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800">
+                                      <Orderbook
+                                        bids={orderbook.bids}
+                                        asks={orderbook.asks}
+                                        userId={user?.id}
+                                        onPriceClick={(price, side) => {
+                                          const priceDollars = Math.round(price / 100);
+                                          const clampedPrice = Math.max(1, Math.min(99, priceDollars));
+                                          setOrderPrice(clampedPrice.toString());
+                                          setOrderSide(side);
+                                          setAutoFilled('price');
+                                          setTimeout(() => setAutoFilled(null), 2000);
+                                        }}
+                                        onCancelOrder={async (orderId) => {
+                                          try {
+                                            await api.cancelOrder(orderId);
+                                            showToast('Order canceled successfully', 'success');
+                                            await loadMarket(true);
+                                          } catch (err: any) {
+                                            console.error('Failed to cancel order:', err);
+                                            showToast(err?.message || 'Failed to cancel order', 'error');
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
                             )}
-                            <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
-                              <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100">
-                                {chance}%
-                              </span>
-                            </td>
-                            <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
-                              <div className="flex justify-center">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleAskClick(outcome.outcome_id, bestBid?.price || null);
-                                  }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-800 active:bg-purple-300 dark:active:bg-purple-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
-                                >
-                                  {bestBid ? formatPriceCents(bestBid.price) : '-'}
-                                  {bestBid?.contract_size != null && bestBid.contract_size > 0 && (
-                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestBid.contract_size}</span>
-                                  )}
-                                </button>
-                              </div>
-                            </td>
-                            <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
-                              <div className="flex justify-center">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleBidClick(outcome.outcome_id, bestAsk?.price || null);
-                                  }}
-                                  className="w-[60px] sm:w-[100px] px-1 sm:px-2 py-1 sm:py-1.5 rounded text-xs font-bold whitespace-nowrap bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800 active:bg-blue-300 dark:active:bg-blue-700 touch-manipulation min-h-[44px] flex flex-col items-center justify-center transition-colors"
-                                >
-                                  {bestAsk ? formatPriceCents(bestAsk.price) : '-'}
-                                  {bestAsk?.contract_size != null && bestAsk.contract_size > 0 && (
-                                    <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestAsk.contract_size}</span>
-                                  )}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
+                          </Fragment>
                         );
                       })}
                   </tbody>
@@ -1304,10 +1355,10 @@ export function MarketDetail() {
           </div>
         )}
 
-        {/* Orderbook and Order Form */}
+        {/* Orderbook and Order Form — on desktop, orderbook is in accordion under outcome row */}
         <div className="grid md:grid-cols-2 gap-4 sm:gap-6 mt-6">
-          {/* Orderbook Section */}
-          <div className="min-w-0">
+          {/* Orderbook Section — hidden on desktop (orderbook shown in accordion under outcome) */}
+          <div className="min-w-0 max-md:block md:hidden">
             <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
               <h2 className="text-base sm:text-lg font-bold">Orderbook</h2>
               {selectedOutcomeId && selectedOrderbook && myOrdersInSelectedOutcome.length > 0 && (
@@ -1355,8 +1406,8 @@ export function MarketDetail() {
             )}
           </div>
 
-        {/* Order Form Section */}
-        <div className="min-w-0">
+        {/* Order Form Section — full width on desktop when orderbook is in accordion */}
+        <div className="min-w-0 md:col-span-2">
           {/* Mobile: Floating Action Button */}
           <button
             onClick={() => setBottomSheetOpen(true)}
@@ -1744,7 +1795,7 @@ export function MarketDetail() {
                                   const isProfitCard2 = totalClosedCard2 >= 0;
                                   return (
                                     <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${isProfitCard2 ? 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20' : 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20'}`}>
-                                      {isProfitCard2 ? '+' : ''}{formatPriceBasis(totalClosedCard2)} closed
+                                      {isProfitCard2 ? '+' : ''}{formatPriceBasis(totalClosedCard2)}
                                     </span>
                                   );
                                 }

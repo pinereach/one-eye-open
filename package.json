@@ -35,7 +35,11 @@
     "fix-loop-position-basis": "wrangler d1 execute golf-trip-db --local --file=./migrations/0045_fix_loop_position_price_basis.sql",
     "fix-loop-position-basis-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0045_fix_loop_position_price_basis.sql",
     "wipe-trading-reset-sequences": "wrangler d1 execute golf-trip-db --local --file=./migrations/0046_wipe_trading_data_reset_sequences.sql",
-    "wipe-trading-reset-sequences-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0046_wipe_trading_data_reset_sequences.sql"
+    "wipe-trading-reset-sequences-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0046_wipe_trading_data_reset_sequences.sql",
+    "current-scores-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0054_create_current_scores.sql",
+    "current-scores-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0054_create_current_scores.sql",
+    "current-scores-seed-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0055_seed_current_scores.sql",
+    "current-scores-seed-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0055_seed_current_scores.sql"
   },
   "dependencies": {
     "date-fns": "^2.30.0",
