@@ -32,6 +32,7 @@ export function LeaderboardPage() {
   const { user } = useAuth();
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [unattributedCents, setUnattributedCents] = useState<number>(0);
+  const [systemTotalCents, setSystemTotalCents] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>(DEFAULT_SORT);
@@ -67,9 +68,10 @@ export function LeaderboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const { leaderboard: data, unattributed_portfolio_value_cents: unattributed } = await api.adminGetLeaderboard();
+      const { leaderboard: data, unattributed_portfolio_value_cents: unattributed, system_total_portfolio_value_cents: systemTotal } = await api.adminGetLeaderboard();
       setLeaderboard(data ?? []);
       setUnattributedCents(unattributed ?? 0);
+      setSystemTotalCents(systemTotal ?? 0);
     } catch (err) {
       console.error('Failed to load leaderboard:', err);
       setError(err instanceof Error ? err.message : 'Failed to load leaderboard');
@@ -112,7 +114,28 @@ export function LeaderboardPage() {
     <PullToRefresh onRefresh={loadLeaderboard}>
       <div className="space-y-4 sm:space-y-6">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Leaderboard</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Per-user stats: trades, open orders, shares traded, portfolio value (P&amp;L). Zero-sum: totals should net to $0.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Per-user stats: trades, open orders, shares traded, portfolio value (P&amp;L). Zero-sum: system total should be $0.</p>
+
+        {/* Debug: system total — if non-zero, indicates a bug elsewhere in the stack */}
+        {leaderboard.length > 0 && (
+          <div className={`rounded-lg border p-4 ${systemTotalCents === 0 ? 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80' : 'border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/20'}`}>
+            <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Debug checks</div>
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+              <span><span className="text-gray-600 dark:text-gray-400">System total (sum of all position P&amp;L):</span>{' '}
+                <span className={`font-semibold ${systemTotalCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                  {formatPortfolio(systemTotalCents, true)}
+                </span>
+                {systemTotalCents !== 0 && <span className="ml-2 text-amber-600 dark:text-amber-400 text-xs">(should be $0 — check trade/position logic)</span>}
+              </span>
+              <span><span className="text-gray-600 dark:text-gray-400">Users + Unattributed:</span>{' '}
+                <span className={`font-semibold ${leaderboard.reduce((s, r) => s + r.portfolio_value_cents, 0) + unattributedCents === systemTotalCents ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                  {formatPortfolio(leaderboard.reduce((s, r) => s + r.portfolio_value_cents, 0) + unattributedCents, true)}
+                </span>
+                {(leaderboard.reduce((s, r) => s + r.portfolio_value_cents, 0) + unattributedCents) !== systemTotalCents && <span className="ml-2 text-amber-600 dark:text-amber-400 text-xs">(should equal system total)</span>}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Mobile: cards */}
         <div className="md:hidden space-y-3">
@@ -154,7 +177,8 @@ export function LeaderboardPage() {
                 {unattributedCents !== 0 && (
                   <span><span className="text-gray-600 dark:text-gray-400">Unattributed:</span> <span className={`font-semibold ${unattributedCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedCents, true)}</span></span>
                 )}
-                <span><span className="text-gray-600 dark:text-gray-400">Total:</span> <span className={`font-semibold ${totalAll === 0 ? 'text-gray-700 dark:text-gray-300' : totalAll > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(totalAll, true)}</span></span>
+                <span><span className="text-gray-600 dark:text-gray-400">Total (users + unattributed):</span> <span className={`font-semibold ${totalAll === 0 ? 'text-gray-700 dark:text-gray-300' : totalAll > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(totalAll, true)}</span></span>
+                <span><span className="text-gray-600 dark:text-gray-400">System total:</span> <span className={`font-semibold ${systemTotalCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPortfolio(systemTotalCents, true)}</span></span>
               </div>
             </div>
           );
@@ -228,15 +252,20 @@ export function LeaderboardPage() {
                   </tr>
                   {unattributedCents !== 0 && (
                     <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 font-medium">
-                      <td className="py-2 px-4 text-gray-600 dark:text-gray-400 text-xs">Unattributed (no user_id)</td>
+                      <td className="py-2 px-4 text-gray-600 dark:text-gray-400 text-xs">Unattributed (no user_id or deleted user)</td>
                       <td colSpan={3} className="py-2 px-4" />
                       <td className={`py-2 px-4 text-right ${unattributedCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedCents, true)}</td>
                     </tr>
                   )}
                   <tr className="border-t border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-800 font-semibold">
-                    <td className="py-3 px-4 text-gray-900 dark:text-gray-100">Total</td>
+                    <td className="py-3 px-4 text-gray-900 dark:text-gray-100">Total (users + unattributed)</td>
                     <td colSpan={3} className="py-3 px-4" />
                     <td className={`py-3 px-4 text-right ${totalAll === 0 ? 'text-gray-700 dark:text-gray-300' : totalAll > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(totalAll, true)}</td>
+                  </tr>
+                  <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 font-medium">
+                    <td className="py-2 px-4 text-gray-600 dark:text-gray-400 text-xs">System total (all positions; should be $0)</td>
+                    <td colSpan={3} className="py-2 px-4" />
+                    <td className={`py-2 px-4 text-right font-semibold ${systemTotalCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPortfolio(systemTotalCents, true)}</td>
                   </tr>
                 </tfoot>
               );

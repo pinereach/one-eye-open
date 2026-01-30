@@ -112,15 +112,19 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       return Math.round(contribution);
     }
 
+    const userIds = new Set(users.map((u) => u.id));
     const portfolioByUser = new Map<number, number>();
     let unattributedCents = 0;
+    let systemTotalCents = 0;
     for (const p of positionsRows) {
       const currentPrice = currentPriceByOutcome[p.outcome] ?? null;
       const contribution = pnlCents(p, currentPrice);
-      if (p.user_id != null) {
-        portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + contribution);
-      } else {
+      systemTotalCents += contribution;
+      // Unattributed: no user_id, or user_id not in current users table (e.g. deleted user)
+      if (p.user_id == null || !userIds.has(p.user_id)) {
         unattributedCents += contribution;
+      } else {
+        portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + contribution);
       }
     }
 
@@ -133,7 +137,11 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       portfolio_value_cents: portfolioByUser.get(u.id) ?? 0,
     }));
 
-    return jsonResponse({ leaderboard, unattributed_portfolio_value_cents: unattributedCents });
+    return jsonResponse({
+      leaderboard,
+      unattributed_portfolio_value_cents: unattributedCents,
+      system_total_portfolio_value_cents: systemTotalCents,
+    });
   } catch (err) {
     console.error('Admin leaderboard error:', err);
     return jsonResponse({ error: 'Failed to load leaderboard' }, 500);
