@@ -197,6 +197,9 @@ export const api = {
   adminGetUsers: () =>
     apiRequest<{ users: Array<{ id: number; username: string }> }>('/admin/users'),
 
+  adminGetLeaderboard: () =>
+    apiRequest<{ leaderboard: Array<{ user_id: number; username: string; trade_count: number; open_orders_count: number; shares_traded: number; portfolio_value_cents: number }> }>('/admin/leaderboard'),
+
   adminUpdateMarketPause: (marketId: string, tradingPaused: boolean) =>
     apiRequest<{ market: any; success: boolean }>(`/admin/markets/${marketId}`, {
       method: 'PATCH',

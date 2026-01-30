@@ -1,4 +1,4 @@
-import{j as o}from"./index-D-e82DwX.js";function d({children:r,className:a="",onClick:e,hover:s=!1}){return o.jsx("div",{className:`
+import{j as o}from"./index-B-RDvJx5.js";function d({children:r,className:a="",onClick:e,hover:s=!1}){return o.jsx("div",{className:`
         bg-white dark:bg-gray-800 
         border border-gray-300 dark:border-gray-600 
         rounded-lg 
