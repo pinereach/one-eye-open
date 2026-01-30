@@ -6,6 +6,36 @@ import type { Trade } from '../../types';
 
 const TAPE_LIMIT = 40;
 
+// Theme-safe palette: darker in light mode, lighter in dark mode for readability
+const PLAYER_COLORS = [
+  'text-blue-600 dark:text-blue-400',
+  'text-green-600 dark:text-green-400',
+  'text-red-600 dark:text-red-400',
+  'text-amber-600 dark:text-amber-400',
+  'text-violet-600 dark:text-violet-400',
+  'text-teal-600 dark:text-teal-400',
+  'text-pink-600 dark:text-pink-400',
+  'text-indigo-600 dark:text-indigo-400',
+  'text-emerald-600 dark:text-emerald-400',
+  'text-orange-600 dark:text-orange-400',
+  'text-cyan-600 dark:text-cyan-400',
+  'text-fuchsia-600 dark:text-fuchsia-400',
+  'text-rose-600 dark:text-rose-400',
+  'text-sky-600 dark:text-sky-400',
+  'text-lime-600 dark:text-lime-400',
+] as const;
+
+function hashUsername(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function getPlayerColorClass(username: string): string {
+  if (!username || username === '—') return 'text-gray-600 dark:text-gray-400';
+  return PLAYER_COLORS[hashUsername(username) % PLAYER_COLORS.length];
+}
+
 export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,13 +105,13 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
                 className="rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-700/30 overflow-hidden border-l-4 border-l-green-500 dark:border-l-green-500"
               >
                 <div className="px-3 sm:px-4 py-3 text-sm text-gray-800 dark:text-gray-200 leading-snug">
-                  <span className="font-medium text-green-600 dark:text-green-400">{buyer}</span>
+                  <span className={`font-medium ${getPlayerColorClass(buyer)}`}>{buyer}</span>
                   {' bought '}
                   <span className="font-bold text-gray-900 dark:text-gray-100">{shares}</span> {shareWord} of <span className="font-medium text-gray-900 dark:text-gray-100">{outcomeName}</span>
                   {' at '}
                   <span className="font-bold text-gray-900 dark:text-gray-100">{formatPrice(trade.price)}</span>
                   {' from '}
-                  <span className="font-medium text-red-600 dark:text-red-400">{seller}</span>.
+                  <span className={`font-medium ${getPlayerColorClass(seller)}`}>{seller}</span>.
                 </div>
                 <div className="px-3 sm:px-4 py-2 flex items-center justify-between gap-2 border-t border-gray-100 dark:border-gray-600/50">
                   <span className="truncate min-w-0 text-xs text-gray-500 dark:text-gray-400" title={marketName}>
