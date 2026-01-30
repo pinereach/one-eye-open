@@ -51,6 +51,56 @@ export function MarketDetail() {
 
   const MIN_REFRESH_INTERVAL_MS = 120_000; // 2 min — reduce D1 reads from visibility/sheet refetches
 
+  /** Apply a single fill to position state (mirrors backend updatePosition logic). */
+  function applyFillToPosition(
+    current: { net_position: number; price_basis: number } | null,
+    side: 'bid' | 'ask',
+    priceCents: number,
+    qtyContracts: number
+  ): { net_position: number; price_basis: number } {
+    const curNet = current?.net_position ?? 0;
+    const curBasis = current?.price_basis ?? 0;
+    const PRICE_MIN = 100;
+    const PRICE_MAX = 9900;
+    let newNet = curNet;
+    let newBasis = curBasis;
+    if (side === 'bid') {
+      if (curNet < 0) {
+        const closeQty = Math.min(qtyContracts, Math.abs(curNet));
+        const remaining = qtyContracts - closeQty;
+        newNet = curNet + closeQty;
+        if (remaining > 0) {
+          newNet += remaining;
+          newBasis = priceCents;
+        } else if (newNet === 0) newBasis = 0;
+      } else {
+        newNet = curNet + qtyContracts;
+        newBasis = curNet > 0 && curBasis > 0
+          ? Math.round((curNet * curBasis + qtyContracts * priceCents) / newNet)
+          : priceCents;
+      }
+    } else {
+      if (curNet > 0) {
+        const closeQty = Math.min(qtyContracts, curNet);
+        const remaining = qtyContracts - closeQty;
+        newNet = curNet - closeQty;
+        if (remaining > 0) {
+          newNet -= remaining;
+          newBasis = priceCents;
+        } else if (newNet === 0) newBasis = 0;
+      } else {
+        newNet = curNet - qtyContracts;
+        newBasis = curNet < 0 && curBasis > 0
+          ? Math.round((Math.abs(curNet) * curBasis + qtyContracts * priceCents) / Math.abs(newNet))
+          : priceCents;
+      }
+    }
+    if (newNet !== 0 && newBasis > 0) {
+      newBasis = Math.max(PRICE_MIN, Math.min(PRICE_MAX, newBasis));
+    }
+    return { net_position: newNet, price_basis: newBasis };
+  }
+
   function formatLastUpdated(ts: number): string {
     const diffSec = Math.floor((Date.now() - ts) / 1000);
     if (diffSec < 10) return 'just now';
@@ -272,7 +322,7 @@ export function MarketDetail() {
     // Pre-submit refetch removed to reduce D1 reads; server validates order and orderbook on submit.
     setSubmitting(true);
     try {
-      await api.placeOrder(id, {
+      const res = await api.placeOrder(id, {
         outcome_id: selectedOutcomeId,
         side: orderSide,
         price: priceCents, // Already converted to cents
@@ -283,17 +333,131 @@ export function MarketDetail() {
       setOrderQty('');
       setAutoFilled(null);
       showToast('Order placed successfully!', 'success');
-      
-      // Add small delay to ensure order is committed to database
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // Refresh all data to show new order in orderbook (cacheBust so we don't get stale cached response)
-      await Promise.all([
-        loadMarket(true),
-      ]);
+
+      // Immediate optimistic updates: orderbook, positions, trades
+      const apiOrder = res?.order;
+      const fills = res?.fills ?? [];
+      const newTrades = res?.trades ?? [];
+      const outcomeId = selectedOutcomeId;
+      const uid = user?.id;
+
+      if (apiOrder && outcomeId && uid != null) {
+        const orderIdNum = typeof apiOrder.id === 'string' ? parseInt(apiOrder.id, 10) : apiOrder.id;
+        const price = apiOrder.price_cents ?? apiOrder.price ?? priceCents;
+        const remaining = apiOrder.qty_remaining ?? apiOrder.contract_size ?? apiOrder.qty_contracts ?? qty;
+        const status = (apiOrder.status ?? 'open') as Order['status'];
+        const sideNum = apiOrder.side === 'ask' ? 1 : 0;
+        const frontendOrder: Order = {
+          id: orderIdNum,
+          create_time: apiOrder.created_at ?? Math.floor(Date.now() / 1000),
+          user_id: uid,
+          token: '',
+          order_id: orderIdNum,
+          outcome: outcomeId,
+          price,
+          status,
+          tif: 'GTC',
+          side: sideNum,
+          contract_size: remaining,
+          remaining_size: remaining,
+        };
+
+        setOrderbookByOutcome((prev) => {
+          const next = { ...prev };
+          const ob = next[outcomeId] ?? { bids: [], asks: [] };
+          const bids = [...(ob.bids ?? [])];
+          const asks = [...(ob.asks ?? [])];
+
+          // Apply fills: reduce maker orders' size (or remove if 0)
+          const makerSide = sideNum === 0 ? asks : bids;
+          for (const fill of fills) {
+            const makerId = typeof fill.maker_order_id === 'string' ? parseInt(fill.maker_order_id, 10) : fill.maker_order_id;
+            const qty = fill.qty_contracts ?? fill.qty ?? 0;
+            const idx = makerSide.findIndex((o) => o.id === makerId);
+            if (idx >= 0) {
+              const prevSize = makerSide[idx].remaining_size ?? makerSide[idx].contract_size ?? 0;
+              const size = prevSize - qty;
+              if (size <= 0) makerSide.splice(idx, 1);
+              else makerSide.splice(idx, 1, { ...makerSide[idx], contract_size: size, remaining_size: size, status: 'partial' });
+            }
+          }
+
+          // Add our new order if still open/partial
+          if (status === 'open' || status === 'partial') {
+            const list = sideNum === 0 ? bids : asks;
+            const insertIdx = sideNum === 0
+              ? list.findIndex((o) => o.price < price || (o.price === price && o.create_time > frontendOrder.create_time))
+              : list.findIndex((o) => o.price > price || (o.price === price && o.create_time > frontendOrder.create_time));
+            if (insertIdx === -1) list.push(frontendOrder);
+            else list.splice(insertIdx, 0, frontendOrder);
+          }
+
+          next[outcomeId] = { bids, asks };
+          return next;
+        });
+      }
+
+      // Optimistic position update from new trades (we are taker)
+      if (newTrades.length > 0 && outcomeId && uid != null) {
+        let posState: { net_position: number; price_basis: number } | null = null;
+        const existing = (positions ?? []).find((p) => p.outcome === outcomeId);
+        if (existing) posState = { net_position: existing.net_position, price_basis: existing.price_basis };
+        for (const t of newTrades) {
+          const priceCents = t.price_cents ?? t.price ?? 0;
+          const qty = t.qty_contracts ?? t.contracts ?? 0;
+          posState = applyFillToPosition(posState, orderSide, priceCents, qty);
+        }
+        if (posState != null) {
+          setPositions((prev) => {
+            const idx = prev.findIndex((p) => p.outcome === outcomeId);
+            const base = existing ?? {
+              id: 0,
+              user_id: uid,
+              outcome: outcomeId,
+              create_time: Math.floor(Date.now() / 1000),
+              closed_profit: 0,
+              settled_profit: 0,
+              net_position: 0,
+              price_basis: 0,
+              is_settled: 0,
+              market_name: market?.short_name,
+              outcome_name: outcomes?.find((o) => o.outcome_id === outcomeId)?.name,
+              outcome_ticker: outcomes?.find((o) => o.outcome_id === outcomeId)?.ticker,
+            };
+            const next = [...prev];
+            const updated: Position = { ...base, ...posState };
+            if (idx >= 0) next.splice(idx, 1, updated);
+            else next.push(updated);
+            return next;
+          });
+        }
+      }
+
+      // Prepend new trades to tape (map API shape to frontend Trade)
+      if (newTrades.length > 0 && outcomeId) {
+        const outcomeName = outcomes?.find((o) => o.outcome_id === outcomeId);
+        const mapped: Trade[] = newTrades.map((t: any) => ({
+          id: typeof t.id === 'string' ? parseInt(t.id, 10) : t.id,
+          token: t.token ?? '',
+          price: t.price_cents ?? t.price ?? 0,
+          contracts: t.qty_contracts ?? t.contracts ?? 0,
+          create_time: t.created_at ?? t.create_time ?? Math.floor(Date.now() / 1000),
+          risk_off_contracts: 0,
+          risk_off_price_diff: 0,
+          outcome: outcomeId,
+          outcome_name: outcomeName?.name ?? null,
+          outcome_ticker: outcomeName?.ticker ?? null,
+          side: orderSide === 'bid' ? 0 : 1,
+          taker_side: orderSide === 'bid' ? 0 : 1,
+        }));
+        setTrades((prev) => [...mapped, ...(prev ?? [])]);
+      }
+
+      // Refresh in background to reconcile with server
+      loadMarket(true);
     } catch (err: any) {
       showToast(err.message || 'Failed to place order', 'error');
-      await loadMarket(true);
+      loadMarket(true);
       showToast('Orderbook refreshed – please try again if needed.', 'info');
     } finally {
       setSubmitting(false);
