@@ -114,12 +114,18 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
 
     const userIds = new Set(users.map((u) => u.id));
     const portfolioByUser = new Map<number, number>();
+    const pnlByOutcome: Record<string, number> = {};
+    const positionContributions: Array<{ outcome: string; user_id: number | null; contribution_cents: number }> = [];
     let unattributedCents = 0;
     let systemTotalCents = 0;
     for (const p of positionsRows) {
       const currentPrice = currentPriceByOutcome[p.outcome] ?? null;
       const contribution = pnlCents(p, currentPrice);
       systemTotalCents += contribution;
+      pnlByOutcome[p.outcome] = (pnlByOutcome[p.outcome] ?? 0) + contribution;
+      if (contribution !== 0) {
+        positionContributions.push({ outcome: p.outcome, user_id: p.user_id, contribution_cents: contribution });
+      }
       // Unattributed: no user_id, or user_id not in current users table (e.g. deleted user)
       if (p.user_id == null || !userIds.has(p.user_id)) {
         unattributedCents += contribution;
@@ -127,6 +133,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
         portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + contribution);
       }
     }
+    // Sort by contribution descending so largest imbalances show first
+    positionContributions.sort((a, b) => Math.abs(b.contribution_cents) - Math.abs(a.contribution_cents));
 
     const leaderboard: LeaderboardRow[] = users.map((u) => ({
       user_id: u.id,
@@ -141,6 +149,9 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       leaderboard,
       unattributed_portfolio_value_cents: unattributedCents,
       system_total_portfolio_value_cents: systemTotalCents,
+      // Debug: where the imbalance comes from (should net to 0 per outcome in a zero-sum game)
+      pnl_by_outcome: pnlByOutcome,
+      position_contributions: positionContributions.slice(0, 50),
     });
   } catch (err) {
     console.error('Admin leaderboard error:', err);

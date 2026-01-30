@@ -33,7 +33,9 @@
     "fix-loop-position-basis": "wrangler d1 execute golf-trip-db --local --file=./migrations/0045_fix_loop_position_price_basis.sql",
     "fix-loop-position-basis-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0045_fix_loop_position_price_basis.sql",
     "wipe-trading-reset-sequences": "wrangler d1 execute golf-trip-db --local --file=./migrations/0046_wipe_trading_data_reset_sequences.sql",
-    "wipe-trading-reset-sequences-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0046_wipe_trading_data_reset_sequences.sql"
+    "wipe-trading-reset-sequences-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0046_wipe_trading_data_reset_sequences.sql",
+    "backfill-manual-trade-31-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0052_backfill_manual_trade_31_orders.sql",
+    "backfill-manual-trade-31-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0052_backfill_manual_trade_31_orders.sql"
   },
   "dependencies": {
     "date-fns": "^2.30.0",

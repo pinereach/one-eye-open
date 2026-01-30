@@ -1,5 +1,5 @@
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbFirst, type Env } from '../../../lib/db';
+import { getDb, dbFirst, dbRun, type Env } from '../../../lib/db';
 import { requireAdmin, jsonResponse, errorResponse } from '../../../middleware';
 import { createTrade, updatePosition } from '../../../lib/matching';
 
@@ -97,6 +97,26 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     if (makerUserId != null) {
       const makerSide = side === 'bid' ? 'ask' : 'bid';
       await updatePosition(db, outcomeIdSanitized, makerUserId, makerSide, price, contractSize);
+    }
+
+    // Insert synthetic "filled" orders for logging/audit so order history shows this trade (manual trades don't hit the book)
+    const createTime = Math.floor(Date.now() / 1000);
+    const manualToken = `manual-${tradeId}`;
+    const takerSideNum = takerSide;
+    const makerSideNum = 1 - takerSide;
+    await dbRun(
+      db,
+      `INSERT INTO orders (create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size, original_contract_size)
+       VALUES (?, ?, ?, ?, ?, ?, 'filled', 'GTC', ?, 0, ?)`,
+      [createTime, takerUserId, `${manualToken}-t`, -tradeId, outcomeIdSanitized, price, takerSideNum, contractSize]
+    );
+    if (makerUserId != null) {
+      await dbRun(
+        db,
+        `INSERT INTO orders (create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size, original_contract_size)
+         VALUES (?, ?, ?, ?, ?, ?, 'filled', 'GTC', ?, 0, ?)`,
+        [createTime, makerUserId, `${manualToken}-m`, -tradeId, outcomeIdSanitized, price, makerSideNum, contractSize]
+      );
     }
 
     return jsonResponse(

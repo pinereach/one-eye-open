@@ -33,6 +33,8 @@ export function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [unattributedCents, setUnattributedCents] = useState<number>(0);
   const [systemTotalCents, setSystemTotalCents] = useState<number>(0);
+  const [pnlByOutcome, setPnlByOutcome] = useState<Record<string, number>>({});
+  const [positionContributions, setPositionContributions] = useState<Array<{ outcome: string; user_id: number | null; contribution_cents: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>(DEFAULT_SORT);
@@ -68,10 +70,12 @@ export function LeaderboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const { leaderboard: data, unattributed_portfolio_value_cents: unattributed, system_total_portfolio_value_cents: systemTotal } = await api.adminGetLeaderboard();
+      const { leaderboard: data, unattributed_portfolio_value_cents: unattributed, system_total_portfolio_value_cents: systemTotal, pnl_by_outcome: byOutcome, position_contributions: contributions } = await api.adminGetLeaderboard();
       setLeaderboard(data ?? []);
       setUnattributedCents(unattributed ?? 0);
       setSystemTotalCents(systemTotal ?? 0);
+      setPnlByOutcome(byOutcome ?? {});
+      setPositionContributions(contributions ?? []);
     } catch (err) {
       console.error('Failed to load leaderboard:', err);
       setError(err instanceof Error ? err.message : 'Failed to load leaderboard');
@@ -134,6 +138,38 @@ export function LeaderboardPage() {
                 {(leaderboard.reduce((s, r) => s + r.portfolio_value_cents, 0) + unattributedCents) !== systemTotalCents && <span className="ml-2 text-amber-600 dark:text-amber-400 text-xs">(should equal system total)</span>}
               </span>
             </div>
+            {systemTotalCents !== 0 && (Object.keys(pnlByOutcome).length > 0 || positionContributions.length > 0) && (
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Where the imbalance comes from</div>
+                {Object.keys(pnlByOutcome).length > 0 && (
+                  <div className="mb-2">
+                    <span className="text-xs text-gray-600 dark:text-gray-400">P&amp;L by outcome (should be $0 per outcome in zero-sum):</span>
+                    <ul className="mt-1 space-y-0.5 text-sm font-mono">
+                      {Object.entries(pnlByOutcome)
+                        .filter(([, cents]) => cents !== 0)
+                        .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+                        .map(([outcome, cents]) => (
+                          <li key={outcome} className={cents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                            {outcome}: {formatPortfolio(cents, true)}
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                )}
+                {positionContributions.length > 0 && (
+                  <div>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Top position contributions (user_id, outcome, P&amp;L):</span>
+                    <ul className="mt-1 space-y-0.5 text-sm font-mono max-h-40 overflow-y-auto">
+                      {positionContributions.slice(0, 20).map((pc, i) => (
+                        <li key={i} className={pc.contribution_cents > 0 ? 'text-green-600 dark:text-green-400' : pc.contribution_cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}>
+                          user {pc.user_id ?? 'null'} · {pc.outcome}: {formatPortfolio(pc.contribution_cents, true)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
