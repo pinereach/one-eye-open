@@ -225,7 +225,7 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
                   return (
                     <div
                       key={level.price}
-                      className={`relative flex items-center justify-between text-xs sm:text-sm p-2 rounded transition-colors touch-manipulation min-h-12 max-h-12 h-12 shrink-0 ${
+                      className={`relative flex items-center justify-between text-xs sm:text-sm p-2 rounded transition-colors touch-manipulation h-12 ${
                         hasUserOrders
                           ? 'bg-green-100 dark:bg-green-900/40 border-2 border-primary-500 dark:border-primary-400'
                           : 'bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 cursor-pointer'
@@ -236,7 +236,7 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
                         className="absolute left-0 top-0 bottom-0 bg-green-200 dark:bg-green-800/40 rounded opacity-30"
                         style={{ width: `${widthPercent}%` }}
                       ></div>
-                      <div className="relative z-10 flex items-center gap-1 flex-1 min-w-0">
+                      <div className="relative z-10 flex items-center gap-1 flex-1">
                         {hasUserOrders && (
                           <svg
                             className="w-3 h-3 sm:w-4 sm:h-4 text-primary-600 dark:text-primary-400 flex-shrink-0"
@@ -258,10 +258,10 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
                             />
                           </svg>
                         )}
-                        <span className="font-medium truncate">{formatPrice(level.price)}</span>
+                        <span className="font-medium">{formatPrice(level.price)}</span>
                       </div>
-                      <div className="relative z-10 flex items-center gap-2 min-w-0 shrink-0">
-                        <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap truncate">
+                      <div className="relative z-10 flex items-center gap-2">
+                        <span className="text-gray-600 dark:text-gray-400">
                           {level.totalSize}
                           {showMineLabel && (
                             <span className="text-primary-600 dark:text-primary-400 ml-0.5">({userSizeAtLevel} mine)</span>
@@ -273,7 +273,7 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
                               e.stopPropagation();
                               handleCancelClick(level);
                             }}
-                            className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-xs sm:text-sm font-bold px-1 py-0.5 rounded touch-manipulation flex-shrink-0"
+                            className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-xs sm:text-sm font-bold px-1 py-0.5 rounded touch-manipulation"
                             title={userOrdersAtPrice.length > 1 ? `Cancel order (${userOrdersAtPrice.length} at this price)` : 'Cancel order'}
                             aria-label="Cancel order"
                           >
@@ -307,7 +307,7 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
                   return (
                     <div
                       key={level.price}
-                      className={`relative flex items-center justify-between text-xs sm:text-sm p-2 rounded transition-colors touch-manipulation min-h-12 max-h-12 h-12 shrink-0 ${
+                      className={`relative flex items-center justify-between text-xs sm:text-sm p-2 rounded transition-colors touch-manipulation h-12 ${
                         hasUserOrders
                           ? 'bg-red-100 dark:bg-red-900/40 border-2 border-primary-500 dark:border-primary-400'
                           : 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 cursor-pointer'
@@ -318,7 +318,7 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
                         className="absolute right-0 top-0 bottom-0 bg-red-200 dark:bg-red-800/40 rounded opacity-30"
                         style={{ width: `${widthPercent}%` }}
                       ></div>
-                      <div className="relative z-10 flex items-center gap-1 flex-1 min-w-0">
+                      <div className="relative z-10 flex items-center gap-1 flex-1">
                         {hasUserOrders && (
                           <svg
                             className="w-3 h-3 sm:w-4 sm:h-4 text-primary-600 dark:text-primary-400 flex-shrink-0"
@@ -340,10 +340,10 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
                             />
                           </svg>
                         )}
-                        <span className="font-medium truncate">{formatPrice(level.price)}</span>
+                        <span className="font-medium">{formatPrice(level.price)}</span>
                       </div>
-                      <div className="relative z-10 flex items-center gap-2 min-w-0 shrink-0">
-                        <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap truncate">
+                      <div className="relative z-10 flex items-center gap-2">
+                        <span className="text-gray-600 dark:text-gray-400">
                           {level.totalSize}
                           {showMineLabel && (
                             <span className="text-primary-600 dark:text-primary-400 ml-0.5">({userSizeAtLevel} mine)</span>
@@ -355,7 +355,7 @@ export function Orderbook({ bids, asks, userId, onPriceClick, onCancelOrder }: O
                               e.stopPropagation();
                               handleCancelClick(level);
                             }}
-                            className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-xs sm:text-sm font-bold px-1 py-0.5 rounded touch-manipulation flex-shrink-0"
+                            className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-xs sm:text-sm font-bold px-1 py-0.5 rounded touch-manipulation"
                             title={userOrdersAtPrice.length > 1 ? `Cancel order (${userOrdersAtPrice.length} at this price)` : 'Cancel order'}
                             aria-label="Cancel order"
                           >

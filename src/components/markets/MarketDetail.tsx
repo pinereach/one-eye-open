@@ -184,7 +184,7 @@ export function MarketDetail() {
       // Load current scores (to par gross/net) for gross and net champion markets
       const needsCurrentScores = data?.market?.market_id === 'market-individual-gross-champion' || data?.market?.market_id === 'market-individual-net-champion';
       if (needsCurrentScores) {
-        api.getCurrentScores().then((res) => {
+        api.getCurrentScores().then((res: { scores?: Array<{ name: string; score_gross: number | null; score_net: number | null; number_birdies: number | null }> }) => {
           const map: Record<string, { score_gross: number | null; score_net: number | null; number_birdies: number | null }> = {};
           for (const s of res.scores ?? []) {
             map[s.name] = { score_gross: s.score_gross, score_net: s.score_net, number_birdies: s.number_birdies };

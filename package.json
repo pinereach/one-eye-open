@@ -3,8 +3,6 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest",
     "sync-lib": "cp src/lib/db.ts functions/lib/ && cp src/lib/auth.ts functions/lib/ && cp src/lib/matching.ts functions/lib/ && cp src/lib/settlement.ts functions/lib/",
     "prebuild": "npm run sync-lib",
     "dev": "npm run sync-lib && vite",
@@ -35,15 +33,7 @@
     "fix-loop-position-basis": "wrangler d1 execute golf-trip-db --local --file=./migrations/0045_fix_loop_position_price_basis.sql",
     "fix-loop-position-basis-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0045_fix_loop_position_price_basis.sql",
     "wipe-trading-reset-sequences": "wrangler d1 execute golf-trip-db --local --file=./migrations/0046_wipe_trading_data_reset_sequences.sql",
-    "wipe-trading-reset-sequences-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0046_wipe_trading_data_reset_sequences.sql",
-    "current-scores-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0054_create_current_scores.sql",
-    "current-scores-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0054_create_current_scores.sql",
-    "current-scores-seed-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0055_seed_current_scores.sql",
-    "current-scores-seed-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0055_seed_current_scores.sql",
-    "markets-description-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0056_add_markets_description.sql",
-    "markets-description-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0056_add_markets_description.sql",
-    "market-descriptions-seed-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0057_seed_market_descriptions.sql",
-    "market-descriptions-seed-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0057_seed_market_descriptions.sql"
+    "wipe-trading-reset-sequences-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0046_wipe_trading_data_reset_sequences.sql"
   },
   "dependencies": {
     "date-fns": "^2.30.0",
@@ -63,7 +53,6 @@
     "tailwindcss": "^3.3.6",
     "typescript": "^5.3.3",
     "vite": "^7.3.1",
-    "vitest": "^4.0.18",
     "wrangler": "^4.60.0"
   }
 }

@@ -5,8 +5,8 @@ import { verifyPassword, createToken, setSessionCookie } from '../../lib/auth';
 import { jsonResponse, errorResponse } from '../../middleware';
 
 const loginSchema = z.object({
-  username: z.string().trim().min(1, 'Username is required'),
-  password: z.string().trim().min(1, 'Password is required'),
+  username: z.string().min(1),
+  password: z.string().min(1),
 });
 
 export const onRequestPost: OnRequest<Env> = async (context) => {
@@ -18,38 +18,20 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
     const db = getDb(env);
 
-    // Find user by username (try with flag columns first; fallback if migrations not run)
-    let user: {
+    // Find user by username in database
+    const user = await dbFirst<{
       id: number;
       username: string;
       password: string;
-      view_scores?: number;
-      view_market_maker?: number;
-      view_market_creation?: number;
-      admin?: number;
-    } | null = null;
-
-    try {
-      user = await dbFirst<{
-        id: number;
-        username: string;
-        password: string;
-        view_scores: number;
-        view_market_maker: number;
-        view_market_creation: number;
-        admin: number;
-      }>(
-        db,
-        'SELECT id, username, password, view_scores, view_market_maker, view_market_creation, admin FROM users WHERE LOWER(username) = LOWER(?)',
-        [validated.username]
-      );
-    } catch {
-      user = await dbFirst<{ id: number; username: string; password: string }>(
-        db,
-        'SELECT id, username, password FROM users WHERE LOWER(username) = LOWER(?)',
-        [validated.username]
-      );
-    }
+      view_scores: number;
+      view_market_maker: number;
+      view_market_creation: number;
+      admin: number;
+    }>(
+      db,
+      'SELECT id, username, password, view_scores, view_market_maker, view_market_creation, admin FROM users WHERE username = ?',
+      [validated.username]
+    );
 
     // Validate user exists
     if (!user) {
@@ -69,14 +51,15 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     };
     const token = await createToken(userForToken, env);
 
-    // Return user (without password, with boolean flags; default flags to false if columns missing)
+    // Return user (without password, with boolean flags)
+    const { password, ...rest } = user;
     const userWithoutPassword = {
-      id: user.id,
-      username: user.username,
-      view_scores: Boolean(user.view_scores ?? 0),
-      view_market_maker: Boolean(user.view_market_maker ?? 0),
-      view_market_creation: Boolean(user.view_market_creation ?? 0),
-      admin: Boolean(user.admin ?? 0),
+      id: rest.id,
+      username: rest.username,
+      view_scores: Boolean(rest.view_scores),
+      view_market_maker: Boolean(rest.view_market_maker),
+      view_market_creation: Boolean(rest.view_market_creation),
+      admin: Boolean(rest.admin),
     };
 
     const response = jsonResponse({ user: userWithoutPassword });
