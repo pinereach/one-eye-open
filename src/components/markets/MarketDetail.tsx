@@ -48,7 +48,6 @@ export function MarketDetail() {
   const isDesktop = useIsDesktop();
   const quantityInputRef = useRef<HTMLInputElement>(null);
   const lastLoadTsRef = useRef<number>(0);
-  const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
 
   const MIN_REFRESH_INTERVAL_MS = 120_000; // 2 min — reduce D1 reads from visibility/sheet refetches
 
@@ -100,16 +99,6 @@ export function MarketDetail() {
       newBasis = Math.max(PRICE_MIN, Math.min(PRICE_MAX, newBasis));
     }
     return { net_position: newNet, price_basis: newBasis };
-  }
-
-  function formatLastUpdated(ts: number): string {
-    const diffSec = Math.floor((Date.now() - ts) / 1000);
-    if (diffSec < 10) return 'just now';
-    if (diffSec < 60) return `${diffSec} sec ago`;
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin} min ago`;
-    const diffHr = Math.floor(diffMin / 60);
-    return `${diffHr} hr ago`;
   }
 
   /** H2H outcome name is "PlayerA Over PlayerB"; format with handicap indexes in smaller font. */
@@ -232,7 +221,6 @@ export function MarketDetail() {
     } finally {
       setLoading(false);
       lastLoadTsRef.current = Date.now();
-      setLastFetchedAt(Date.now());
     }
   }
 
