@@ -127,8 +127,8 @@ export function BottomSheet({ isOpen, onClose, children, title }: BottomSheetPro
         </div>
       </div>
 
-      {/* Desktop: Centered Modal */}
-      <div className="hidden md:flex fixed inset-0 z-50 items-center justify-center p-4" aria-hidden="true">
+      {/* Desktop: Centered Modal — do not use aria-hidden here; the dialog and its close button are focusable descendants */}
+      <div className="hidden md:flex fixed inset-0 z-50 items-center justify-center p-4">
         <div 
           ref={desktopPanelRef}
           className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto"
