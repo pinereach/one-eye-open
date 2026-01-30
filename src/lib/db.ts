@@ -1,4 +1,4 @@
-import type { D1Database, D1Result } from '@cloudflare/workers-types';
+import type { D1Database, D1Result, D1PreparedStatement } from '@cloudflare/workers-types';
 
 export type { D1Database, D1Result };
 
@@ -7,6 +7,8 @@ export interface Env {
   MAX_EXPOSURE_CENTS?: string;
   SESSION_SECRET?: string;
   SESSION_DURATION_DAYS?: string;
+  /** Set to 'production' in production; dev bypass only when not production and request is local. */
+  ENVIRONMENT?: string;
 }
 
 export function getDb(env: Env): D1Database {
@@ -53,6 +55,23 @@ export async function dbRun(
     return await db.prepare(sql).bind(...params).run();
   } catch (error) {
     console.error('Database run error:', error);
+    throw error;
+  }
+}
+
+/** Execute multiple statements atomically. On failure, entire batch is rolled back. */
+export async function dbBatch(
+  db: D1Database,
+  statements: { sql: string; params: any[] }[]
+): Promise<D1Result[]> {
+  if (statements.length === 0) return [];
+  try {
+    const prepared: D1PreparedStatement[] = statements.map(({ sql, params }) =>
+      db.prepare(sql).bind(...params)
+    );
+    return await db.batch(prepared);
+  } catch (error) {
+    console.error('Database batch error:', error);
     throw error;
   }
 }
