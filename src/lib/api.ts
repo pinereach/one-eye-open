@@ -8,6 +8,8 @@ function isCacheableGet(endpoint: string, method?: string): boolean {
   if (/^\/markets\/[^/]+$/.test(endpoint)) return true;
   // Handicaps (1-day cache)
   if (endpoint === '/scoring/handicaps' || endpoint.startsWith('/scoring/handicaps?')) return true;
+  // Current scores (2m cache)
+  if (endpoint === '/scoring/current-scores') return true;
   return false;
 }
 
@@ -157,6 +159,18 @@ export const api = {
       ? apiRequest<{ handicapsByYear: Record<string, Record<string, number>> }>(endpoint)
       : apiRequest<{ handicaps: Record<string, number> }>(endpoint);
   },
+
+  // Current scores: score to par (gross/net) and birdies per participant (for gross/net champion markets)
+  getCurrentScores: () =>
+    apiRequest<{
+      scores: Array<{
+        participant_id: string;
+        name: string;
+        score_gross: number | null;
+        score_net: number | null;
+        number_birdies: number | null;
+      }>;
+    }>('/scoring/current-scores'),
 
   // Scores (historical scoring data)
   getScores: (course?: string, year?: string) => {

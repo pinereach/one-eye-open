@@ -44,6 +44,7 @@ export function MarketDetail() {
   const [confirmCancelAllForOutcome, setConfirmCancelAllForOutcome] = useState(false);
   const [cancelingAllForOutcome, setCancelingAllForOutcome] = useState(false);
   const [handicaps, setHandicaps] = useState<Record<string, number>>({});
+  const [currentScores, setCurrentScores] = useState<Record<string, { score_gross: number | null; score_net: number | null; number_birdies: number | null }>>({});
   const isDesktop = useIsDesktop();
   const quantityInputRef = useRef<HTMLInputElement>(null);
   const lastLoadTsRef = useRef<number>(0);
@@ -189,6 +190,20 @@ export function MarketDetail() {
         }).catch(() => setHandicaps({}));
       } else {
         setHandicaps({});
+      }
+
+      // Load current scores (to par gross/net) for gross and net champion markets
+      const needsCurrentScores = data?.market?.market_id === 'market-individual-gross-champion' || data?.market?.market_id === 'market-individual-net-champion';
+      if (needsCurrentScores) {
+        api.getCurrentScores().then((res) => {
+          const map: Record<string, { score_gross: number | null; score_net: number | null; number_birdies: number | null }> = {};
+          for (const s of res.scores ?? []) {
+            map[s.name] = { score_gross: s.score_gross, score_net: s.score_net, number_birdies: s.number_birdies };
+          }
+          setCurrentScores(map);
+        }).catch(() => setCurrentScores({}));
+      } else {
+        setCurrentScores({});
       }
 
       // Sort outcomes by chance and select the highest chance outcome
@@ -519,13 +534,13 @@ export function MarketDetail() {
     }
   }
 
-  // Volume = number of contracts traded × $200
+  // Volume = number of contracts traded × $100
   const marketStats = (() => {
     const volume_contracts = (trades || []).reduce(
       (sum, t) => sum + (t.contracts || 0),
       0
     );
-    const volume_dollars = volume_contracts * 200;
+    const volume_dollars = volume_contracts * 100;
     return {
       volume_contracts,
       volume_dollars,
@@ -567,9 +582,14 @@ export function MarketDetail() {
     return { marketName, outcomeLabel };
   }
 
-  // Map outcome_id -> position for current user (to show "±N @ $X.X" below outcome name)
-  const positionByOutcome = (positions || []).reduce<Record<string, { net_position: number; price_basis: number }>>((acc, p) => {
-    acc[p.outcome] = { net_position: p.net_position, price_basis: p.price_basis };
+  // Map outcome_id -> position for current user (to show "±N @ $X.X" or closed profit below outcome name)
+  const positionByOutcome = (positions || []).reduce<Record<string, { net_position: number; price_basis: number; closed_profit?: number; settled_profit?: number }>>((acc, p) => {
+    acc[p.outcome] = {
+      net_position: p.net_position,
+      price_basis: p.price_basis,
+      closed_profit: p.closed_profit,
+      settled_profit: p.settled_profit,
+    };
     return acc;
   }, {});
 
@@ -585,6 +605,14 @@ export function MarketDetail() {
     const sign = netPosition >= 0 ? '+' : '';
     return `${sign}${netPosition} @ ${formatPriceBasis(priceBasisCents)}`;
   };
+
+  const formatScoreToPar = (score: number | null | undefined): string => {
+    if (score == null) return '—';
+    if (score === 0) return 'E';
+    return score > 0 ? `+${score}` : String(score);
+  };
+
+  const showCurrentColumn = market?.market_id === 'market-individual-gross-champion' || market?.market_id === 'market-individual-net-champion';
 
   const getPositionValueCents = (position: Position, currentPrice: number | null) => {
     if (currentPrice === null) return null;
@@ -772,6 +800,9 @@ export function MarketDetail() {
                   <thead>
                     <tr className="border-b border-gray-300 dark:border-gray-600">
                       <th className="py-1.5 px-2 sm:py-2 sm:px-3 text-left text-xs font-bold text-gray-600 dark:text-gray-400">Team</th>
+                      {showCurrentColumn && (
+                        <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Current</th>
+                      )}
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Chance</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">No/Sell</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Yes/Buy</th>
@@ -786,6 +817,10 @@ export function MarketDetail() {
                         const avgPrice = bestBid && bestAsk ? (bestBid.price + bestAsk.price) / 2 : (yesPrice || 0);
                         const chance = avgPrice ? Math.round((avgPrice / 10000) * 100) : 0;
                         const isSelected = selectedOutcomeId === outcome.outcome_id;
+                        const currentScore = currentScores[outcome.name];
+                        const currentDisplay = market?.market_id === 'market-individual-gross-champion'
+                          ? formatScoreToPar(currentScore?.score_gross)
+                          : formatScoreToPar(currentScore?.score_net);
                         
                         return (
                           <tr
@@ -814,13 +849,19 @@ export function MarketDetail() {
                                         )}
                                   </div>
                                   {positionByOutcome[outcome.outcome_id] && (() => {
-                                    const { net_position, price_basis } = positionByOutcome[outcome.outcome_id];
+                                    const pos = positionByOutcome[outcome.outcome_id];
+                                    const { net_position, price_basis } = pos;
+                                    const totalClosedCents = (pos.closed_profit ?? 0) + (pos.settled_profit ?? 0);
                                     if (net_position === 0) {
-                                      return (
-                                        <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50">
-                                          No Open Position
-                                        </span>
-                                      );
+                                      if (totalClosedCents !== 0) {
+                                        const isProfit = totalClosedCents >= 0;
+                                        return (
+                                          <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium ${isProfit ? 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20' : 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20'}`}>
+                                            {isProfit ? '+' : ''}{formatPriceBasis(totalClosedCents)} closed
+                                          </span>
+                                        );
+                                      }
+                                      return null;
                                     }
                                     const isLong = net_position > 0;
                                     return (
@@ -832,6 +873,13 @@ export function MarketDetail() {
                                 </div>
                               </div>
                             </td>
+                            {showCurrentColumn && (
+                              <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
+                                <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100">
+                                  {currentDisplay}
+                                </span>
+                              </td>
+                            )}
                             <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                               <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100">
                                 {chance}%
@@ -1060,11 +1108,22 @@ export function MarketDetail() {
                                   To Profit: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceBasis(toProfitCents)}</span>
                                 </p>
                               </>
-                            ) : (
-                              <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50">
-                                No Open Position
-                              </span>
-                            )}
+                            ) : (() => {
+                              const totalClosedCard = (position.closed_profit ?? 0) + (position.settled_profit ?? 0);
+                              if (totalClosedCard !== 0) {
+                                const isProfitCard = totalClosedCard >= 0;
+                                return (
+                                  <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${isProfitCard ? 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20' : 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20'}`}>
+                                    {isProfitCard ? '+' : ''}{formatPriceBasis(totalClosedCard)} closed
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50">
+                                  —
+                                </span>
+                              );
+                            })()}
                           </div>
                           {hasOpenPosition && (
                             <div className="flex flex-col items-end text-right">
@@ -1114,6 +1173,9 @@ export function MarketDetail() {
                   <thead>
                     <tr className="border-b border-gray-300 dark:border-gray-600">
                       <th className="py-1.5 px-2 sm:py-2 sm:px-3 text-left text-xs font-bold text-gray-600 dark:text-gray-400">Team</th>
+                      {showCurrentColumn && (
+                        <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Current</th>
+                      )}
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Chance</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">No/Sell</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Yes/Buy</th>
@@ -1128,6 +1190,10 @@ export function MarketDetail() {
                         const avgPrice = bestBid && bestAsk ? (bestBid.price + bestAsk.price) / 2 : (yesPrice || 0);
                         const chance = avgPrice ? Math.round((avgPrice / 10000) * 100) : 0;
                         const isSelected = selectedOutcomeId === outcome.outcome_id;
+                        const currentScoreDesktop = currentScores[outcome.name];
+                        const currentDisplayDesktop = market?.market_id === 'market-individual-gross-champion'
+                          ? formatScoreToPar(currentScoreDesktop?.score_gross)
+                          : formatScoreToPar(currentScoreDesktop?.score_net);
                         
                         return (
                           <tr
@@ -1156,13 +1222,19 @@ export function MarketDetail() {
                                         )}
                                   </div>
                                   {positionByOutcome[outcome.outcome_id] && (() => {
-                                    const { net_position, price_basis } = positionByOutcome[outcome.outcome_id];
+                                    const pos = positionByOutcome[outcome.outcome_id];
+                                    const { net_position, price_basis } = pos;
+                                    const totalClosedCentsDesktop = (pos.closed_profit ?? 0) + (pos.settled_profit ?? 0);
                                     if (net_position === 0) {
-                                      return (
-                                        <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50">
-                                          No Open Position
-                                        </span>
-                                      );
+                                      if (totalClosedCentsDesktop !== 0) {
+                                        const isProfitDesktop = totalClosedCentsDesktop >= 0;
+                                        return (
+                                          <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium ${isProfitDesktop ? 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20' : 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20'}`}>
+                                            {isProfitDesktop ? '+' : ''}{formatPriceBasis(totalClosedCentsDesktop)} closed
+                                          </span>
+                                        );
+                                      }
+                                      return null;
                                     }
                                     const isLong = net_position > 0;
                                     return (
@@ -1174,6 +1246,13 @@ export function MarketDetail() {
                                 </div>
                               </div>
                             </td>
+                            {showCurrentColumn && (
+                              <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
+                                <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100">
+                                  {currentDisplayDesktop}
+                                </span>
+                              </td>
+                            )}
                             <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                               <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100">
                                 {chance}%
@@ -1659,11 +1738,22 @@ export function MarketDetail() {
                                     To Profit: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceBasis(toProfitCents)}</span>
                                   </p>
                                 </>
-                              ) : (
-                                <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50">
-                                  No Open Position
-                                </span>
-                              )}
+                              ) : (() => {
+                                const totalClosedCard2 = (position.closed_profit ?? 0) + (position.settled_profit ?? 0);
+                                if (totalClosedCard2 !== 0) {
+                                  const isProfitCard2 = totalClosedCard2 >= 0;
+                                  return (
+                                    <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${isProfitCard2 ? 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20' : 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20'}`}>
+                                      {isProfitCard2 ? '+' : ''}{formatPriceBasis(totalClosedCard2)} closed
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50">
+                                    —
+                                  </span>
+                                );
+                              })()}
                             </div>
                             {hasOpenPosition && (
                               <div className="flex flex-col items-end text-right">
