@@ -751,8 +751,12 @@ export function MarketDetail() {
       </div>
 
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">{market.short_name}</h1>
-        
+        <h1 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3">{market.short_name}</h1>
+        {market.description && (
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 sm:mb-4 max-w-2xl">
+            {market.description}
+          </p>
+        )}
         {/* Market Summary Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-1 gap-3 sm:gap-4 mb-4 sm:mb-6">
           <div className="bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 rounded-lg">

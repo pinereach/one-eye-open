@@ -39,7 +39,11 @@
     "current-scores-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0054_create_current_scores.sql",
     "current-scores-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0054_create_current_scores.sql",
     "current-scores-seed-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0055_seed_current_scores.sql",
-    "current-scores-seed-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0055_seed_current_scores.sql"
+    "current-scores-seed-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0055_seed_current_scores.sql",
+    "markets-description-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0056_add_markets_description.sql",
+    "markets-description-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0056_add_markets_description.sql",
+    "market-descriptions-seed-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0057_seed_market_descriptions.sql",
+    "market-descriptions-seed-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0057_seed_market_descriptions.sql"
   },
   "dependencies": {
     "date-fns": "^2.30.0",

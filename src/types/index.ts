@@ -34,6 +34,8 @@ export interface Market {
   created_date: number;
   market_type?: string | null;
   trading_paused?: number;
+  /** Optional quick sentence describing the market and settlement rules */
+  description?: string | null;
   outcomes?: Outcome[];
   /** Total contracts traded in this market (for volume = volume_contracts × $100) */
   volume_contracts?: number;
