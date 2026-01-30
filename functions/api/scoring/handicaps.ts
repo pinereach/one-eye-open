@@ -26,7 +26,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
         handicapsByYear[y][r.player] = r.handicap_index!;
       }
       const response = jsonResponse({ handicapsByYear });
-      response.headers.set('Cache-Control', `public, max-age=${CACHE_MAX_AGE}`);
+      response.headers.set('Cache-Control', `public, max-age=${CACHE_MAX_AGE}, stale-while-revalidate=86400`);
       return response;
     }
 
@@ -45,7 +45,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     }
 
     const response = jsonResponse({ handicaps });
-    response.headers.set('Cache-Control', `public, max-age=${CACHE_MAX_AGE}`);
+    response.headers.set('Cache-Control', `public, max-age=${CACHE_MAX_AGE}, stale-while-revalidate=86400`);
     return response;
   } catch (err: any) {
     console.error('[handicaps GET] Error:', err);

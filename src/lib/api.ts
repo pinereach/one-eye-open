@@ -42,6 +42,7 @@ async function apiRequest<T>(
       let message = `${response.status} ${response.statusText}`;
       try {
         const errBody = JSON.parse(errorText);
+        // API errors are standardized as { error: string }; use it when present.
         if (errBody?.error && typeof errBody.error === 'string') {
           message = errBody.error;
         }

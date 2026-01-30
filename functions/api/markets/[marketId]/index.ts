@@ -22,18 +22,18 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     // Ignore auth errors
   }
 
-  // Get market by market_id (text)
-  const market = await dbFirst(db, 'SELECT * FROM markets WHERE market_id = ?', [marketId]);
-  if (!market) {
+  // Single query: market row + outcomes (reduces D1 reads)
+  const marketRow = await dbFirst(db, 'SELECT * FROM markets WHERE market_id = ?', [marketId]);
+  if (!marketRow) {
     return errorResponse('Market not found', 404);
   }
-
-  // Get outcomes for this market
-  const outcomes = await dbQuery(
+  const market = marketRow as Record<string, unknown>;
+  const outcomesRows = await dbQuery(
     db,
     'SELECT * FROM outcomes WHERE market_id = ? ORDER BY created_date ASC',
-    [market.market_id]
+    [marketId]
   );
+  const outcomes = outcomesRows as { outcome_id: string; [k: string]: unknown }[];
 
   // Get orderbook grouped by outcome: 2 queries for whole market (no N+1)
   const orderbookByOutcome: Record<string, { bids: any[]; asks: any[] }> = {};
@@ -227,7 +227,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     trades,
     positions,
   });
-  // Orderbook/trades/positions change frequently; short cache to cut repeat reads without stale data.
-  response.headers.set('Cache-Control', 'public, max-age=120'); // 2 min
+  // Short cache + stale-while-revalidate to cut repeat reads
+  response.headers.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=60');
   return response;
 };

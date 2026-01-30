@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbFirst, dbRun, type Env } from '../../../lib/db';
+import { getDb, dbFirst, dbRun, dbBatch, type Env } from '../../../lib/db';
 import { requireAuth, jsonResponse, errorResponse } from '../../../middleware';
 import {
   executeMatching,
@@ -81,38 +81,32 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     // Generate token if not provided
     const token = validated.token || crypto.randomUUID();
 
-    // Create order
-    // Note: orders table uses contract_size, but we need qty_remaining for matching
-    // We'll use contract_size as the initial qty_remaining
-    // IMPORTANT: original_contract_size is set here and should NEVER be updated after order creation
-    // It preserves the original order size even when the order is filled (contract_size becomes 0)
-    const result = await dbRun(
-      db,
-      `INSERT INTO orders (create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size, original_contract_size)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        Math.floor(Date.now() / 1000),
-        userId, // user.id is now a number
-        token,
-        -1, // order_id default
-        validated.outcome_id,
-        validated.price,
-        'open',
-        validated.tif || 'GTC',
-        sideNum,
-        validated.contract_size,
-        validated.contract_size, // Store original size - this should NEVER change after order creation
-      ]
-    );
-
-    // Get the inserted order ID
-    const orderId = result.meta.last_row_id;
+    // Create order + set order_id in one atomic batch (last_insert_rowid() is valid for next statement)
+    const createTime = Math.floor(Date.now() / 1000);
+    const batchResults = await dbBatch(db, [
+      {
+        sql: `INSERT INTO orders (create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size, original_contract_size)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        params: [
+          createTime,
+          userId,
+          token,
+          -1,
+          validated.outcome_id,
+          validated.price,
+          'open',
+          validated.tif || 'GTC',
+          sideNum,
+          validated.contract_size,
+          validated.contract_size,
+        ],
+      },
+      { sql: 'UPDATE orders SET order_id = last_insert_rowid() WHERE id = last_insert_rowid()', params: [] },
+    ]);
+    const orderId = batchResults[0]?.meta?.last_row_id;
     if (!orderId) {
       return errorResponse('Failed to create order', 500);
     }
-
-    // Set order_id to this order's id (was -1 placeholder); keeps each order identifiable
-    await dbRun(db, 'UPDATE orders SET order_id = ? WHERE id = ?', [orderId, orderId]);
 
     // Get the created order with outcome info to get market_id
     const order = await dbFirst<{

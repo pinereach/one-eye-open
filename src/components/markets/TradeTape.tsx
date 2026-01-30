@@ -96,13 +96,13 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
                 className="rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-700/30 overflow-hidden border-l-4 border-l-green-500 dark:border-l-green-500"
               >
                 <div className="px-3 sm:px-4 py-3 text-sm text-gray-800 dark:text-gray-200 leading-snug">
-                  <span className="font-medium" style={buyerColor ? { color: buyerColor } : undefined}>{buyer}</span>
+                  <span className="font-bold" style={buyerColor ? { color: buyerColor } : undefined}>{buyer}</span>
                   {' bought '}
                   <span className="font-bold text-gray-900 dark:text-gray-100">{shares}</span> {shareWord} of <span className="font-medium text-gray-900 dark:text-gray-100">{outcomeName}</span>
                   {' at '}
                   <span className="font-bold text-gray-900 dark:text-gray-100">{formatPrice(trade.price)}</span>
                   {' from '}
-                  <span className="font-medium" style={sellerColor ? { color: sellerColor } : undefined}>{seller}</span>.
+                  <span className="font-bold" style={sellerColor ? { color: sellerColor } : undefined}>{seller}</span>.
                 </div>
                 <div className="px-3 sm:px-4 py-2 flex items-center justify-between gap-2 border-t border-gray-100 dark:border-gray-600/50">
                   <span className="truncate min-w-0 text-xs text-gray-500 dark:text-gray-400" title={marketName}>

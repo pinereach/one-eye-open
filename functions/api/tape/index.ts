@@ -159,6 +159,6 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   });
 
   const response = jsonResponse({ trades });
-  response.headers.set('Cache-Control', 'private, max-age=30'); // Short cache to reduce repeated DB hits
+  response.headers.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=15');
   return response;
 };

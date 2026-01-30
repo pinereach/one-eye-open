@@ -1,5 +1,5 @@
 import type { D1Database } from '@cloudflare/workers-types';
-import { dbQuery, dbRun } from './db';
+import { dbQuery, dbRun, dbBatch } from './db';
 
 export interface PnLResult {
   userId: string;
@@ -160,7 +160,6 @@ export async function settleMarket(
     throw new Error(`Settle value must be 0 or ${CONTRACT_SIZE_CENTS}`);
   }
 
-  // Get all positions for this market (using local DB schema)
   const positionsDb = await dbQuery<{
     id: number;
     user_id: number | null;
@@ -169,58 +168,41 @@ export async function settleMarket(
     price_basis: number;
   }>(
     db,
-    `SELECT p.* 
+    `SELECT p.id, p.user_id, p.outcome, p.net_position, p.price_basis
      FROM positions p
      JOIN outcomes o ON p.outcome = o.outcome_id
      WHERE o.market_id = ?`,
     [marketId]
   );
 
-  // Calculate PnL and update settled_profit for each position
   const pnlResults: PnLResult[] = [];
+  const statements: { sql: string; params: any[] }[] = [];
 
   for (const position of positionsDb) {
-    let pnlCents = 0;
     let settledProfit = 0;
-
-    // Long positions: net_position > 0, profit if settleValue > price_basis
     if (position.net_position > 0 && position.price_basis > 0) {
-      const profitPerContract = settleValue - position.price_basis;
-      settledProfit = position.net_position * profitPerContract;
-      pnlCents = settledProfit;
+      settledProfit = position.net_position * (settleValue - position.price_basis);
     }
-
-    // Short positions: net_position < 0, profit if settleValue < price_basis
     if (position.net_position < 0 && position.price_basis > 0) {
-      const profitPerContract = position.price_basis - settleValue;
-      settledProfit = Math.abs(position.net_position) * profitPerContract;
-      pnlCents = settledProfit;
+      settledProfit = Math.abs(position.net_position) * (position.price_basis - settleValue);
     }
-
-    // Update position with settled_profit and mark as settled
-    await dbRun(
-      db,
-      `UPDATE positions 
-       SET settled_profit = ?, is_settled = 1
-       WHERE id = ?`,
-      [settledProfit, position.id]
-    );
-
     pnlResults.push({
       userId: position.user_id?.toString() || '',
       marketId: marketId,
-      pnlCents,
+      pnlCents: settledProfit,
+    });
+    statements.push({
+      sql: 'UPDATE positions SET settled_profit = ?, is_settled = 1 WHERE id = ?',
+      params: [settledProfit, position.id],
     });
   }
 
-  // Update all outcomes in this market with settled_price
-  // Local DB doesn't have status/settle_value on markets, so we update outcomes instead
-  await dbRun(
-    db,
-    `UPDATE outcomes SET settled_price = ? WHERE market_id = ?`,
-    [settleValue, marketId]
-  );
+  statements.push({
+    sql: 'UPDATE outcomes SET settled_price = ? WHERE market_id = ?',
+    params: [settleValue, marketId],
+  });
 
+  await dbBatch(db, statements);
   return pnlResults;
 }
 

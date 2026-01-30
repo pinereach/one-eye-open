@@ -5,19 +5,15 @@ export interface AuthenticatedRequest extends Request {
   user?: User;
 }
 
-// Feature flag: disable auth in development
+// Dev bypass only when ENVIRONMENT is not production and request URL is clearly local.
 export function isAuthRequired(env: Env, request: Request): boolean {
-  // Check if we're in production
-  // In Cloudflare Pages, ENVIRONMENT is set to 'production' in production
-  // For local dev, we can check the hostname or use an env var
-  const isProduction = env.ENVIRONMENT === 'production' || 
-                      (!request.url.includes('localhost') && 
-                       !request.url.includes('127.0.0.1') && 
-                       !request.url.includes(':8788') &&
-                       !request.url.includes(':3000'));
-  
-  // Disable auth in development (when not in production)
-  return isProduction;
+  const url = request.url;
+  const isLocal =
+    url.includes('localhost') ||
+    url.includes('127.0.0.1') ||
+    url.includes(':8788') ||
+    url.includes(':3000');
+  return env.ENVIRONMENT === 'production' || !isLocal;
 }
 
 export async function requireAuth(
