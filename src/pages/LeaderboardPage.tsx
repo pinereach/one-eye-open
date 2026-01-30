@@ -31,6 +31,7 @@ const DEFAULT_SORT_DIR: SortDir = 'desc';
 export function LeaderboardPage() {
   const { user } = useAuth();
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
+  const [unattributedCents, setUnattributedCents] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>(DEFAULT_SORT);
@@ -66,8 +67,9 @@ export function LeaderboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const { leaderboard: data } = await api.adminGetLeaderboard();
+      const { leaderboard: data, unattributed_portfolio_value_cents: unattributed } = await api.adminGetLeaderboard();
       setLeaderboard(data ?? []);
+      setUnattributedCents(unattributed ?? 0);
     } catch (err) {
       console.error('Failed to load leaderboard:', err);
       setError(err instanceof Error ? err.message : 'Failed to load leaderboard');
@@ -139,7 +141,8 @@ export function LeaderboardPage() {
 
         {/* Summary (all participants) — mobile: below cards */}
         {leaderboard.length > 0 && (() => {
-          const totalPortfolio = leaderboard.reduce((s, r) => s + r.portfolio_value_cents, 0);
+          const totalUsers = leaderboard.reduce((s, r) => s + r.portfolio_value_cents, 0);
+          const totalAll = totalUsers + unattributedCents;
           return (
             <div className="md:hidden rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 p-4">
               <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Summary (all participants)</div>
@@ -147,7 +150,11 @@ export function LeaderboardPage() {
                 <span><span className="text-gray-600 dark:text-gray-400">Trades:</span> <span className="font-semibold">{leaderboard.reduce((s, r) => s + r.trade_count, 0)}</span></span>
                 <span><span className="text-gray-600 dark:text-gray-400">Open orders:</span> <span className="font-semibold">{leaderboard.reduce((s, r) => s + r.open_orders_count, 0)}</span></span>
                 <span><span className="text-gray-600 dark:text-gray-400">Shares traded:</span> <span className="font-semibold">{leaderboard.reduce((s, r) => s + r.shares_traded, 0)}</span></span>
-                <span><span className="text-gray-600 dark:text-gray-400">Portfolio value (net):</span> <span className={`font-semibold ${totalPortfolio > 0 ? 'text-green-600 dark:text-green-400' : totalPortfolio < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalPortfolio, true)}</span></span>
+                <span><span className="text-gray-600 dark:text-gray-400">Portfolio (users):</span> <span className={`font-semibold ${totalUsers > 0 ? 'text-green-600 dark:text-green-400' : totalUsers < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalUsers, true)}</span></span>
+                {unattributedCents !== 0 && (
+                  <span><span className="text-gray-600 dark:text-gray-400">Unattributed:</span> <span className={`font-semibold ${unattributedCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedCents, true)}</span></span>
+                )}
+                <span><span className="text-gray-600 dark:text-gray-400">Total:</span> <span className={`font-semibold ${totalAll === 0 ? 'text-gray-700 dark:text-gray-300' : totalAll > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(totalAll, true)}</span></span>
               </div>
             </div>
           );
@@ -208,7 +215,8 @@ export function LeaderboardPage() {
               const totalTrades = leaderboard.reduce((s, r) => s + r.trade_count, 0);
               const totalOrders = leaderboard.reduce((s, r) => s + r.open_orders_count, 0);
               const totalShares = leaderboard.reduce((s, r) => s + r.shares_traded, 0);
-              const totalPortfolio = leaderboard.reduce((s, r) => s + r.portfolio_value_cents, 0);
+              const totalUsers = leaderboard.reduce((s, r) => s + r.portfolio_value_cents, 0);
+              const totalAll = totalUsers + unattributedCents;
               return (
                 <tfoot>
                   <tr className="border-t-2 border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-800 font-semibold">
@@ -216,7 +224,19 @@ export function LeaderboardPage() {
                     <td className="py-3 px-4 text-right">{totalTrades}</td>
                     <td className="py-3 px-4 text-right">{totalOrders}</td>
                     <td className="py-3 px-4 text-right">{totalShares}</td>
-                    <td className={`py-3 px-4 text-right ${totalPortfolio > 0 ? 'text-green-600 dark:text-green-400' : totalPortfolio < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalPortfolio, true)}</td>
+                    <td className={`py-3 px-4 text-right ${totalUsers > 0 ? 'text-green-600 dark:text-green-400' : totalUsers < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalUsers, true)}</td>
+                  </tr>
+                  {unattributedCents !== 0 && (
+                    <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 font-medium">
+                      <td className="py-2 px-4 text-gray-600 dark:text-gray-400 text-xs">Unattributed (no user_id)</td>
+                      <td colSpan={3} className="py-2 px-4" />
+                      <td className={`py-2 px-4 text-right ${unattributedCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedCents, true)}</td>
+                    </tr>
+                  )}
+                  <tr className="border-t border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-800 font-semibold">
+                    <td className="py-3 px-4 text-gray-900 dark:text-gray-100">Total</td>
+                    <td colSpan={3} className="py-3 px-4" />
+                    <td className={`py-3 px-4 text-right ${totalAll === 0 ? 'text-gray-700 dark:text-gray-300' : totalAll > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(totalAll, true)}</td>
                   </tr>
                 </tfoot>
               );

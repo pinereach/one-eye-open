@@ -67,10 +67,11 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     const sharesByUser = new Map<number, number>();
     sharesRows.forEach((r) => sharesByUser.set(r.user_id, r.total ?? 0));
 
-    // Portfolio value = total P&L (unrealized + closed + settled), matching Positions page
-    const positionsRows = await dbQuery<{ user_id: number; outcome: string; net_position: number; price_basis: number; closed_profit: number; settled_profit: number }>(
+    // Portfolio value = total P&L (unrealized + closed + settled), matching Positions page.
+    // Include ALL positions so we can compute unattributed P&L (user_id IS NULL) and round to integer cents.
+    const positionsRows = await dbQuery<{ user_id: number | null; outcome: string; net_position: number; price_basis: number; closed_profit: number; settled_profit: number }>(
       db,
-      `SELECT user_id, outcome, net_position, COALESCE(NULLIF(price_basis, 0), 0) AS price_basis, COALESCE(closed_profit, 0) AS closed_profit, COALESCE(settled_profit, 0) AS settled_profit FROM positions WHERE user_id IS NOT NULL`,
+      `SELECT user_id, outcome, net_position, COALESCE(NULLIF(price_basis, 0), 0) AS price_basis, COALESCE(closed_profit, 0) AS closed_profit, COALESCE(settled_profit, 0) AS settled_profit FROM positions`,
       []
     );
     const outcomeIds = [...new Set(positionsRows.map((p) => p.outcome))];
@@ -98,21 +99,29 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       const mid = (bid != null && ask != null) ? (bid + ask) / 2 : (bid ?? ask ?? null);
       if (mid != null) currentPriceByOutcome[outcome] = mid;
     });
-    const portfolioByUser = new Map<number, number>();
-    for (const p of positionsRows) {
-      let contribution = (p.closed_profit ?? 0) + (p.settled_profit ?? 0);
-      if (p.net_position !== 0) {
-        const currentPrice = currentPriceByOutcome[p.outcome] ?? null;
-        if (currentPrice != null) {
-          const costCents = p.net_position * p.price_basis;
-          if (p.net_position < 0) {
-            contribution += (p.price_basis - currentPrice) * Math.abs(p.net_position);
-          } else {
-            contribution += p.net_position * currentPrice - costCents;
-          }
+    function pnlCents(p: { net_position: number; price_basis: number; closed_profit: number; settled_profit: number }, currentPrice: number | null): number {
+      let contribution = p.closed_profit + p.settled_profit;
+      if (p.net_position !== 0 && currentPrice != null) {
+        const costCents = p.net_position * p.price_basis;
+        if (p.net_position < 0) {
+          contribution += (p.price_basis - currentPrice) * Math.abs(p.net_position);
+        } else {
+          contribution += p.net_position * currentPrice - costCents;
         }
       }
-      portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + contribution);
+      return Math.round(contribution);
+    }
+
+    const portfolioByUser = new Map<number, number>();
+    let unattributedCents = 0;
+    for (const p of positionsRows) {
+      const currentPrice = currentPriceByOutcome[p.outcome] ?? null;
+      const contribution = pnlCents(p, currentPrice);
+      if (p.user_id != null) {
+        portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + contribution);
+      } else {
+        unattributedCents += contribution;
+      }
     }
 
     const leaderboard: LeaderboardRow[] = users.map((u) => ({
@@ -124,7 +133,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       portfolio_value_cents: portfolioByUser.get(u.id) ?? 0,
     }));
 
-    return jsonResponse({ leaderboard });
+    return jsonResponse({ leaderboard, unattributed_portfolio_value_cents: unattributedCents });
   } catch (err) {
     console.error('Admin leaderboard error:', err);
     return jsonResponse({ error: 'Failed to load leaderboard' }, 500);
