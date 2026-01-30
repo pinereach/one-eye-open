@@ -118,7 +118,7 @@ export function PositionsPage() {
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0 pr-4">
               <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-1">{position.outcome_name || position.outcome_ticker || position.outcome}</h3>
-              {hasOpenPosition && (
+              {hasOpenPosition ? (
                 <>
                   <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${isLong ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
                     {positionChipText}
@@ -129,6 +129,10 @@ export function PositionsPage() {
                     To Profit: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceBasis(toProfitCents)}</span>
                   </p>
                 </>
+              ) : (
+                <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50">
+                  No Open Position
+                </span>
               )}
             </div>
             {hasOpenPosition && (

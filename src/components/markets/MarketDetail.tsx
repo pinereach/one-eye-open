@@ -814,11 +814,18 @@ export function MarketDetail() {
                                         )}
                                   </div>
                                   {positionByOutcome[outcome.outcome_id] && (() => {
-                                    const { net_position } = positionByOutcome[outcome.outcome_id];
+                                    const { net_position, price_basis } = positionByOutcome[outcome.outcome_id];
+                                    if (net_position === 0) {
+                                      return (
+                                        <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50">
+                                          No Open Position
+                                        </span>
+                                      );
+                                    }
                                     const isLong = net_position > 0;
                                     return (
                                       <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold ${isLong ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
-                                        {formatPositionChip(positionByOutcome[outcome.outcome_id].net_position, positionByOutcome[outcome.outcome_id].price_basis)}
+                                        {formatPositionChip(net_position, price_basis)}
                                       </span>
                                     );
                                   })()}
@@ -1042,7 +1049,7 @@ export function MarketDetail() {
                             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">
                               {outcomeLabel}
                             </p>
-                            {hasOpenPosition && (
+                            {hasOpenPosition ? (
                               <>
                                 <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${position.net_position > 0 ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
                                   {formatPositionChip(position.net_position, position.price_basis)}
@@ -1053,6 +1060,10 @@ export function MarketDetail() {
                                   To Profit: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceBasis(toProfitCents)}</span>
                                 </p>
                               </>
+                            ) : (
+                              <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50">
+                                No Open Position
+                              </span>
                             )}
                           </div>
                           {hasOpenPosition && (
@@ -1145,11 +1156,18 @@ export function MarketDetail() {
                                         )}
                                   </div>
                                   {positionByOutcome[outcome.outcome_id] && (() => {
-                                    const { net_position } = positionByOutcome[outcome.outcome_id];
+                                    const { net_position, price_basis } = positionByOutcome[outcome.outcome_id];
+                                    if (net_position === 0) {
+                                      return (
+                                        <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50">
+                                          No Open Position
+                                        </span>
+                                      );
+                                    }
                                     const isLong = net_position > 0;
                                     return (
                                       <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold ${isLong ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
-                                        {formatPositionChip(positionByOutcome[outcome.outcome_id].net_position, positionByOutcome[outcome.outcome_id].price_basis)}
+                                        {formatPositionChip(net_position, price_basis)}
                                       </span>
                                     );
                                   })()}
@@ -1630,7 +1648,7 @@ export function MarketDetail() {
                               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">
                                 {outcomeLabel}
                               </p>
-                              {hasOpenPosition && (
+                              {hasOpenPosition ? (
                                 <>
                                   <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${position.net_position > 0 ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
                                     {formatPositionChip(position.net_position, position.price_basis)}
@@ -1641,6 +1659,10 @@ export function MarketDetail() {
                                     To Profit: <span className="font-medium text-green-600 dark:text-green-400">{formatPriceBasis(toProfitCents)}</span>
                                   </p>
                                 </>
+                              ) : (
+                                <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/50">
+                                  No Open Position
+                                </span>
                               )}
                             </div>
                             {hasOpenPosition && (
