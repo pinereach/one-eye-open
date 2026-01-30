@@ -11,24 +11,27 @@ function isCacheableGet(endpoint: string, method?: string): boolean {
   return false;
 }
 
+type ApiRequestOptions = RequestInit & { cacheBust?: boolean };
+
 async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: ApiRequestOptions = {}
 ): Promise<T> {
   try {
+    const { cacheBust, ...fetchOptions } = options;
     const url = `${API_BASE}${endpoint}`;
     const method = options.method ?? 'GET';
-    const allowCache = isCacheableGet(endpoint, method);
+    const allowCache = !cacheBust && isCacheableGet(endpoint, method);
     const finalUrl = !allowCache && (method === 'GET' || !method)
       ? `${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`
       : url;
 
     const response = await fetch(finalUrl, {
-      ...options,
+      ...fetchOptions,
       headers: {
         'Content-Type': 'application/json',
         ...(allowCache ? {} : { 'Cache-Control': 'no-cache' }),
-        ...options.headers,
+        ...(fetchOptions.headers ?? {}),
       },
       credentials: 'include',
     });
@@ -84,8 +87,8 @@ export const api = {
     return apiRequest<{ markets: any[] }>('/markets');
   },
 
-  getMarket: (id: string) =>
-    apiRequest<{ market: any; outcomes: any[]; orderbook: Record<string, { bids: any[]; asks: any[] }>; trades?: any[]; positions?: any[] }>(`/markets/${id}`),
+  getMarket: (id: string, options?: { cacheBust?: boolean }) =>
+    apiRequest<{ market: any; outcomes: any[]; orderbook: Record<string, { bids: any[]; asks: any[] }>; trades?: any[]; positions?: any[] }>(`/markets/${id}`, options),
 
   placeOrder: (marketId: string, data: { outcome_id: string; side: 'bid' | 'ask'; price: number; contract_size: number; tif?: string; token?: string }) =>
     apiRequest<{ order: any; fills: any[]; trades: any[] }>(`/markets/${marketId}/orders`, {

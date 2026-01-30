@@ -115,11 +115,11 @@ export function MarketDetail() {
     return () => document.removeEventListener('visibilitychange', handler);
   }, [id]);
 
-  async function loadMarket() {
+  async function loadMarket(forceRefresh = false) {
     if (!id) return;
     setLoading(true);
     try {
-      const data = await api.getMarket(id);
+      const data = await api.getMarket(id, forceRefresh ? { cacheBust: true } : undefined);
       setMarket(data?.market || null);
       setOutcomes(data?.outcomes || []);
       setOrderbookByOutcome(data?.orderbook || {});
@@ -221,11 +221,11 @@ export function MarketDetail() {
         setMmAskPrice('');
         showToast('Bid and ask placed', 'success');
         await new Promise(resolve => setTimeout(resolve, 200));
-        await loadMarket();
+        await loadMarket(true);
         setBottomSheetOpen(false);
       } catch (err: any) {
         showToast(err?.message || 'Failed to place orders', 'error');
-        await loadMarket();
+        await loadMarket(true);
         showToast('Orderbook refreshed – please try again if needed.', 'info');
       } finally {
         setSubmitting(false);
@@ -287,13 +287,13 @@ export function MarketDetail() {
       // Add small delay to ensure order is committed to database
       await new Promise(resolve => setTimeout(resolve, 200));
       
-      // Refresh all data to show new order in orderbook
+      // Refresh all data to show new order in orderbook (cacheBust so we don't get stale cached response)
       await Promise.all([
-        loadMarket(),
+        loadMarket(true),
       ]);
     } catch (err: any) {
       showToast(err.message || 'Failed to place order', 'error');
-      await loadMarket();
+      await loadMarket(true);
       showToast('Orderbook refreshed – please try again if needed.', 'info');
     } finally {
       setSubmitting(false);
@@ -457,7 +457,7 @@ export function MarketDetail() {
     try {
       await api.cancelOrder(orderId);
       showToast('Order canceled successfully', 'success');
-      await loadMarket();
+      await loadMarket(true);
     } catch (err: any) {
       console.error('Failed to cancel order:', err);
       showToast(err.message || 'Failed to cancel order', 'error');
@@ -478,7 +478,7 @@ export function MarketDetail() {
         await api.cancelOrder(order.id);
       }
       showToast('All orders in this market canceled', 'success');
-      await loadMarket();
+      await loadMarket(true);
     } catch (err: any) {
       console.error('Failed to cancel orders:', err);
       showToast(err.message || 'Failed to cancel some orders', 'error');
@@ -500,7 +500,7 @@ export function MarketDetail() {
         await api.cancelOrder(order.id);
       }
       showToast(`Canceled ${myOrdersInSelectedOutcome.length} order(s) for this outcome`, 'success');
-      await loadMarket();
+      await loadMarket(true);
     } catch (err: any) {
       console.error('Failed to cancel orders for outcome:', err);
       showToast(err?.message || 'Failed to cancel some orders', 'error');
@@ -1081,8 +1081,7 @@ export function MarketDetail() {
                   try {
                     await api.cancelOrder(orderId);
                     showToast('Order canceled successfully', 'success');
-                    // Refresh market data to update orderbook
-                    await loadMarket();
+                    await loadMarket(true);
                   } catch (err: any) {
                     console.error('Failed to cancel order:', err);
                     showToast(err.message || 'Failed to cancel order', 'error');
@@ -1313,7 +1312,7 @@ export function MarketDetail() {
                           try {
                             await api.cancelOrder(orderId);
                             showToast('Order canceled successfully', 'success');
-                            await loadMarket();
+                            await loadMarket(true);
                           } catch (err: any) {
                             showToast(err?.message || 'Failed to cancel order', 'error');
                           }
@@ -1786,7 +1785,7 @@ export function MarketDetail() {
                       try {
                         await api.cancelOrder(orderId);
                         showToast('Order canceled successfully', 'success');
-                        await loadMarket();
+                        await loadMarket(true);
                       } catch (err: any) {
                         showToast(err?.message || 'Failed to cancel order', 'error');
                       }

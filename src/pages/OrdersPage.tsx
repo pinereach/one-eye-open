@@ -36,6 +36,9 @@ export function OrdersPage() {
   }
 
   async function doCancelOrder(orderId: number) {
+    // Optimistic update: remove from active list immediately so UI updates before refetch
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: 'canceled' } : o)));
+    setCancelOrderId(null);
     try {
       await api.cancelOrder(orderId);
       showToast('Order canceled successfully', 'success');
@@ -43,6 +46,7 @@ export function OrdersPage() {
     } catch (err: any) {
       console.error('Failed to cancel order:', err);
       showToast(err.message || 'Failed to cancel order', 'error');
+      await loadOrders();
     }
   }
 
