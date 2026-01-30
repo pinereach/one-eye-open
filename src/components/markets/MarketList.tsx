@@ -39,7 +39,10 @@ function getMarketIcon(marketId: string) {
   if (marketId.includes('h2h') || marketId.includes('matchup')) {
     return (
       <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+        {/* Matchup: two sides with vs in the middle */}
+        <circle cx="6" cy="12" r="4" strokeWidth={2} />
+        <circle cx="18" cy="12" r="4" strokeWidth={2} />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v6M10.5 12h3" />
       </svg>
     );
   }
@@ -54,7 +57,10 @@ function getMarketIcon(marketId: string) {
   if (marketId.includes('eagles')) {
     return (
       <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+        {/* Bird: head, body, wing */}
+        <circle cx="12" cy="9" r="2.5" strokeWidth={2} />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11.5v4c0 1.5-.8 2.8-2 3.5-1.2-.7-2-2-2-3.5v-4" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 11c0 0 2-3 4-3s4 3 4 3" />
       </svg>
     );
   }
@@ -66,6 +72,29 @@ function getMarketIcon(marketId: string) {
   );
 }
 
+const MARKETS_FRESH_KEY = 'markets_prefer_fresh_at';
+const MARKETS_FRESH_MS = 15 * 60 * 1000; // 15 min: after refresh, bypass cache on next visit
+
+function shouldBypassCacheOnLoad(): boolean {
+  try {
+    const raw = sessionStorage.getItem(MARKETS_FRESH_KEY);
+    if (!raw) return false;
+    const at = parseInt(raw, 10);
+    if (Number.isNaN(at)) return false;
+    return Date.now() - at < MARKETS_FRESH_MS;
+  } catch {
+    return false;
+  }
+}
+
+function setPreferFresh() {
+  try {
+    sessionStorage.setItem(MARKETS_FRESH_KEY, String(Date.now()));
+  } catch {
+    // ignore
+  }
+}
+
 export function MarketList({ tripId }: { tripId?: string }) {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +103,7 @@ export function MarketList({ tripId }: { tripId?: string }) {
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    loadMarkets();
+    loadMarkets(false, shouldBypassCacheOnLoad());
   }, [tripId]);
 
   async function loadMarkets(retry = false, cacheBust = false) {
@@ -103,6 +132,11 @@ export function MarketList({ tripId }: { tripId?: string }) {
       setLoading(false);
       setRefreshing(false);
     }
+  }
+
+  async function handleRefresh() {
+    await loadMarkets(false, true);
+    setPreferFresh();
   }
 
   function getMarketTypeLabel(marketType: string | null | undefined): string {
@@ -134,11 +168,24 @@ export function MarketList({ tripId }: { tripId?: string }) {
 
   // Define display order for market types (matchups/specials = production; *_matchups/hole_in_one = legacy)
   const typeOrder = ['team_champion', 'individual_champion', 'matchups', 'h2h_matchups', 'round_matchups', 'special_matchups', 'round_ou', 'total_birdies', 'specials', 'hole_in_one', 'other'];
-  
+  // Within Matchups section: tournament (H2H) first, then round, then special
+  const matchupMarketOrder = ['market-h2h-matchups', 'market-round-matchups', 'market-special-matchups'];
+
   // Get all types that have markets, preserving order for known types, then adding any unknown types
   const knownTypes = typeOrder.filter(type => marketsByType[type]?.length > 0);
   const unknownTypes = Object.keys(marketsByType).filter(type => !typeOrder.includes(type) && marketsByType[type]?.length > 0);
   const sortedTypes = [...knownTypes, ...unknownTypes];
+
+  function sortMarketsForType(type: string, list: Market[]): Market[] {
+    if (type !== 'matchups' || list.length <= 1) return list;
+    return [...list].sort((a, b) => {
+      const i = matchupMarketOrder.indexOf(a.market_id);
+      const j = matchupMarketOrder.indexOf(b.market_id);
+      const ai = i === -1 ? 999 : i;
+      const aj = j === -1 ? 999 : j;
+      return ai - aj;
+    });
+  }
 
   let content: ReactNode;
   if (loading && markets.length === 0) {
@@ -161,33 +208,8 @@ export function MarketList({ tripId }: { tripId?: string }) {
   } else {
     content = (
     <div className="space-y-4 sm:space-y-6">
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => loadMarkets(false, true)}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md border border-gray-300 dark:border-gray-600 disabled:opacity-50 transition-colors"
-          title="Bypass cache and reload markets"
-        >
-          {refreshing ? (
-            <>
-              <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Refreshing…
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Refresh
-            </>
-          )}
-        </button>
-      </div>
       {sortedTypes.map((type) => {
-        const typeMarkets = marketsByType[type];
+        const typeMarkets = sortMarketsForType(type, marketsByType[type]);
         const typeLabel = getMarketTypeLabel(type);
         
         return (
@@ -234,7 +256,28 @@ export function MarketList({ tripId }: { tripId?: string }) {
   }
 
   return (
-    <PullToRefresh onRefresh={() => loadMarkets(false, true)}>
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="flex items-center justify-between gap-2 mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Markets</h1>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md disabled:opacity-50 transition-colors touch-manipulation"
+          title="Bypass cache and reload markets"
+          aria-label="Refresh markets"
+        >
+          <svg
+            className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+      </div>
       {content}
     </PullToRefresh>
   );
