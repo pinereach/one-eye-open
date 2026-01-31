@@ -48,12 +48,15 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       return errorResponse('Trading is paused for this market', 403);
     }
 
-    // Verify outcome exists and belongs to market
-    // Note: outcomes no longer have status field, so we check market status instead
+    // Verify outcome exists and belongs to market. Total Birdies outcomes may use market_id 'market_total_birdies'.
+    const outcomeMarketIds = marketId === 'market-total-birdies'
+      ? ['market-total-birdies', 'market_total_birdies']
+      : [marketId];
+    const outcomePh = outcomeMarketIds.map(() => '?').join(',');
     const outcome = await dbFirst(
       db,
-      'SELECT * FROM outcomes WHERE outcome_id = ? AND market_id = ?',
-      [validated.outcome_id, marketId]
+      `SELECT * FROM outcomes WHERE outcome_id = ? AND market_id IN (${outcomePh})`,
+      [validated.outcome_id, ...outcomeMarketIds]
     );
 
     if (!outcome) {
