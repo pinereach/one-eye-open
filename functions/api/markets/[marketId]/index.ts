@@ -163,12 +163,21 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       create_time: createTime,
       risk_off_contracts: t.risk_off_contracts ?? 0,
       risk_off_price_diff: t.risk_off_price_diff ?? 0,
+      outcome: t.outcome ?? null,
       outcome_name: t.outcome_name,
       outcome_ticker: t.outcome_ticker,
       side,
       taker_side: t.taker_side ?? null,
     };
   });
+
+  // Last traded price per outcome (from all market trades, so it shows even when current user hasn't traded)
+  const lastTradePriceByOutcome: Record<string, number> = {};
+  const tradesByOutcomeDesc = [...tradesDb].sort((a: any, b: any) => (b.create_time ?? 0) - (a.create_time ?? 0));
+  for (const t of tradesByOutcomeDesc) {
+    const oid = t.outcome ?? '';
+    if (oid && lastTradePriceByOutcome[oid] === undefined) lastTradePriceByOutcome[oid] = t.price;
+  }
 
   // Market-scoped positions (when authenticated), with batched best bid/ask for current_price
   let positions: any[] = [];
@@ -236,6 +245,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     orderbook: orderbookByOutcome,
     trades,
     positions,
+    lastTradePriceByOutcome,
   });
   // Short cache + stale-while-revalidate to cut repeat reads
   response.headers.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=60');

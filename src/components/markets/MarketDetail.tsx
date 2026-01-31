@@ -45,6 +45,7 @@ export function MarketDetail() {
   const [cancelingAllForOutcome, setCancelingAllForOutcome] = useState(false);
   const [handicaps, setHandicaps] = useState<Record<string, number>>({});
   const [currentScores, setCurrentScores] = useState<Record<string, { score_gross: number | null; score_net: number | null; number_birdies: number | null }>>({});
+  const [lastTradePriceByOutcomeFromApi, setLastTradePriceByOutcomeFromApi] = useState<Record<string, number>>({});
   const isDesktop = useIsDesktop();
   const quantityInputRef = useRef<HTMLInputElement>(null);
   const lastLoadTsRef = useRef<number>(0);
@@ -165,6 +166,7 @@ export function MarketDetail() {
       setOrderbookByOutcome(data?.orderbook || {});
       setTrades(data?.trades ?? []);
       setPositions(data?.positions ?? []);
+      setLastTradePriceByOutcomeFromApi((data as { lastTradePriceByOutcome?: Record<string, number> })?.lastTradePriceByOutcome ?? {});
 
       // Load handicaps for individual-net-champion and H2H matchups (cached 48h). Use 2025 if 2026 has no data yet.
       const needsHandicaps = data?.market?.market_id === 'market-individual-net-champion' || data?.market?.market_id === 'market-h2h-matchups';
@@ -562,16 +564,18 @@ export function MarketDetail() {
   const bestBid = selectedOrderbook?.bids?.[0];
   const bestAsk = selectedOrderbook?.asks?.[0];
 
-  // Last traded price per outcome (most recent trade per outcome_id)
+  // Last traded price per outcome: prefer API (all market trades), else derive from current user's trades
   const lastTradePriceByOutcome = useMemo(() => {
+    const fromApi = lastTradePriceByOutcomeFromApi;
+    if (Object.keys(fromApi).length > 0) return fromApi;
     const byOutcome: Record<string, number> = {};
     const sorted = [...trades].sort((a, b) => b.create_time - a.create_time);
     for (const t of sorted) {
-      const oid = t.outcome ?? '';
+      const oid = (t as Trade & { outcome?: string | null }).outcome ?? '';
       if (oid && byOutcome[oid] === undefined) byOutcome[oid] = t.price;
     }
     return byOutcome;
-  }, [trades]);
+  }, [trades, lastTradePriceByOutcomeFromApi]);
 
   const selectedOutcomeName = outcomes.find(o => o.outcome_id === selectedOutcomeId)?.name ?? '';
   const lastPriceSelected = selectedOutcomeId ? lastTradePriceByOutcome[selectedOutcomeId] : undefined;
