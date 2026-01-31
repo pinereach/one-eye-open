@@ -154,8 +154,8 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
         const participantSlug = slugForOutcomeId(participant);
         const strikeSlug = outcome.strike ? slugForOutcomeId(outcome.strike) : '';
         outcomeId = strikeSlug
-          ? `outcome-market-total-birdies-${participantSlug}-${strikeSlug}`
-          : `outcome-market-total-birdies-${participantSlug}`;
+          ? `outcome-total-birdies-${participantSlug}-${strikeSlug}`
+          : `outcome-total-birdies-${participantSlug}`;
       } else {
         outcomeId = `outcome-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       }

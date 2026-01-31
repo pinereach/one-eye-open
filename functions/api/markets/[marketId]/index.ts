@@ -28,10 +28,15 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     return errorResponse('Market not found', 404);
   }
   const market = marketRow as Record<string, unknown>;
+  // Total Birdies: outcomes may be stored with market_id 'market-total-birdies' or 'market_total_birdies'; include both so all show on the page
+  const outcomeMarketIds = marketId === 'market-total-birdies'
+    ? ['market-total-birdies', 'market_total_birdies']
+    : [marketId];
+  const outcomePlaceholders = outcomeMarketIds.map(() => '?').join(',');
   const outcomesRows = await dbQuery(
     db,
-    'SELECT * FROM outcomes WHERE market_id = ? ORDER BY created_date ASC',
-    [marketId]
+    `SELECT * FROM outcomes WHERE market_id IN (${outcomePlaceholders}) ORDER BY created_date ASC`,
+    outcomeMarketIds
   );
   const outcomes = outcomesRows as { outcome_id: string; [k: string]: unknown }[];
 
@@ -102,6 +107,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
 
   // Market-scoped trades (same shape as GET /markets/[id]/trades)
   const tradesLimit = 20;
+  const tradesMarketPh = outcomeMarketIds.map(() => '?').join(',');
   let tradesDb: any[] = [];
   try {
     tradesDb = await dbQuery(
@@ -113,10 +119,10 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
          outcomes.name as outcome_name, outcomes.ticker as outcome_ticker
        FROM trades
        LEFT JOIN outcomes ON trades.outcome = outcomes.outcome_id
-       WHERE outcomes.market_id = ?
+       WHERE outcomes.market_id IN (${tradesMarketPh})
        ORDER BY trades.id DESC
        LIMIT ?`,
-      [marketId, tradesLimit]
+      [...outcomeMarketIds, tradesLimit]
     );
   } catch (_err) {
     try {
@@ -126,8 +132,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
                 trades.risk_off_contracts, trades.risk_off_price_diff, trades.outcome,
                 outcomes.name as outcome_name, outcomes.ticker as outcome_ticker
          FROM trades LEFT JOIN outcomes ON trades.outcome = outcomes.outcome_id
-         WHERE outcomes.market_id = ? ORDER BY trades.id DESC LIMIT ?`,
-        [marketId, tradesLimit]
+         WHERE outcomes.market_id IN (${tradesMarketPh}) ORDER BY trades.id DESC LIMIT ?`,
+        [...outcomeMarketIds, tradesLimit]
       );
     } catch {
       tradesDb = [];
@@ -167,15 +173,17 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   // Market-scoped positions (when authenticated), with batched best bid/ask for current_price
   let positions: any[] = [];
   if (currentUserId != null) {
+    const posMarketPh = outcomeMarketIds.map(() => '?').join(',');
+    // For Total Birdies, outcomes may have market_id = market_total_birdies; join to canonical market for market_name
     const positionsDb = await dbQuery(
       db,
       `SELECT p.*, o.name as outcome_name, o.ticker as outcome_ticker, m.short_name as market_name
        FROM positions p
        JOIN outcomes o ON p.outcome = o.outcome_id
-       JOIN markets m ON o.market_id = m.market_id
-       WHERE o.market_id = ? AND p.user_id = ?
+       LEFT JOIN markets m ON (m.market_id = o.market_id OR (o.market_id = 'market_total_birdies' AND m.market_id = 'market-total-birdies'))
+       WHERE o.market_id IN (${posMarketPh}) AND p.user_id = ?
        ORDER BY p.create_time DESC`,
-      [marketId, currentUserId]
+      [...outcomeMarketIds, currentUserId]
     );
     if (positionsDb.length > 0) {
       const posOutcomeIds = [...new Set(positionsDb.map((p: any) => p.outcome))];
