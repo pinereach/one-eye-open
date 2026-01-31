@@ -78,6 +78,22 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       );
     }
 
+    // Reject if same user already has an open/partial opposite order at same price (would create cross on same user)
+    const oppositeSideNum = sideNum === 0 ? 1 : 0;
+    const existingCross = await dbFirst<{ id: number }>(
+      db,
+      `SELECT id FROM orders 
+       WHERE outcome = ? AND user_id = ? AND side = ? AND price = ? AND status IN ('open', 'partial') 
+       LIMIT 1`,
+      [validated.outcome_id, userId, oppositeSideNum, validated.price]
+    );
+    if (existingCross) {
+      return errorResponse(
+        `You already have an open ${oppositeSideNum === 0 ? 'bid' : 'offer'} at $${(validated.price / 100).toFixed(0)}. Cancel it or use a different price.`,
+        400
+      );
+    }
+
     // Generate token if not provided
     const token = validated.token || crypto.randomUUID();
 
