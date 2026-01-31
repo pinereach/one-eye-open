@@ -91,45 +91,45 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
     <div className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800/80 shadow-sm overflow-hidden">
       {showTitle && <h2 className="text-sm font-bold text-gray-600 dark:text-gray-400 px-4 pt-3 pb-2">Trade tape</h2>}
       <div className={`px-3 sm:px-4 ${isFullPage ? 'py-3' : 'py-2 max-h-[280px] overflow-y-auto'}`}>
-        <div className="space-y-1">
+        <div className="space-y-3">
           {trades.map((trade) => {
             const buyer = trade.buyer_username ?? '—';
             const seller = trade.seller_username ?? '—';
-            const buyerColor = getPlayerColor(buyer);
-            const sellerColor = getPlayerColor(seller);
+            const takerSide = trade.taker_side ?? trade.side ?? 0;
+            const isBuy = takerSide === 0;
+            const taker = isBuy ? buyer : seller;
+            const maker = isBuy ? seller : buyer;
+            const takerColor = getPlayerColor(taker);
+            const makerColor = getPlayerColor(maker);
             const shares = trade.contracts;
             const outcomeName = trade.outcome_name || trade.outcome_ticker || trade.outcome || '—';
             const marketName = trade.market_short_name || trade.market_id || '—';
             const marketId = trade.market_id ?? '';
             const timeStr = trade.create_time ? formatRelativeTime(trade.create_time) : '—';
-            const isBuy = (trade.taker_side ?? trade.side ?? 0) === 0;
+            const priceStr = formatPrice(trade.price);
 
             return (
               <Link
                 key={trade.id}
                 to={marketId ? `/markets/${marketId}` : '#'}
-                className="flex items-center gap-2 sm:gap-3 py-2.5 px-3 rounded border border-transparent hover:border-gray-200 dark:hover:border-gray-600 hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition-colors touch-manipulation group"
+                className="block py-2.5 px-3 rounded border border-transparent hover:border-gray-200 dark:hover:border-gray-600 hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition-colors touch-manipulation group"
               >
-                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap flex-shrink-0 w-14 sm:w-16 text-right" title={trade.create_time ? format(new Date(trade.create_time * 1000), 'MMM d, h:mm a') : undefined}>
-                  {timeStr}
-                </span>
-                <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-semibold uppercase tracking-wide min-w-[2rem] text-center {isBuy ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'}">
-                  {isBuy ? 'Buy' : 'Sell'}
-                </span>
-                <span className="truncate min-w-0 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 max-w-[80px] sm:max-w-[100px]" title={marketName}>
-                  {marketName}
-                </span>
-                <span className="truncate min-w-0 font-semibold text-sm text-gray-900 dark:text-gray-100 flex-1" title={outcomeName}>
-                  {outcomeName}
-                </span>
-                <span className="text-sm font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap flex-shrink-0">
-                  {shares} @ {formatPrice(trade.price)}
-                </span>
-                <span className="hidden sm:inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-                  <span className="truncate max-w-[60px]" style={buyerColor ? { color: buyerColor } : undefined} title={buyer}>{buyer}</span>
-                  <span aria-hidden>→</span>
-                  <span className="truncate max-w-[60px]" style={sellerColor ? { color: sellerColor } : undefined} title={seller}>{seller}</span>
-                </span>
+                <div className="text-sm text-gray-900 dark:text-gray-100">
+                  <span className="font-semibold" style={takerColor ? { color: takerColor } : undefined}>{taker}</span>
+                  {' '}
+                  {isBuy ? 'bought' : 'sold'}
+                  {' '}
+                  <span className="font-semibold">{shares} {shares === 1 ? 'share' : 'shares'}</span>
+                  {' of '}
+                  <span className="font-medium">{outcomeName}</span>
+                  {isBuy ? ' from ' : ' to '}
+                  <span className="font-semibold" style={makerColor ? { color: makerColor } : undefined}>{maker}</span>
+                  {' @ '}
+                  <span className="font-bold">{priceStr}</span>
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5" title={trade.create_time ? format(new Date(trade.create_time * 1000), 'MMM d, h:mm a') : undefined}>
+                  on {marketName} {timeStr}
+                </div>
               </Link>
             );
           })}
