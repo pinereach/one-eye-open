@@ -46,6 +46,7 @@ export function MarketDetail() {
   const [handicaps, setHandicaps] = useState<Record<string, number>>({});
   const [currentScores, setCurrentScores] = useState<Record<string, { score_gross: number | null; score_net: number | null; number_birdies: number | null }>>({});
   const [lastTradePriceByOutcomeFromApi, setLastTradePriceByOutcomeFromApi] = useState<Record<string, number>>({});
+  const [volatilityByPlayer, setVolatilityByPlayer] = useState<Record<string, { year: number; volatility: number }>>({});
   const isDesktop = useIsDesktop();
   const quantityInputRef = useRef<HTMLInputElement>(null);
   const lastLoadTsRef = useRef<number>(0);
@@ -195,6 +196,16 @@ export function MarketDetail() {
         }).catch(() => setCurrentScores({}));
       } else {
         setCurrentScores({});
+      }
+
+      // Load player score volatility (year of highest volatility per player) for Player Score Volatility market. Cached 7 days.
+      const isVolatilityMarket = data?.market?.market_id?.includes('volatility') || (data?.market?.short_name && data.market.short_name.toLowerCase().includes('volatility'));
+      if (isVolatilityMarket) {
+        api.getPlayerVolatility().then((res: { volatilityByPlayer?: Record<string, { year: number; volatility: number }> }) => {
+          setVolatilityByPlayer(res?.volatilityByPlayer ?? {});
+        }).catch(() => setVolatilityByPlayer({}));
+      } else {
+        setVolatilityByPlayer({});
       }
 
       // Sort outcomes by chance and select the highest chance outcome
@@ -619,6 +630,7 @@ export function MarketDetail() {
   };
 
   const showCurrentColumn = market?.market_id === 'market-individual-gross-champion' || market?.market_id === 'market-individual-net-champion';
+  const isVolatilityMarket = market?.market_id?.includes('volatility') || (market?.short_name && market.short_name.toLowerCase().includes('volatility'));
 
   const getPositionValueCents = (position: Position, currentPrice: number | null) => {
     if (currentPrice === null) return null;
@@ -834,6 +846,9 @@ export function MarketDetail() {
                                             {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null && (
                                               <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-normal"> ({handicaps[outcome.name]})</span>
                                             )}
+                                            {isVolatilityMarket && volatilityByPlayer[outcome.name] && (
+                                              <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-normal"> ({volatilityByPlayer[outcome.name].year} - {volatilityByPlayer[outcome.name].volatility} strokes)</span>
+                                            )}
                                           </>
                                         )}
                                   </div>
@@ -1013,9 +1028,9 @@ export function MarketDetail() {
                         {sideLabel}
                       </span>
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {trade.outcome_ticker && (
+                        {(trade.outcome_name ?? trade.outcome_ticker) && (
                           <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {trade.outcome_ticker}
+                            {trade.outcome_name ?? trade.outcome_ticker}
                           </span>
                         )}
                         <span className="text-gray-600 dark:text-gray-400 flex-shrink-0">
@@ -1203,18 +1218,21 @@ export function MarketDetail() {
                                     {index + 1}
                                   </span>
                                   <div className="min-w-0 flex-1">
-                                    <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
-                                      {market?.market_id === 'market-h2h-matchups'
-                                        ? formatH2HOutcomeWithIndexes(outcome.name, false)
-                                        : (
-                                            <>
-                                              {outcome.name}
-                                              {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null && (
-                                                <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-normal"> ({handicaps[outcome.name]})</span>
-                                              )}
-                                            </>
-                                          )}
-                                    </div>
+                                                <div className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
+                                                  {market?.market_id === 'market-h2h-matchups'
+                                                    ? formatH2HOutcomeWithIndexes(outcome.name, false)
+                                                    : (
+                                                        <>
+                                                          {outcome.name}
+                                                          {market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null && (
+                                                            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-normal"> ({handicaps[outcome.name]})</span>
+                                                          )}
+                                                          {isVolatilityMarket && volatilityByPlayer[outcome.name] && (
+                                                            <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-normal"> ({volatilityByPlayer[outcome.name].year} - {volatilityByPlayer[outcome.name].volatility} strokes)</span>
+                                                          )}
+                                                        </>
+                                                      )}
+                                                </div>
                                     {positionByOutcome[outcome.outcome_id] && (() => {
                                       const pos = positionByOutcome[outcome.outcome_id];
                                       const { net_position, price_basis } = pos;
@@ -1292,6 +1310,9 @@ export function MarketDetail() {
                                     <div className="flex items-center justify-between gap-2 mb-2">
                                       <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
                                         Orderbook — {outcome.name}
+                                        {isVolatilityMarket && volatilityByPlayer[outcome.name] && (
+                                          <> ({volatilityByPlayer[outcome.name].year} - {volatilityByPlayer[outcome.name].volatility} strokes)</>
+                                        )}
                                         {lastTradePriceByOutcome[outcome.outcome_id] != null && (
                                           <> | Last: {formatPriceCents(lastTradePriceByOutcome[outcome.outcome_id])}</>
                                         )}
@@ -1449,7 +1470,9 @@ export function MarketDetail() {
                           ? formatH2HOutcomeWithIndexes(outcome.name, true)
                           : market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null
                             ? `${outcome.name} (${handicaps[outcome.name]})`
-                            : (outcome.name ?? outcome.ticker)}
+                            : isVolatilityMarket && volatilityByPlayer[outcome.name]
+                              ? `${outcome.name} (${volatilityByPlayer[outcome.name].year} - ${volatilityByPlayer[outcome.name].volatility} strokes)`
+                              : (outcome.name ?? outcome.ticker)}
                       </option>
                     ))}
                   </select>
@@ -1888,9 +1911,9 @@ export function MarketDetail() {
                         {sideLabel}
                       </span>
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {trade.outcome_ticker && (
+                        {(trade.outcome_name ?? trade.outcome_ticker) && (
                           <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {trade.outcome_ticker}
+                            {trade.outcome_name ?? trade.outcome_ticker}
                           </span>
                         )}
                         <span className="text-gray-600 dark:text-gray-400 flex-shrink-0">
@@ -1945,7 +1968,9 @@ export function MarketDetail() {
                       ? formatH2HOutcomeWithIndexes(outcome.name, true)
                       : market?.market_id === 'market-individual-net-champion' && handicaps[outcome.name] != null
                         ? `${outcome.name} (${handicaps[outcome.name]})`
-                        : (outcome.name ?? outcome.ticker)}
+                        : isVolatilityMarket && volatilityByPlayer[outcome.name]
+                          ? `${outcome.name} (${volatilityByPlayer[outcome.name].year} - ${volatilityByPlayer[outcome.name].volatility} strokes)`
+                          : (outcome.name ?? outcome.ticker)}
                   </option>
                 ))}
               </select>

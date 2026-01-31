@@ -286,7 +286,7 @@ export function HistoricalScoringPage() {
         </div>
       )}
 
-      <div className="md:hidden space-y-4">
+      <div className="md:hidden space-y-2">
         {filteredData.length === 0 ? (
           <EmptyState
             icon={<svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
@@ -294,107 +294,115 @@ export function HistoricalScoringPage() {
             message="Try adjusting your filters to see more results."
           />
         ) : (
-          filteredData.map((row, idx) => (
-            <Card key={`${row.course}-${row.year}-${idx}`}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-base text-gray-900 dark:text-gray-100">{row.course}</h3>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">{row.year}</span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-3">
-                  {players.map(player => {
-                    const score = row[player] as number | null;
-                    const handicap = getHandicap(row.year as number, player);
-                    const cellKey = getCellKey(row.course, row.year as number, player);
-                    const displayValue = editingCell?.key === cellKey ? editingCell.value : (score === null || score === undefined ? '' : String(score));
-                    return (
-                      <div key={player} className="flex flex-col items-center">
-                        <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 w-full text-center">{player}</label>
-                        <input
-                          type="number"
-                          value={displayValue}
-                          readOnly={isHistoricalYear(row.year as number)}
-                          onFocus={() => !isHistoricalYear(row.year as number) && setEditingCell({ key: cellKey, value: score === null || score === undefined ? '' : String(score) })}
-                          onChange={(e) => editingCell?.key === cellKey && setEditingCell(prev => prev ? { ...prev, value: e.target.value } : null)}
-                          onBlur={(e) => handleScoreBlur(row.course, row.year as number, player, e.target.value, score)}
-                          className={`w-full text-center text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-2 min-h-[44px] ${
-                            isHistoricalYear(row.year as number)
-                              ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed text-gray-500 dark:text-gray-400'
-                              : 'focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ' +
-                                ((score === null || score === undefined) && displayValue === '' ? 'text-gray-400 dark:text-gray-600' : (() => {
-                                  const n = displayValue === '' ? null : parseInt(displayValue, 10);
-                                  return n !== null && !isNaN(n) && n < 85 ? 'text-green-600 dark:text-green-400 font-semibold' : n !== null && !isNaN(n) && n < 95 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100';
-                                })())
-                          }`}
-                          placeholder="—"
-                          min="0"
-                          max="200"
-                          inputMode="numeric"
-                        />
-                        {handicap != null && (
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400 text-center w-full mt-0.5" title="Handicap index">{handicap}</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
-
-      <div className="hidden md:block overflow-x-auto -mx-3 sm:mx-0">
-        <div className="inline-block min-w-full align-middle">
-          <table className="w-full min-w-[1000px] border-collapse" aria-describedby="scores-table-caption">
-            <caption id="scores-table-caption" className="sr-only">Scores by course and year. Number under each score is handicap index for that year.</caption>
-            <thead>
-              <tr className="border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">
-                <th className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10">Course</th>
-                <th className="py-3 px-2 sm:px-3 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">Year</th>
-                {players.map(player => (
-                  <th key={player} className="py-3 px-2 sm:px-3 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 min-w-[60px]">{player}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.length === 0 ? (
-                <tr>
-                  <td colSpan={players.length + 2} className="py-8 text-center text-gray-500 dark:text-gray-400">No data available for selected filters</td>
-                </tr>
-              ) : (
-                filteredData.map((row, idx) => (
-                  <tr key={`${row.course}-${row.year}-${idx}`} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <td className="py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-medium sticky left-0 bg-white dark:bg-gray-900 z-10">{row.course}</td>
-                    <td className="py-3 px-2 sm:px-3 text-center text-xs sm:text-sm">{row.year}</td>
+          filteredData.map((row, idx) => {
+            const isHistorical = isHistoricalYear(row.year as number);
+            return (
+              <Card key={`${row.course}-${row.year}-${idx}`} className="overflow-hidden">
+                <CardHeader className="py-1.5 px-2 sm:px-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100">{row.course}</h3>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">{row.year}</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="py-1 px-2 sm:px-3 pb-2">
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-1">
                     {players.map(player => {
                       const score = row[player] as number | null;
                       const handicap = getHandicap(row.year as number, player);
                       const cellKey = getCellKey(row.course, row.year as number, player);
                       const displayValue = editingCell?.key === cellKey ? editingCell.value : (score === null || score === undefined ? '' : String(score));
                       const numForColor = displayValue === '' ? null : parseInt(displayValue, 10);
-                      const colorClass = (numForColor === null || isNaN(numForColor)) && displayValue === '' ? 'text-gray-400 dark:text-gray-600' : numForColor !== null && !isNaN(numForColor) && numForColor < 85 ? 'text-green-600 dark:text-green-400 font-semibold' : numForColor !== null && !isNaN(numForColor) && numForColor < 95 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100';
+                      const colorClass = (numForColor === null || isNaN(numForColor)) && displayValue === '' ? 'text-gray-400 dark:text-gray-500' : numForColor !== null && !isNaN(numForColor) && numForColor < 85 ? 'text-green-600 dark:text-green-400 font-semibold' : numForColor !== null && !isNaN(numForColor) && numForColor < 95 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100';
                       return (
-                        <td key={player} className="py-1 px-1 sm:py-2 sm:px-2 text-center align-top">
-                          <div className="flex flex-col items-center gap-0.5">
-                            <input
-                              type="number"
-                              value={displayValue}
-                              readOnly={isHistoricalYear(row.year as number)}
-                              onFocus={() => !isHistoricalYear(row.year as number) && setEditingCell({ key: cellKey, value: score === null || score === undefined ? '' : String(score) })}
-                              onChange={(e) => editingCell?.key === cellKey && setEditingCell(prev => prev ? { ...prev, value: e.target.value } : null)}
-                              onBlur={(e) => handleScoreBlur(row.course, row.year as number, player, e.target.value, score)}
-                              className={`w-full text-center text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded px-2 py-2 min-h-[44px] ${isHistoricalYear(row.year as number) ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed text-gray-500 dark:text-gray-400' : `focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white dark:bg-gray-700 ${colorClass}`}`}
-                              placeholder="—"
-                              min="0"
-                              max="200"
-                            />
-                            {handicap != null && (
-                              <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 text-center w-full" title="Handicap index">{handicap}</span>
-                            )}
-                          </div>
+                        <div key={player} className="flex flex-col items-center py-0.5">
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 w-full text-center truncate">{player}</span>
+                          {isHistorical ? (
+                            <>
+                              <span className={`text-xs ${score != null ? colorClass : 'text-gray-400 dark:text-gray-500'}`}>{score != null ? score : '—'}</span>
+                              {handicap != null && <span className="text-[9px] text-gray-400 dark:text-gray-500">({handicap})</span>}
+                            </>
+                          ) : (
+                            <>
+                              <input
+                                type="number"
+                                value={displayValue}
+                                onFocus={() => setEditingCell({ key: cellKey, value: score === null || score === undefined ? '' : String(score) })}
+                                onChange={(e) => editingCell?.key === cellKey && setEditingCell(prev => prev ? { ...prev, value: e.target.value } : null)}
+                                onBlur={(e) => handleScoreBlur(row.course, row.year as number, player, e.target.value, score)}
+                                className={`w-full max-w-[48px] text-center text-xs border border-gray-300 dark:border-gray-600 rounded px-1 py-1 min-h-0 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white dark:bg-gray-700 ${colorClass}`}
+                                placeholder="—"
+                                min="0"
+                                max="200"
+                                inputMode="numeric"
+                              />
+                              {handicap != null && <span className="text-[9px] text-gray-400 dark:text-gray-500">({handicap})</span>}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      <div className="hidden md:block overflow-x-auto -mx-3 sm:mx-0">
+        <div className="inline-block min-w-full align-middle">
+          <table className="w-full min-w-[800px] border-collapse text-xs" aria-describedby="scores-table-caption">
+            <caption id="scores-table-caption" className="sr-only">Scores by course and year. Number under each score is handicap index for that year.</caption>
+            <thead>
+              <tr className="border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">
+                <th className="py-1 px-1 text-left text-[10px] font-bold text-gray-600 dark:text-gray-400 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10 whitespace-nowrap">Course</th>
+                <th className="py-1 px-1 text-center text-[10px] font-bold text-gray-600 dark:text-gray-400 w-10">Year</th>
+                {players.map(player => (
+                  <th key={player} className="py-1 px-0.5 text-center text-[10px] font-bold text-gray-600 dark:text-gray-400 min-w-[36px]">{player}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredData.length === 0 ? (
+                <tr>
+                  <td colSpan={players.length + 2} className="py-4 text-center text-gray-500 dark:text-gray-400">No data available for selected filters</td>
+                </tr>
+              ) : (
+                filteredData.map((row, idx) => (
+                  <tr key={`${row.course}-${row.year}-${idx}`} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/50">
+                    <td className="py-0.5 px-1 text-left text-[11px] font-medium sticky left-0 bg-white dark:bg-gray-900 z-10 whitespace-nowrap">{row.course}</td>
+                    <td className="py-0.5 px-1 text-center text-[11px]">{row.year}</td>
+                    {players.map(player => {
+                      const score = row[player] as number | null;
+                      const handicap = getHandicap(row.year as number, player);
+                      const cellKey = getCellKey(row.course, row.year as number, player);
+                      const isHistorical = isHistoricalYear(row.year as number);
+                      const displayValue = editingCell?.key === cellKey ? editingCell.value : (score === null || score === undefined ? '' : String(score));
+                      const numForColor = displayValue === '' ? null : parseInt(displayValue, 10);
+                      const colorClass = (numForColor === null || isNaN(numForColor)) && displayValue === '' ? 'text-gray-400 dark:text-gray-500' : numForColor !== null && !isNaN(numForColor) && numForColor < 85 ? 'text-green-600 dark:text-green-400 font-semibold' : numForColor !== null && !isNaN(numForColor) && numForColor < 95 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100';
+                      return (
+                        <td key={player} className="py-0.5 px-0.5 text-center align-top">
+                          {isHistorical ? (
+                            <div className="flex flex-col items-center leading-tight">
+                              <span className={score != null ? colorClass : 'text-gray-400 dark:text-gray-500'}>{score != null ? score : '—'}</span>
+                              {handicap != null && <span className="text-[9px] text-gray-400 dark:text-gray-500">({handicap})</span>}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-0">
+                              <input
+                                type="number"
+                                value={displayValue}
+                                onFocus={() => setEditingCell({ key: cellKey, value: score === null || score === undefined ? '' : String(score) })}
+                                onChange={(e) => editingCell?.key === cellKey && setEditingCell(prev => prev ? { ...prev, value: e.target.value } : null)}
+                                onBlur={(e) => handleScoreBlur(row.course, row.year as number, player, e.target.value, score)}
+                                className={`w-9 text-center text-[11px] border border-gray-300 dark:border-gray-600 rounded px-0.5 py-0.5 min-h-0 ${`focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white dark:bg-gray-700 ${colorClass}`}`}
+                                placeholder="—"
+                                min="0"
+                                max="200"
+                              />
+                              {handicap != null && <span className="text-[9px] text-gray-400 dark:text-gray-500">({handicap})</span>}
+                            </div>
+                          )}
                         </td>
                       );
                     })}

@@ -160,6 +160,10 @@ export const api = {
       : apiRequest<{ handicaps: Record<string, number> }>(endpoint);
   },
 
+  // Player score volatility: year of highest volatility per player (for Player Score Volatility market). Cached 7 days.
+  getPlayerVolatility: () =>
+    apiRequest<{ volatilityByPlayer: Record<string, { year: number; volatility: number }> }>('/scoring/volatility'),
+
   // Current scores: score to par (gross/net) and birdies per participant (for gross/net champion markets)
   getCurrentScores: () =>
     apiRequest<{
