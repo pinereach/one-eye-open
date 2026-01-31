@@ -18,6 +18,25 @@ const marketSuggestionSchema = z.object({
   round_number: z.number().optional(), // Optional round number for Round O/U markets
 });
 
+/** Slug for outcome_id: lowercase, spaces and dots to hyphen, strip non-alphanumeric/hyphen */
+function slugForOutcomeId(s: string): string {
+  return (s || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/\./g, '_')
+    .replace(/[^a-z0-9_-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^\-|\-$/g, '') || 'x';
+}
+
+/** Extract participant from Total Birdies outcome name, e.g. "Alex Over 6 - Total Birdies" -> "Alex" */
+function participantFromTotalBirdiesName(name: string): string {
+  const overIdx = (name || '').indexOf(' Over ');
+  if (overIdx === -1) return (name || '').trim();
+  return (name || '').slice(0, overIdx).trim();
+}
+
 export const onRequestPost: OnRequest<Env> = async (context) => {
   const { request, env } = context;
 
@@ -32,14 +51,27 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const body = await request.json();
     const validated = marketSuggestionSchema.parse(body);
 
-    // Determine market_type from short_name (if it contains "Round" and "Over/Under", it's round_ou)
+    // Determine market_type from short_name
     const isRoundOU = validated.short_name.includes('Round') && validated.short_name.includes('Over/Under');
-    const marketType = isRoundOU ? 'round_ou' : null;
+    const isTotalBirdies = validated.short_name === 'Total Birdies' || (validated.symbol === 'BIRDIES' && validated.short_name.toLowerCase().includes('birdies'));
+    const marketType = isRoundOU ? 'round_ou' : isTotalBirdies ? 'total_birdies' : null;
 
     let marketId: string;
 
+    // For Total Birdies, use the existing market (market-total-birdies) — do not create a new market
+    if (isTotalBirdies) {
+      const existingMarket = await dbFirst<{ market_id: string }>(
+        db,
+        `SELECT market_id FROM markets WHERE market_id = 'market-total-birdies' OR market_type = 'total_birdies' LIMIT 1`
+      );
+      if (existingMarket) {
+        marketId = existingMarket.market_id;
+      } else {
+        return errorResponse('Total Birdies market not found. Ensure market-total-birdies exists in the database.', 400);
+      }
+    }
     // For Round O/U markets, find or create the market for that round
-    if (isRoundOU && validated.round_number) {
+    else if (isRoundOU && validated.round_number) {
       // Extract round number from short_name or use provided round_number
       const roundMatch = validated.short_name.match(/Round (\d+)/);
       const roundNum = validated.round_number || (roundMatch ? parseInt(roundMatch[1], 10) : null);
@@ -114,8 +146,19 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
     // Insert outcomes
     const outcomeIds: string[] = [];
+    const createdDate = Math.floor(Date.now() / 1000);
     for (const outcome of validated.outcomes) {
-      const outcomeId = `outcome-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      let outcomeId: string;
+      if (isTotalBirdies) {
+        const participant = participantFromTotalBirdiesName(outcome.name);
+        const participantSlug = slugForOutcomeId(participant);
+        const strikeSlug = outcome.strike ? slugForOutcomeId(outcome.strike) : '';
+        outcomeId = strikeSlug
+          ? `outcome-market-total-birdies-${participantSlug}-${strikeSlug}`
+          : `outcome-market-total-birdies-${participantSlug}`;
+      } else {
+        outcomeId = `outcome-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      }
       await dbRun(
         db,
         `INSERT INTO outcomes (outcome_id, name, ticker, market_id, strike, created_date)
@@ -126,7 +169,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
           outcome.ticker,
           marketId,
           outcome.strike || '',
-          Math.floor(Date.now() / 1000),
+          createdDate,
         ]
       );
       outcomeIds.push(outcomeId);
