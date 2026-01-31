@@ -10,21 +10,25 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     const db = getDb(env);
     const markets = await dbQuery(db, 'SELECT * FROM markets ORDER BY created_date DESC', []);
 
-    // Single query for all outcomes (no N+1)
+    // Single query for all outcomes (no N+1). Include outcomes for market_total_birdies under market-total-birdies.
     const marketIds = markets.map((m: { market_id: string }) => m.market_id);
+    const outcomeQueryIds = marketIds.includes('market-total-birdies') && !marketIds.includes('market_total_birdies')
+      ? [...marketIds, 'market_total_birdies']
+      : marketIds;
     let allOutcomes: any[] = [];
-    if (marketIds.length > 0) {
-      const placeholders = marketIds.map(() => '?').join(',');
+    if (outcomeQueryIds.length > 0) {
+      const placeholders = outcomeQueryIds.map(() => '?').join(',');
       allOutcomes = await dbQuery(
         db,
         `SELECT * FROM outcomes WHERE market_id IN (${placeholders}) ORDER BY market_id, created_date ASC`,
-        marketIds
+        outcomeQueryIds
       );
     }
     const outcomesByMarket: Record<string, any[]> = {};
     marketIds.forEach((id: string) => { outcomesByMarket[id] = []; });
     allOutcomes.forEach((o: { market_id: string }) => {
-      if (outcomesByMarket[o.market_id]) outcomesByMarket[o.market_id].push(o);
+      const targetMarketId = o.market_id === 'market_total_birdies' ? 'market-total-birdies' : o.market_id;
+      if (outcomesByMarket[targetMarketId]) outcomesByMarket[targetMarketId].push(o);
     });
 
     // Volume is not included on the list; individual market pages compute volume from trades.
