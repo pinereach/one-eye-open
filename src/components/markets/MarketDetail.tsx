@@ -632,6 +632,35 @@ export function MarketDetail() {
   const showCurrentColumn = market?.market_id === 'market-individual-gross-champion' || market?.market_id === 'market-individual-net-champion';
   const isVolatilityMarket = market?.market_id?.includes('volatility') || (market?.short_name && market.short_name.toLowerCase().includes('volatility'));
 
+  // Total Strokes market: expected strokes = sum(midpoint * probability) per outcome (probability from orderbook mid or last trade)
+  const TOTAL_STROKES_MIDPOINTS: Record<string, number> = {
+    'outcome-total-strokes-lt-6499': 6500,
+    'outcome-total-strokes-6500-6599': 6550,
+    'outcome-total-strokes-6600-6699': 6650,
+    'outcome-total-strokes-6700-6799': 6750,
+    'outcome-total-strokes-6800-6899': 6850,
+    'outcome-total-strokes-gt-6900': 6000,
+  };
+  const totalStrokesForecast = useMemo(() => {
+    if (market?.market_id !== 'market-total-strokes' || !outcomes?.length) return null;
+    let weightedSum = 0;
+    let totalProb = 0;
+    for (const o of outcomes) {
+      const midpoint = TOTAL_STROKES_MIDPOINTS[o.outcome_id];
+      if (midpoint == null) continue;
+      const orderbook = orderbookByOutcome?.[o.outcome_id];
+      const bestBid = orderbook?.bids?.[0];
+      const bestAsk = orderbook?.asks?.[0];
+      const midPrice = bestBid && bestAsk ? (bestBid.price + bestAsk.price) / 2 : (bestBid?.price ?? lastTradePriceByOutcome[o.outcome_id] ?? 0);
+      if (midPrice <= 0) continue;
+      const prob = midPrice / 10000;
+      weightedSum += midpoint * prob;
+      totalProb += prob;
+    }
+    if (totalProb <= 0) return null;
+    return Math.round(weightedSum / totalProb);
+  }, [market?.market_id, outcomes, orderbookByOutcome, lastTradePriceByOutcome]);
+
   const getPositionValueCents = (position: Position, currentPrice: number | null) => {
     if (currentPrice === null) return null;
     if (position.net_position < 0) {
@@ -771,8 +800,13 @@ export function MarketDetail() {
       <div>
         <h1 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3">{market.short_name}</h1>
         {market.description && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 sm:mb-4 max-w-2xl">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 sm:mb-3 max-w-2xl">
             {market.description}
+          </p>
+        )}
+        {totalStrokesForecast != null && (
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 sm:mb-4">
+            Forecast: {totalStrokesForecast.toLocaleString()} strokes
           </p>
         )}
       </div>
