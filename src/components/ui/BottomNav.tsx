@@ -1,9 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useTradeNotifications } from '../../contexts/TradeNotificationsContext';
 
 export function BottomNav() {
   const location = useLocation();
   const { user } = useAuth();
+  const { unreadCount } = useTradeNotifications();
 
   const baseNavItems = [
     {
@@ -97,6 +99,8 @@ export function BottomNav() {
       <div className="flex justify-around items-center h-16">
         {navItems.map((item) => {
           const active = isActive(item.path);
+          const showBadge = item.path === '/trades' && unreadCount > 0;
+          const badgeLabel = unreadCount >= 10 ? '9+' : String(unreadCount);
           return (
             <Link
               key={item.path}
@@ -106,10 +110,18 @@ export function BottomNav() {
                   ? 'text-primary-600 dark:text-primary-400'
                   : 'text-gray-600 dark:text-gray-400'
               }`}
-              aria-label={item.label}
+              aria-label={showBadge ? `${item.label}, ${unreadCount} new trades` : item.label}
             >
-              <div className={`mb-1 ${active ? 'scale-110' : ''} transition-transform`}>
+              <div className={`relative mb-1 ${active ? 'scale-110' : ''} transition-transform`}>
                 {item.icon}
+                {showBadge && (
+                  <span
+                    className="absolute -top-1 -right-2 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-bold px-1"
+                    aria-hidden="true"
+                  >
+                    {badgeLabel}
+                  </span>
+                )}
               </div>
               <span className={`text-xs font-medium ${active ? 'font-semibold' : ''}`}>
                 {item.label}

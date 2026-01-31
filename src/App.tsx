@@ -1,7 +1,9 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { TradeNotificationsProvider } from './contexts/TradeNotificationsContext';
 import { DarkModeToggle } from './components/ui/DarkModeToggle';
+import { TradeNotificationBell } from './components/ui/TradeNotificationBell';
 import { BottomNav } from './components/ui/BottomNav';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { isDevelopment } from './lib/env';
@@ -98,6 +100,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
               <DarkModeToggle />
+              {(user || isDevelopment) && <TradeNotificationBell />}
               {(user || isDevelopment) ? (
                 <>
                   <div className="hidden md:flex items-center gap-3 lg:gap-4">
@@ -173,7 +176,8 @@ export default function App() {
     <BrowserRouter>
       <ErrorBoundary onRetry={() => window.location.reload()}>
         <AuthProvider>
-          <Layout>
+          <TradeNotificationsProvider>
+            <Layout>
             <Suspense fallback={<div className="flex items-center justify-center min-h-[40vh] text-gray-500 dark:text-gray-400">Loading…</div>}>
               <Routes>
                 <Route path="/" element={<LandingPage />} />
@@ -190,7 +194,8 @@ export default function App() {
                 <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
               </Routes>
             </Suspense>
-          </Layout>
+            </Layout>
+          </TradeNotificationsProvider>
         </AuthProvider>
       </ErrorBoundary>
     </BrowserRouter>

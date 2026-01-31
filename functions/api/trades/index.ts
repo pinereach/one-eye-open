@@ -72,7 +72,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
        m.short_name as market_short_name
      FROM trades t
      LEFT JOIN outcomes o ON t.outcome = o.outcome_id
-     LEFT JOIN markets m ON o.market_id = m.market_id
+     LEFT JOIN markets m ON (m.market_id = o.market_id OR (o.market_id = 'market_total_birdies' AND m.market_id = 'market-total-birdies'))
      WHERE t.taker_user_id = ? OR t.maker_user_id = ?
      ORDER BY t.create_time DESC
      LIMIT ?`,
@@ -89,6 +89,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
             ? 1
             : 0
         : null;
+    // Normalize Total Birdies: use canonical market_id for links; short_name comes from JOIN above
+    const market_id = t.market_id === 'market_total_birdies' ? 'market-total-birdies' : t.market_id;
     return {
       id: t.id,
       token: t.token,
@@ -100,7 +102,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       outcome: t.outcome,
       outcome_name: t.outcome_name,
       outcome_ticker: t.outcome_ticker,
-      market_id: t.market_id,
+      market_id,
       market_short_name: t.market_short_name,
       side: mySide,
       taker_side: t.taker_side ?? null,

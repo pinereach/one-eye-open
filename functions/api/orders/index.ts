@@ -42,7 +42,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       m.short_name as market_name
      FROM orders o
      JOIN outcomes oc ON o.outcome = oc.outcome_id
-     JOIN markets m ON oc.market_id = m.market_id
+     JOIN markets m ON (m.market_id = oc.market_id OR (oc.market_id = 'market_total_birdies' AND m.market_id = 'market-total-birdies'))
      WHERE o.user_id = ?
      ORDER BY o.create_time DESC
      LIMIT ? OFFSET ?`,

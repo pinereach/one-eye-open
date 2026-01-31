@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useTradeNotifications } from '../contexts/TradeNotificationsContext';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { formatPrice, formatPricePercent, formatNotionalBySide } from '../lib/format';
 import { format } from 'date-fns';
@@ -10,10 +11,15 @@ import { Skeleton, SkeletonCard, SkeletonTable } from '../components/ui/Skeleton
 export function TradesPage() {
   const [trades, setTrades] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { clearUnread } = useTradeNotifications();
 
   useEffect(() => {
     loadTrades();
   }, []);
+
+  useEffect(() => {
+    clearUnread();
+  }, [clearUnread]);
 
   async function loadTrades() {
     setLoading(true);
