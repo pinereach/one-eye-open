@@ -68,7 +68,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
          u_maker.username as maker_username
        FROM trades t
        LEFT JOIN outcomes o ON t.outcome = o.outcome_id
-       LEFT JOIN markets m ON o.market_id = m.market_id
+       LEFT JOIN markets m ON (m.market_id = o.market_id OR (o.market_id = 'market_total_birdies' AND m.market_id = 'market-total-birdies'))
        LEFT JOIN users u_taker ON t.taker_user_id = u_taker.id
        LEFT JOIN users u_maker ON t.maker_user_id = u_maker.id
        ORDER BY t.create_time DESC
@@ -97,35 +97,35 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
            m.short_name as market_short_name
          FROM trades t
          LEFT JOIN outcomes o ON t.outcome = o.outcome_id
-         LEFT JOIN markets m ON o.market_id = m.market_id
+         LEFT JOIN markets m ON (m.market_id = o.market_id OR (o.market_id = 'market_total_birdies' AND m.market_id = 'market-total-birdies'))
          ORDER BY t.create_time DESC
          LIMIT ?`,
         [limit]
       );
     } catch {
       try {
-        tradesRows = await dbQuery<TradeRow>(
-          db,
-          `SELECT 
-             t.id,
-             t.token,
-             t.price,
-             t.contracts,
-             t.create_time,
-             t.risk_off_contracts,
-             t.risk_off_price_diff,
-             t.outcome,
-             o.name as outcome_name,
-             o.ticker as outcome_ticker,
-             o.market_id,
-             m.short_name as market_short_name
-           FROM trades t
-           LEFT JOIN outcomes o ON t.outcome = o.outcome_id
-           LEFT JOIN markets m ON o.market_id = m.market_id
-           ORDER BY t.create_time DESC
-           LIMIT ?`,
-          [limit]
-        );
+      tradesRows = await dbQuery<TradeRow>(
+        db,
+        `SELECT 
+           t.id,
+           t.token,
+           t.price,
+           t.contracts,
+           t.create_time,
+           t.risk_off_contracts,
+           t.risk_off_price_diff,
+           t.outcome,
+           o.name as outcome_name,
+           o.ticker as outcome_ticker,
+           o.market_id,
+           m.short_name as market_short_name
+         FROM trades t
+         LEFT JOIN outcomes o ON t.outcome = o.outcome_id
+         LEFT JOIN markets m ON (m.market_id = o.market_id OR (o.market_id = 'market_total_birdies' AND m.market_id = 'market-total-birdies'))
+         ORDER BY t.create_time DESC
+         LIMIT ?`,
+        [limit]
+      );
       } catch {
         tradesRows = [];
       }
@@ -138,6 +138,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     const makerUser = t.maker_username ?? null;
     const buyer_username = ts === 0 ? takerUser : ts === 1 ? makerUser : null;
     const seller_username = ts === 0 ? makerUser : ts === 1 ? takerUser : null;
+    // Normalize Total Birdies: use canonical market_id for links; short_name comes from JOIN above
+    const market_id = t.market_id === 'market_total_birdies' ? 'market-total-birdies' : t.market_id;
     return {
       id: t.id,
       token: t.token,
@@ -149,7 +151,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       outcome: t.outcome,
       outcome_name: t.outcome_name,
       outcome_ticker: t.outcome_ticker,
-      market_id: t.market_id,
+      market_id,
       market_short_name: t.market_short_name,
       side: t.taker_side ?? null,
       taker_side: t.taker_side ?? null,

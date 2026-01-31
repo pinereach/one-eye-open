@@ -103,8 +103,10 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
             const makerColor = getPlayerColor(maker);
             const shares = trade.contracts;
             const outcomeName = trade.outcome_name || trade.outcome_ticker || trade.outcome || '—';
-            const marketName = trade.market_short_name || trade.market_id || '—';
-            const marketId = trade.market_id ?? '';
+            // Normalize Total Birdies: link and display use canonical market (hyphens)
+            const rawMarketId = trade.market_id ?? '';
+            const marketId = rawMarketId === 'market_total_birdies' ? 'market-total-birdies' : rawMarketId;
+            const marketName = trade.market_short_name || (rawMarketId === 'market_total_birdies' ? 'Total Birdies (6R)' : rawMarketId) || '—';
             const timeStr = trade.create_time ? formatRelativeTime(trade.create_time) : '—';
             const priceStr = formatPrice(trade.price);
 
