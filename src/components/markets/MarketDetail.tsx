@@ -208,24 +208,25 @@ export function MarketDetail() {
         setVolatilityByPlayer({});
       }
 
-      // Sort outcomes by chance and select the highest chance outcome
+      // Sort outcomes by chance and select the highest chance outcome (Total Strokes keeps original order)
       if (data.outcomes && data.outcomes.length > 0 && data.orderbook) {
-        const sorted = [...data.outcomes].sort((a, b) => {
-          const orderbookA = data.orderbook[a.outcome_id];
-          const orderbookB = data.orderbook[b.outcome_id];
-          const bestBidA = orderbookA?.bids?.[0];
-          const bestAskA = orderbookA?.asks?.[0];
-          const bestBidB = orderbookB?.bids?.[0];
-          const bestAskB = orderbookB?.asks?.[0];
+        const isTotalStrokes = data.market?.market_id === 'market-total-strokes';
+        const ordered = isTotalStrokes
+          ? [...data.outcomes]
+          : [...data.outcomes].sort((a, b) => {
+              const orderbookA = data.orderbook[a.outcome_id];
+              const orderbookB = data.orderbook[b.outcome_id];
+              const bestBidA = orderbookA?.bids?.[0];
+              const bestAskA = orderbookA?.asks?.[0];
+              const bestBidB = orderbookB?.bids?.[0];
+              const bestAskB = orderbookB?.asks?.[0];
+              const avgPriceA = bestBidA && bestAskA ? (bestBidA.price + bestAskA.price) / 2 : (bestBidA?.price || 0);
+              const avgPriceB = bestBidB && bestAskB ? (bestBidB.price + bestAskB.price) / 2 : (bestBidB?.price || 0);
+              return avgPriceB - avgPriceA; // Descending
+            });
 
-          const avgPriceA = bestBidA && bestAskA ? (bestBidA.price + bestAskA.price) / 2 : (bestBidA?.price || 0);
-          const avgPriceB = bestBidB && bestAskB ? (bestBidB.price + bestAskB.price) / 2 : (bestBidB?.price || 0);
-
-          return avgPriceB - avgPriceA; // Descending
-        });
-
-        if (!selectedOutcomeId && sorted.length > 0) {
-          setSelectedOutcomeId(sorted[0].outcome_id);
+        if (!selectedOutcomeId && ordered.length > 0) {
+          setSelectedOutcomeId(ordered[0].outcome_id);
         }
       }
     } catch (err) {
@@ -764,20 +765,22 @@ export function MarketDetail() {
     return <div className="text-center py-8">Market not found</div>;
   }
 
-  // Sort outcomes by chance (descending) before rendering
-  const sortedOutcomes = (outcomes || []).length > 0 ? [...(outcomes || [])].sort((a, b) => {
-    const orderbookA = orderbookByOutcome?.[a.outcome_id];
-    const orderbookB = orderbookByOutcome?.[b.outcome_id];
-    const bestBidA = orderbookA?.bids?.[0];
-    const bestAskA = orderbookA?.asks?.[0];
-    const bestBidB = orderbookB?.bids?.[0];
-    const bestAskB = orderbookB?.asks?.[0];
-    
-    const avgPriceA = bestBidA && bestAskA ? (bestBidA.price + bestAskA.price) / 2 : (bestBidA?.price || 0);
-    const avgPriceB = bestBidB && bestAskB ? (bestBidB.price + bestAskB.price) / 2 : (bestBidB?.price || 0);
-    
-    return avgPriceB - avgPriceA;
-  }) : [];
+  // Sort outcomes by chance (descending) before rendering; Total Strokes keeps original order
+  const sortedOutcomes = (outcomes || []).length > 0
+    ? market?.market_id === 'market-total-strokes'
+      ? [...(outcomes || [])]
+      : [...(outcomes || [])].sort((a, b) => {
+          const orderbookA = orderbookByOutcome?.[a.outcome_id];
+          const orderbookB = orderbookByOutcome?.[b.outcome_id];
+          const bestBidA = orderbookA?.bids?.[0];
+          const bestAskA = orderbookA?.asks?.[0];
+          const bestBidB = orderbookB?.bids?.[0];
+          const bestAskB = orderbookB?.asks?.[0];
+          const avgPriceA = bestBidA && bestAskA ? (bestBidA.price + bestAskA.price) / 2 : (bestBidA?.price || 0);
+          const avgPriceB = bestBidB && bestAskB ? (bestBidB.price + bestAskB.price) / 2 : (bestBidB?.price || 0);
+          return avgPriceB - avgPriceA;
+        })
+    : [];
 
   return (
     <PullToRefresh onRefresh={loadMarket}>
