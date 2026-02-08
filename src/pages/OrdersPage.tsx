@@ -252,7 +252,7 @@ export function OrdersPage() {
                 type="button"
                 onClick={() => setSelectedMarketType(opt.value)}
                 aria-pressed={selectedMarketType === opt.value}
-                className={`min-h-[44px] px-4 py-2 rounded-full text-sm font-medium touch-manipulation transition-colors ${
+                className={`min-h-[36px] px-3 py-1.5 rounded-full text-xs font-medium touch-manipulation transition-colors ${
                   selectedMarketType === opt.value
                     ? 'bg-primary-600 text-white dark:bg-primary-500'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500'
