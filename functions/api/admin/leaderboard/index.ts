@@ -68,7 +68,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     sharesRows.forEach((r) => sharesByUser.set(r.user_id, r.total ?? 0));
 
     // Portfolio value = total P&L (unrealized + closed + settled), matching Positions page.
-    // Include ALL positions so we can compute unattributed P&L (user_id IS NULL) and round to integer cents.
+    // Include ALL positions so we can compute unattributed P&L (user_id IS NULL). We sum raw P&L then round
+    // once per aggregate (system total, per-user, unattributed) to avoid rounding error from (bid+ask)/2.
     const positionsRows = await dbQuery<{ user_id: number | null; outcome: string; net_position: number; price_basis: number; closed_profit: number; settled_profit: number }>(
       db,
       `SELECT user_id, outcome, net_position, COALESCE(NULLIF(price_basis, 0), 0) AS price_basis, COALESCE(closed_profit, 0) AS closed_profit, COALESCE(settled_profit, 0) AS settled_profit FROM positions`,
@@ -92,14 +93,16 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       bidsRows.forEach((r) => { if (bestBidByOutcome[r.outcome] == null) bestBidByOutcome[r.outcome] = r.price; });
       asksRows.forEach((r) => { if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price; });
     }
+    // Use integer cents for current price so unrealized P&L is integer; sum of position P&L then nets to 0 exactly in zero-sum.
     const currentPriceByOutcome: Record<string, number> = {};
     outcomeIds.forEach((outcome) => {
       const bid = bestBidByOutcome[outcome] ?? null;
       const ask = bestAskByOutcome[outcome] ?? null;
       const mid = (bid != null && ask != null) ? (bid + ask) / 2 : (bid ?? ask ?? null);
-      if (mid != null) currentPriceByOutcome[outcome] = mid;
+      if (mid != null) currentPriceByOutcome[outcome] = Math.round(mid);
     });
-    function pnlCents(p: { net_position: number; price_basis: number; closed_profit: number; settled_profit: number }, currentPrice: number | null): number {
+    // Raw P&L (no rounding) so we can sum then round once — avoids rounding error on system total.
+    function pnlRaw(p: { net_position: number; price_basis: number; closed_profit: number; settled_profit: number }, currentPrice: number | null): number {
       let contribution = p.closed_profit + p.settled_profit;
       if (p.net_position !== 0 && currentPrice != null) {
         const costCents = p.net_position * p.price_basis;
@@ -109,28 +112,29 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
           contribution += p.net_position * currentPrice - costCents;
         }
       }
-      return Math.round(contribution);
+      return contribution;
     }
 
     const userIds = new Set(users.map((u) => u.id));
     const portfolioByUser = new Map<number, number>();
     const pnlByOutcome: Record<string, number> = {};
     const positionContributions: Array<{ outcome: string; user_id: number | null; contribution_cents: number }> = [];
-    let unattributedCents = 0;
-    let systemTotalCents = 0;
+    let unattributedCentsRaw = 0;
+    let systemTotalCentsRaw = 0;
     for (const p of positionsRows) {
       const currentPrice = currentPriceByOutcome[p.outcome] ?? null;
-      const contribution = pnlCents(p, currentPrice);
-      systemTotalCents += contribution;
-      pnlByOutcome[p.outcome] = (pnlByOutcome[p.outcome] ?? 0) + contribution;
-      if (contribution !== 0) {
-        positionContributions.push({ outcome: p.outcome, user_id: p.user_id, contribution_cents: contribution });
+      const contributionRaw = pnlRaw(p, currentPrice);
+      const contributionRounded = Math.round(contributionRaw);
+      systemTotalCentsRaw += contributionRaw;
+      pnlByOutcome[p.outcome] = (pnlByOutcome[p.outcome] ?? 0) + contributionRaw;
+      if (contributionRounded !== 0) {
+        positionContributions.push({ outcome: p.outcome, user_id: p.user_id, contribution_cents: contributionRounded });
       }
       // Unattributed: no user_id, or user_id not in current users table (e.g. deleted user)
       if (p.user_id == null || !userIds.has(p.user_id)) {
-        unattributedCents += contribution;
+        unattributedCentsRaw += contributionRaw;
       } else {
-        portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + contribution);
+        portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + contributionRaw);
       }
     }
     // Sort by contribution descending so largest imbalances show first
@@ -142,13 +146,13 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       trade_count: tradeCountByUser.get(u.id) ?? 0,
       open_orders_count: openOrdersByUser.get(u.id) ?? 0,
       shares_traded: sharesByUser.get(u.id) ?? 0,
-      portfolio_value_cents: portfolioByUser.get(u.id) ?? 0,
+      portfolio_value_cents: Math.round(portfolioByUser.get(u.id) ?? 0),
     }));
 
     return jsonResponse({
       leaderboard,
-      unattributed_portfolio_value_cents: unattributedCents,
-      system_total_portfolio_value_cents: systemTotalCents,
+      unattributed_portfolio_value_cents: Math.round(unattributedCentsRaw),
+      system_total_portfolio_value_cents: Math.round(systemTotalCentsRaw),
       // Debug: where the imbalance comes from (should net to 0 per outcome in a zero-sum game)
       pnl_by_outcome: pnlByOutcome,
       position_contributions: positionContributions.slice(0, 50),

@@ -314,6 +314,166 @@ export async function getOrCreatePosition(
   };
 }
 
+/** Compute new position state and exact total cost (basis * |net|) for one fill, without rounding basis. Used for coordinated zero-sum rounding. */
+function computePositionUpdate(
+  currentNet: number,
+  currentBasis: number,
+  currentClosedProfit: number,
+  side: 'bid' | 'ask',
+  priceCents: number,
+  qtyContracts: number
+): { newNet: number; newClosedProfit: number; totalValueExact: number } {
+  let newNet = currentNet;
+  let newClosedProfit = currentClosedProfit;
+  let totalValueExact = 0;
+
+  if (side === 'bid') {
+    if (currentNet < 0) {
+      const closeQty = Math.min(qtyContracts, Math.abs(currentNet));
+      const remainingQty = qtyContracts - closeQty;
+      newNet = currentNet + closeQty;
+      if (closeQty > 0 && currentBasis > 0) {
+        newClosedProfit = currentClosedProfit + (currentBasis - priceCents) * closeQty;
+      }
+      if (remainingQty > 0) {
+        newNet = newNet + remainingQty;
+        totalValueExact = newNet * priceCents;
+      } else if (newNet === 0) {
+        totalValueExact = 0;
+      } else {
+        totalValueExact = Math.abs(newNet) * currentBasis;
+      }
+    } else {
+      newNet = currentNet + qtyContracts;
+      if (currentNet > 0 && currentBasis > 0) {
+        totalValueExact = currentNet * currentBasis + qtyContracts * priceCents;
+      } else {
+        totalValueExact = newNet * priceCents;
+      }
+    }
+  } else {
+    if (currentNet > 0) {
+      const closeQty = Math.min(qtyContracts, currentNet);
+      const remainingQty = qtyContracts - closeQty;
+      newNet = currentNet - closeQty;
+      if (closeQty > 0 && currentBasis > 0) {
+        newClosedProfit = currentClosedProfit + (priceCents - currentBasis) * closeQty;
+      }
+      if (remainingQty > 0) {
+        newNet = newNet - remainingQty;
+        totalValueExact = Math.abs(newNet) * priceCents;
+      } else if (newNet === 0) {
+        totalValueExact = 0;
+      } else {
+        totalValueExact = Math.abs(newNet) * currentBasis;
+      }
+    } else {
+      newNet = currentNet - qtyContracts;
+      if (currentNet < 0 && currentBasis > 0) {
+        totalValueExact = Math.abs(currentNet) * currentBasis + qtyContracts * priceCents;
+      } else {
+        totalValueExact = Math.abs(newNet) * priceCents;
+      }
+    }
+  }
+  return { newNet, newClosedProfit, totalValueExact };
+}
+
+/**
+ * Update both taker and maker positions for a single fill with coordinated rounding
+ * so that (taker_basis * taker_net + maker_basis * maker_net) equals the exact total cost,
+ * preserving zero-sum P&L. Any residual from rounding maker_basis is added to maker's closed_profit.
+ */
+export async function updatePositionsForFill(
+  db: D1Database,
+  outcomeId: string,
+  takerUserId: number,
+  makerUserId: number,
+  takerSide: 'bid' | 'ask',
+  priceCents: number,
+  qtyContracts: number
+): Promise<void> {
+  const now = Math.floor(Date.now() / 1000);
+  const takerDb = await dbFirst<{ id: number; net_position: number; price_basis: number; closed_profit: number }>(
+    db,
+    'SELECT id, net_position, price_basis, closed_profit FROM positions WHERE outcome = ? AND user_id = ?',
+    [outcomeId, takerUserId]
+  );
+  const makerDb = await dbFirst<{ id: number; net_position: number; price_basis: number; closed_profit: number }>(
+    db,
+    'SELECT id, net_position, price_basis, closed_profit FROM positions WHERE outcome = ? AND user_id = ?',
+    [outcomeId, makerUserId]
+  );
+
+  const takerCur = { net: takerDb?.net_position ?? 0, basis: takerDb?.price_basis ?? 0, closed: takerDb?.closed_profit ?? 0 };
+  const makerCur = { net: makerDb?.net_position ?? 0, basis: makerDb?.price_basis ?? 0, closed: makerDb?.closed_profit ?? 0 };
+  const makerSide = takerSide === 'bid' ? 'ask' : 'bid';
+
+  const takerState = computePositionUpdate(takerCur.net, takerCur.basis, takerCur.closed, takerSide, priceCents, qtyContracts);
+  const makerState = computePositionUpdate(makerCur.net, makerCur.basis, makerCur.closed, makerSide, priceCents, qtyContracts);
+
+  const exactTotal = takerState.totalValueExact + makerState.totalValueExact;
+
+  let takerBasis: number;
+  let makerBasis: number;
+  let makerClosedAdjust = 0;
+
+  if (takerState.newNet !== 0) {
+    takerBasis = Math.round(takerState.totalValueExact / takerState.newNet);
+    takerBasis = Math.max(PRICE_BASIS_MIN_CENTS, Math.min(PRICE_BASIS_MAX_CENTS, takerBasis));
+    const takerCost = takerBasis * takerState.newNet;
+    const makerCost = exactTotal - takerCost;
+    if (makerState.newNet !== 0) {
+      makerBasis = Math.round(makerCost / Math.abs(makerState.newNet));
+      makerBasis = Math.max(PRICE_BASIS_MIN_CENTS, Math.min(PRICE_BASIS_MAX_CENTS, makerBasis));
+      const makerCostStored = makerBasis * Math.abs(makerState.newNet);
+      makerClosedAdjust = makerCost - makerCostStored;
+    } else {
+      makerBasis = 0;
+    }
+  } else {
+    takerBasis = 0;
+    if (makerState.newNet !== 0) {
+      makerBasis = Math.round(makerState.totalValueExact / Math.abs(makerState.newNet));
+      makerBasis = Math.max(PRICE_BASIS_MIN_CENTS, Math.min(PRICE_BASIS_MAX_CENTS, makerBasis));
+    } else {
+      makerBasis = 0;
+    }
+  }
+
+  const takerClosed = takerState.newClosedProfit;
+  const makerClosed = makerState.newClosedProfit + makerClosedAdjust;
+
+  if (!takerDb) {
+    await dbRun(
+      db,
+      `INSERT INTO positions (user_id, outcome, net_position, price_basis, closed_profit, settled_profit, is_settled, create_time)
+       VALUES (?, ?, ?, ?, ?, 0, 0, ?)`,
+      [takerUserId, outcomeId, takerState.newNet, takerBasis, takerClosed, now]
+    );
+  } else {
+    await dbRun(
+      db,
+      `UPDATE positions SET net_position = ?, price_basis = ?, closed_profit = ? WHERE outcome = ? AND user_id = ?`,
+      [takerState.newNet, takerBasis, takerClosed, outcomeId, takerUserId]
+    );
+  }
+  if (!makerDb) {
+    await dbRun(
+      db,
+      `INSERT INTO positions (user_id, outcome, net_position, price_basis, closed_profit, settled_profit, is_settled, create_time)
+       VALUES (?, ?, ?, ?, ?, 0, 0, ?)`,
+      [makerUserId, outcomeId, makerState.newNet, makerBasis, makerClosed, now]
+    );
+  } else {
+    await dbRun(
+      db,
+      `UPDATE positions SET net_position = ?, price_basis = ?, closed_profit = ? WHERE outcome = ? AND user_id = ?`,
+      [makerState.newNet, makerBasis, makerClosed, outcomeId, makerUserId]
+    );
+  }
+}
+
 export async function updatePosition(
   db: D1Database,
   outcomeId: string, // Local DB uses outcome, not market_id
@@ -556,24 +716,24 @@ export async function executeMatching(
       takerSideNum
     );
 
-    // Update positions for both users (skip when same user is both taker and maker — net effect is zero)
+    // Update positions for both users with coordinated rounding so taker_cost + maker_cost is exact (zero-sum).
     const makerUserIdNum = makerUserId != null ? (typeof makerUserId === 'string' ? parseInt(makerUserId, 10) : makerUserId) : null;
     const sameUserBothSides = makerOrderDb && makerUserIdNum != null && !Number.isNaN(takerUserId) && takerUserId === makerUserIdNum;
 
-    if (makerOrderDb && !sameUserBothSides) {
-      // Taker position - use outcomeId since positions table uses outcome
+    if (makerOrderDb && !sameUserBothSides && !Number.isNaN(takerUserId) && makerUserIdNum != null) {
+      await updatePositionsForFill(
+        db,
+        outcomeId,
+        takerUserId,
+        makerUserIdNum,
+        takerOrder.side,
+        fill.price_cents,
+        fill.qty_contracts
+      );
+    } else if (makerOrderDb && !sameUserBothSides) {
       if (!Number.isNaN(takerUserId)) {
-        await updatePosition(
-          db,
-          outcomeId,
-          takerUserId,
-          takerOrder.side,
-          fill.price_cents,
-          fill.qty_contracts
-        );
+        await updatePosition(db, outcomeId, takerUserId, takerOrder.side, fill.price_cents, fill.qty_contracts);
       }
-
-      // Maker position: when your order is filled you did that side (bid filled → you bought, ask filled → you sold)
       if (makerUserId != null) {
         await updatePosition(
           db,
