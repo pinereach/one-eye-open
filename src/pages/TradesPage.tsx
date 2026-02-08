@@ -113,24 +113,26 @@ export function TradesPage() {
     <div className="space-y-4 sm:space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold">Trades</h1>
       {trades.length > 0 && (
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-gray-700 dark:text-gray-300">Market type</legend>
-          <div className="flex flex-wrap gap-x-4 gap-y-2" role="radiogroup" aria-label="Filter by market type">
+        <div className="space-y-2" role="group" aria-label="Filter by market type">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 block">Market type</span>
+          <div className="flex flex-wrap gap-2">
             {marketTypeFilterOptions.map((opt) => (
-              <label key={opt.value} className="flex items-center gap-2 cursor-pointer min-h-[44px] min-w-[44px] touch-manipulation">
-                <input
-                  type="radio"
-                  name="marketTypeFilter"
-                  value={opt.value}
-                  checked={selectedMarketType === opt.value}
-                  onChange={() => setSelectedMarketType(opt.value)}
-                  className="w-4 h-4 text-primary-600 border-gray-300 dark:border-gray-600 focus:ring-primary-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{opt.label}</span>
-              </label>
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSelectedMarketType(opt.value)}
+                aria-pressed={selectedMarketType === opt.value}
+                className={`min-h-[44px] px-4 py-2 rounded-full text-sm font-medium touch-manipulation transition-colors ${
+                  selectedMarketType === opt.value
+                    ? 'bg-primary-600 text-white dark:bg-primary-500'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500'
+                }`}
+              >
+                {opt.label}
+              </button>
             ))}
           </div>
-        </fieldset>
+        </div>
       )}
       <div className="md:hidden space-y-2">
         {trades.length === 0 ? emptyTrades : tradesToShow.map(renderTradeCard)}
