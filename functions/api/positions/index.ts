@@ -227,7 +227,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
   const db = getDb(env);
 
-  // Get all positions for the user, joined with outcomes and markets
+  // Get all positions for the user, joined with outcomes and markets.
+  // Total Birdies: outcomes may have market_id 'market_total_birdies' while markets row is 'market-total-birdies'; join both so all positions show.
   const positionsDb = await dbQuery<Position & { outcome_name: string; outcome_ticker: string; market_id: string; market_name: string; outcome_id: string; market_type: string | null }>(
     db,
     `SELECT 
@@ -240,7 +241,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       m.market_type
      FROM positions p
      JOIN outcomes o ON p.outcome = o.outcome_id
-     JOIN markets m ON o.market_id = m.market_id
+     JOIN markets m ON (m.market_id = o.market_id OR (o.market_id = 'market_total_birdies' AND m.market_id = 'market-total-birdies'))
      WHERE p.user_id = ?
      ORDER BY p.create_time DESC`,
     [userIdNum]
@@ -249,9 +250,12 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   // Skip recalc on every GET to reduce D1 reads. Return stored price_basis (clamped for display).
   // Run a one-off or scheduled job to backfill bad price_basis if needed.
 
+  // Normalize Total Birdies market_id for frontend links (canonical: market-total-birdies)
+  const normalizeMarketId = (p: typeof positionsDb[0]) => p.market_id === 'market_total_birdies' ? 'market-total-birdies' : p.market_id;
+
   // Batched best bid/ask: 2 queries for all outcomes (no N+1)
   const clampBasis = (p: typeof positionsDb[0]) => p.net_position !== 0 && p.price_basis > 0 ? clampPriceBasis(p.price_basis) : p.price_basis;
-  let positionsWithOrderbook: any[] = positionsDb.map(p => ({ ...p, price_basis: clampBasis(p), current_price: null as number | null }));
+  let positionsWithOrderbook: any[] = positionsDb.map(p => ({ ...p, market_id: normalizeMarketId(p), price_basis: clampBasis(p), current_price: null as number | null }));
 
   if (positionsDb.length > 0) {
     const posOutcomeIds = [...new Set(positionsDb.map(p => p.outcome))];
@@ -274,7 +278,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       const bidPrice = bestBidByOutcome[p.outcome] ?? null;
       const askPrice = bestAskByOutcome[p.outcome] ?? null;
       const current_price = (bidPrice !== null && askPrice !== null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
-      return { ...p, price_basis: clampBasis(p), current_price, best_bid: bidPrice, best_ask: askPrice };
+      return { ...p, market_id: normalizeMarketId(p), price_basis: clampBasis(p), current_price, best_bid: bidPrice, best_ask: askPrice };
     });
   }
 
