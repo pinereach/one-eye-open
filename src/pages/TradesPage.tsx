@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { MARKET_TYPE_ORDER, getMarketTypeLabel } from '../lib/marketTypes';
 import { useTradeNotifications } from '../contexts/TradeNotificationsContext';
@@ -10,6 +10,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton, SkeletonCard, SkeletonTable } from '../components/ui/Skeleton';
 
 export function TradesPage() {
+  const navigate = useNavigate();
   const [trades, setTrades] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMarketType, setSelectedMarketType] = useState<string>('all');
@@ -70,9 +71,17 @@ export function TradesPage() {
     const actionText = isSell ? `Sold ${trade.contracts} ${unit} at ${pricePercent}` : `Bought ${trade.contracts} ${unit} at ${pricePercent}`;
     const purchaseCost = formatNotionalBySide(trade.price, trade.contracts, displaySide ?? 0);
     const timePurchased = trade.create_time ? format(new Date(trade.create_time * 1000), 'M/d, h:mm a') : '—';
+    const hasMarket = !!trade.market_id;
 
     return (
-      <div key={trade.id} className="bg-white dark:bg-gray-800 rounded-lg p-3 mb-2 border border-gray-300 dark:border-gray-600">
+      <div
+        key={trade.id}
+        role={hasMarket ? 'button' : undefined}
+        tabIndex={hasMarket ? 0 : undefined}
+        onClick={hasMarket ? () => navigate(`/markets/${trade.market_id}`) : undefined}
+        onKeyDown={hasMarket ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/markets/${trade.market_id}`); } } : undefined}
+        className={`bg-white dark:bg-gray-800 rounded-lg p-3 mb-2 border border-gray-300 dark:border-gray-600 ${hasMarket ? 'cursor-pointer hover:border-primary-500 dark:hover:border-primary-400 transition-colors' : ''}`}
+      >
         <span className={`inline-block font-bold text-xs sm:text-sm uppercase tracking-wide mb-1.5 px-2 py-0.5 rounded-md ${isSell ? 'bg-red-500 text-white' : 'bg-primary-500 text-white'}`} aria-label={`${tradeType} trade`}>{tradeType}</span>
         <div className="flex items-center justify-between gap-4 mb-1">
           <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100">{trade.market_short_name || trade.market_id || '—'}</h3>
@@ -159,8 +168,16 @@ export function TradesPage() {
                 const displaySide = trade.side ?? trade.taker_side ?? null;
                 const isSell = displaySide === 1;
                 const sideLabel = displaySide === 0 ? 'Buy' : displaySide === 1 ? 'Sell' : '—';
+                const hasMarket = !!trade.market_id;
                 return (
-                <tr key={trade.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                <tr
+                  key={trade.id}
+                  role={hasMarket ? 'button' : undefined}
+                  tabIndex={hasMarket ? 0 : undefined}
+                  onClick={hasMarket ? () => navigate(`/markets/${trade.market_id}`) : undefined}
+                  onKeyDown={hasMarket ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/markets/${trade.market_id}`); } } : undefined}
+                  className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 ${hasMarket ? 'cursor-pointer' : ''}`}
+                >
                   <td className="py-3 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap">{trade.create_time ? format(new Date(trade.create_time * 1000), 'MMM d, h:mm a') : '—'}</td>
                   <td className="py-3 px-2 sm:px-3">
                     <span className={`inline-block font-bold text-xs uppercase px-2 py-0.5 rounded ${isSell ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'}`}>
