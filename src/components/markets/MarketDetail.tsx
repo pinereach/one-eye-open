@@ -803,7 +803,7 @@ export function MarketDetail() {
       <div>
         <h1 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3">{market.short_name}</h1>
         {market.description && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 sm:mb-3 max-w-2xl">
+          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 sm:mb-3 max-w-2xl">
             {market.description}
           </p>
         )}
