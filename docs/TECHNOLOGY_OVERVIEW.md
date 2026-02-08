@@ -148,6 +148,18 @@ Order placement uses shared logic (e.g. `functions/lib/matching.ts`) to:
 
 Settlement (e.g. `POST /markets/:id/settle`) computes PnL from positions and settle value and can write ledger entries or equivalent.
 
+### Pricing precision and rounding
+
+All prices and P&amp;L are stored in **integer cents** (2 decimal places in dollars: $1.00–$99.00). In the DB:
+
+- **orders.price**, **trades.price**, **positions.price_basis**: INTEGER, valid range 100–9900 (cents).
+- **positions.closed_profit**, **positions.settled_profit**: INTEGER (cents, i.e. P&L to the cent).
+
+There is no fractional cent (e.g. no $65.505). When we compute a **weighted average price_basis** (e.g. 5 @ $64 + 10 @ $65 → 15 @ $64.666…), we must round to the nearest cent before persisting. That rounding can differ between the two sides of a trade (taker vs maker), which historically produced small system-total drift (e.g. −$0.08). To keep zero-sum:
+
+- **New fills** use `updatePositionsForFill`: we round one side’s basis and set the other so `taker_cost + maker_cost` equals the exact total; any residual goes into maker’s `closed_profit`.
+- **Leaderboard** reports system total as $0 when the raw sum is within ±10¢ (legacy drift).
+
 ---
 
 ## Frontend structure

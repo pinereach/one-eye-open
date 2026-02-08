@@ -149,10 +149,15 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       portfolio_value_cents: Math.round(portfolioByUser.get(u.id) ?? 0),
     }));
 
+    // Report system total as $0 when within ±10¢ (rounding drift from legacy position updates)
+    const SYSTEM_TOTAL_TOLERANCE_CENTS = 10;
+    const systemTotalReported =
+      Math.abs(systemTotalCentsRaw) <= SYSTEM_TOTAL_TOLERANCE_CENTS ? 0 : Math.round(systemTotalCentsRaw);
+
     return jsonResponse({
       leaderboard,
       unattributed_portfolio_value_cents: Math.round(unattributedCentsRaw),
-      system_total_portfolio_value_cents: Math.round(systemTotalCentsRaw),
+      system_total_portfolio_value_cents: systemTotalReported,
       // Debug: where the imbalance comes from (should net to 0 per outcome in a zero-sum game)
       pnl_by_outcome: pnlByOutcome,
       position_contributions: positionContributions.slice(0, 50),

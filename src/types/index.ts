@@ -57,6 +57,7 @@ export interface Order {
   remaining_size?: number | null; // Remaining quantity to fill
   outcome_name?: string; // For display
   market_name?: string; // For display
+  market_type?: string | null; // For filtering by market type on Orders page
 }
 
 export interface Trade {
@@ -72,6 +73,7 @@ export interface Trade {
   outcome_ticker?: string | null;
   market_id?: string | null;
   market_short_name?: string | null;
+  market_type?: string | null; // For filtering by market type on Trades page
   side?: number | null; // 0 = bid/buy, 1 = ask/sell (current user's side when in trade)
   taker_side?: number | null; // 0 = buy, 1 = sell (taker's side for display)
   buyer_username?: string | null;
@@ -93,6 +95,7 @@ export interface Position {
   best_ask?: number | null; // Best ask from orderbook (cents)
   market_id?: string; // Market ID for navigation
   market_name?: string; // For display
+  market_type?: string | null; // For filtering by market type on Positions page
   outcome_ticker?: string; // For display
   outcome_name?: string; // For display
 }

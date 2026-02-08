@@ -228,7 +228,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   const db = getDb(env);
 
   // Get all positions for the user, joined with outcomes and markets
-  const positionsDb = await dbQuery<Position & { outcome_name: string; outcome_ticker: string; market_id: string; market_name: string; outcome_id: string }>(
+  const positionsDb = await dbQuery<Position & { outcome_name: string; outcome_ticker: string; market_id: string; market_name: string; outcome_id: string; market_type: string | null }>(
     db,
     `SELECT 
       p.*,
@@ -236,7 +236,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       o.ticker as outcome_ticker,
       o.outcome_id,
       o.market_id,
-      m.short_name as market_name
+      m.short_name as market_name,
+      m.market_type
      FROM positions p
      JOIN outcomes o ON p.outcome = o.outcome_id
      JOIN markets m ON o.market_id = m.market_id

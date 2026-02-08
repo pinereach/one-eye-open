@@ -33,13 +33,15 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     outcome_name: string;
     market_id: string;
     market_name: string;
+    market_type: string | null;
   }>(
     db,
     `SELECT 
       o.*,
       oc.name as outcome_name,
       oc.market_id,
-      m.short_name as market_name
+      m.short_name as market_name,
+      m.market_type
      FROM orders o
      JOIN outcomes oc ON o.outcome = oc.outcome_id
      JOIN markets m ON (m.market_id = oc.market_id OR (oc.market_id = 'market_total_birdies' AND m.market_id = 'market-total-birdies'))
@@ -139,6 +141,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       remaining_size: remainingSize,
       outcome_name: o.outcome_name,
       market_name: o.market_name,
+      market_type: o.market_type,
     };
   });
 

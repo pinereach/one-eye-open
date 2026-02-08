@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { MARKET_TYPE_ORDER, getMarketTypeLabel } from '../lib/marketTypes';
 import { useTradeNotifications } from '../contexts/TradeNotificationsContext';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { formatPrice, formatPricePercent, formatNotionalBySide } from '../lib/format';
@@ -11,6 +12,7 @@ import { Skeleton, SkeletonCard, SkeletonTable } from '../components/ui/Skeleton
 export function TradesPage() {
   const [trades, setTrades] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMarketType, setSelectedMarketType] = useState<string>('all');
   const { clearUnread } = useTradeNotifications();
 
   useEffect(() => {
@@ -20,6 +22,23 @@ export function TradesPage() {
   useEffect(() => {
     clearUnread();
   }, [clearUnread]);
+
+  const tradesToShow =
+    selectedMarketType === 'all'
+      ? trades
+      : trades.filter((t) => (t.market_type ?? 'other') === selectedMarketType);
+
+  const marketTypeFilterOptions = useMemo(() => {
+    const types = new Set(trades.map((t) => t.market_type ?? 'other'));
+    const sorted = [...types].sort((a, b) => {
+      const i = MARKET_TYPE_ORDER.indexOf(a);
+      const j = MARKET_TYPE_ORDER.indexOf(b);
+      const ai = i === -1 ? MARKET_TYPE_ORDER.length : i;
+      const aj = j === -1 ? MARKET_TYPE_ORDER.length : j;
+      return ai - aj;
+    });
+    return [{ value: 'all', label: 'All' }, ...sorted.map((t) => ({ value: t, label: getMarketTypeLabel(t) }))];
+  }, [trades]);
 
   async function loadTrades() {
     setLoading(true);
@@ -93,8 +112,28 @@ export function TradesPage() {
     <PullToRefresh onRefresh={loadTrades}>
     <div className="space-y-4 sm:space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold">Trades</h1>
+      {trades.length > 0 && (
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium text-gray-700 dark:text-gray-300">Market type</legend>
+          <div className="flex flex-wrap gap-x-4 gap-y-2" role="radiogroup" aria-label="Filter by market type">
+            {marketTypeFilterOptions.map((opt) => (
+              <label key={opt.value} className="flex items-center gap-2 cursor-pointer min-h-[44px] min-w-[44px] touch-manipulation">
+                <input
+                  type="radio"
+                  name="marketTypeFilter"
+                  value={opt.value}
+                  checked={selectedMarketType === opt.value}
+                  onChange={() => setSelectedMarketType(opt.value)}
+                  className="w-4 h-4 text-primary-600 border-gray-300 dark:border-gray-600 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
       <div className="md:hidden space-y-2">
-        {trades.length === 0 ? emptyTrades : trades.map(renderTradeCard)}
+        {trades.length === 0 ? emptyTrades : tradesToShow.map(renderTradeCard)}
       </div>
       <div className="hidden md:block overflow-x-auto -mx-3 sm:mx-0">
         {trades.length === 0 ? emptyTrades : (
@@ -114,7 +153,7 @@ export function TradesPage() {
               </tr>
             </thead>
             <tbody>
-              {trades.map((trade) => {
+              {tradesToShow.map((trade) => {
                 const displaySide = trade.side ?? trade.taker_side ?? null;
                 const isSell = displaySide === 1;
                 const sideLabel = displaySide === 0 ? 'Buy' : displaySide === 1 ? 'Sell' : '—';

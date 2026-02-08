@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { MARKET_TYPE_ORDER, getMarketTypeLabel } from '../lib/marketTypes';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { formatPrice, formatPriceBasis, formatPriceDecimal } from '../lib/format';
 import { Card, CardContent } from '../components/ui/Card';
@@ -11,6 +12,7 @@ export function PositionsPage() {
   const navigate = useNavigate();
   const [positions, setPositions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMarketType, setSelectedMarketType] = useState<string>('all');
 
   useEffect(() => {
     loadPositions();
@@ -28,9 +30,17 @@ export function PositionsPage() {
     }
   }
 
-  const totalPositionValueCents = positions.reduce((sum, position) => {
+  const showablePositions = positions.filter(
+    (p) => p.net_position !== 0 || (p.closed_profit ?? 0) !== 0 || (p.settled_profit ?? 0) !== 0
+  );
+
+  const positionsToShow =
+    selectedMarketType === 'all'
+      ? showablePositions
+      : showablePositions.filter((p) => (p.market_type ?? 'other') === selectedMarketType);
+
+  const totalPositionValueCents = positionsToShow.reduce((sum, position) => {
     let contribution = 0;
-    // Unrealized P&L from open positions
     if (position.net_position !== 0) {
       const currentPrice = position.current_price !== null && position.current_price !== undefined ? position.current_price : null;
       if (currentPrice !== null) {
@@ -41,29 +51,32 @@ export function PositionsPage() {
             : position.net_position * currentPrice - costCents;
       }
     }
-    // Closed and settled profit (realized P&L)
     contribution += (position.closed_profit ?? 0) + (position.settled_profit ?? 0);
     return sum + contribution;
   }, 0);
 
-  const positionsToShow = positions.filter(
-    (p) => p.net_position !== 0 || (p.closed_profit ?? 0) !== 0 || (p.settled_profit ?? 0) !== 0
-  );
+  const marketTypeFilterOptions = useMemo(() => {
+    const types = new Set(showablePositions.map((p) => p.market_type ?? 'other'));
+    const sorted = [...types].sort((a, b) => {
+      const i = MARKET_TYPE_ORDER.indexOf(a);
+      const j = MARKET_TYPE_ORDER.indexOf(b);
+      const ai = i === -1 ? MARKET_TYPE_ORDER.length : i;
+      const aj = j === -1 ? MARKET_TYPE_ORDER.length : j;
+      return ai - aj;
+    });
+    return [{ value: 'all', label: 'All' }, ...sorted.map((t) => ({ value: t, label: getMarketTypeLabel(t) }))];
+  }, [showablePositions]);
 
-  // Group by market (market_id or market_name) for header + cards
   const positionsByMarket = useMemo(() => {
-    const toShow = positions.filter(
-      (p) => p.net_position !== 0 || (p.closed_profit ?? 0) !== 0 || (p.settled_profit ?? 0) !== 0
-    );
-    const map: Record<string, { marketLabel: string; positions: typeof toShow }> = {};
-    for (const p of toShow) {
+    const map: Record<string, { marketLabel: string; positions: typeof positionsToShow }> = {};
+    for (const p of positionsToShow) {
       const key = p.market_id ?? p.market_name ?? 'other';
       const label = p.market_name ?? p.market_id ?? 'Other';
       if (!map[key]) map[key] = { marketLabel: label, positions: [] };
       map[key].positions.push(p);
     }
     return Object.entries(map);
-  }, [positions]);
+  }, [positionsToShow]);
 
   const getPositionValueCents = (position: any, currentPrice: number | null) => {
     if (currentPrice === null) return null;
@@ -179,6 +192,26 @@ export function PositionsPage() {
             {totalPositionValueCents > 0 ? '+' : ''}{formatPrice(totalPositionValueCents)}
           </span>
         </div>
+      )}
+      {showablePositions.length > 0 && (
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium text-gray-700 dark:text-gray-300">Market type</legend>
+          <div className="flex flex-wrap gap-x-4 gap-y-2" role="radiogroup" aria-label="Filter by market type">
+            {marketTypeFilterOptions.map((opt) => (
+              <label key={opt.value} className="flex items-center gap-2 cursor-pointer min-h-[44px] min-w-[44px] touch-manipulation">
+                <input
+                  type="radio"
+                  name="marketTypeFilter"
+                  value={opt.value}
+                  checked={selectedMarketType === opt.value}
+                  onChange={() => setSelectedMarketType(opt.value)}
+                  className="w-4 h-4 text-primary-600 border-gray-300 dark:border-gray-600 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
       )}
       <div className="md:hidden space-y-6">
         {positionsToShow.length === 0 ? (

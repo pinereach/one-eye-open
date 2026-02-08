@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { MARKET_TYPE_ORDER, getMarketTypeLabel } from '../lib/marketTypes';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { formatPrice, formatPricePercent } from '../lib/format';
 import { format } from 'date-fns';
@@ -23,11 +24,29 @@ export function OrdersPage() {
   const [completedVisibleCount, setCompletedVisibleCount] = useState(INITIAL_HISTORY_VISIBLE);
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
   const [cancelAllOpen, setCancelAllOpen] = useState(false);
+  const [selectedMarketType, setSelectedMarketType] = useState<string>('all');
   const { toasts, showToast, removeToast } = useToast();
 
   useEffect(() => {
     loadOrders();
   }, []);
+
+  const ordersToShow =
+    selectedMarketType === 'all'
+      ? orders
+      : orders.filter((o) => (o.market_type ?? 'other') === selectedMarketType);
+
+  const marketTypeFilterOptions = useMemo(() => {
+    const types = new Set(orders.map((o) => o.market_type ?? 'other'));
+    const sorted = [...types].sort((a, b) => {
+      const i = MARKET_TYPE_ORDER.indexOf(a);
+      const j = MARKET_TYPE_ORDER.indexOf(b);
+      const ai = i === -1 ? MARKET_TYPE_ORDER.length : i;
+      const aj = j === -1 ? MARKET_TYPE_ORDER.length : j;
+      return ai - aj;
+    });
+    return [{ value: 'all', label: 'All' }, ...sorted.map((t) => ({ value: t, label: getMarketTypeLabel(t) }))];
+  }, [orders]);
 
   async function loadOrders(append = false) {
     if (!append) setLoading(true);
@@ -70,8 +89,8 @@ export function OrdersPage() {
     setCancelOrderId(orderId);
   }
 
-  const activeOrders = orders.filter(order => order.status === 'open' || order.status === 'partial');
-  const completedOrders = orders.filter(order => order.status === 'filled' || order.status === 'canceled');
+  const activeOrders = ordersToShow.filter(order => order.status === 'open' || order.status === 'partial');
+  const completedOrders = ordersToShow.filter(order => order.status === 'filled' || order.status === 'canceled');
   const completedVisible = completedOrders.slice(0, completedVisibleCount);
   const canShowMore = completedOrders.length > completedVisibleCount || hasMore;
 
@@ -223,6 +242,26 @@ export function OrdersPage() {
     <PullToRefresh onRefresh={loadOrders}>
     <div className="space-y-4 sm:space-y-6">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+      {orders.length > 0 && (
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium text-gray-700 dark:text-gray-300">Market type</legend>
+          <div className="flex flex-wrap gap-x-4 gap-y-2" role="radiogroup" aria-label="Filter by market type">
+            {marketTypeFilterOptions.map((opt) => (
+              <label key={opt.value} className="flex items-center gap-2 cursor-pointer min-h-[44px] min-w-[44px] touch-manipulation">
+                <input
+                  type="radio"
+                  name="marketTypeFilter"
+                  value={opt.value}
+                  checked={selectedMarketType === opt.value}
+                  onChange={() => setSelectedMarketType(opt.value)}
+                  className="w-4 h-4 text-primary-600 border-gray-300 dark:border-gray-600 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
       <div className="space-y-3 sm:space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Open Orders</h2>

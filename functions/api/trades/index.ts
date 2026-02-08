@@ -49,6 +49,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     outcome_ticker: string | null;
     market_id: string | null;
     market_short_name: string | null;
+    market_type: string | null;
     taker_side: number | null;
     taker_user_id: number | null;
     maker_user_id: number | null;
@@ -69,7 +70,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
        o.name as outcome_name,
        o.ticker as outcome_ticker,
        o.market_id,
-       m.short_name as market_short_name
+       m.short_name as market_short_name,
+       m.market_type
      FROM trades t
      LEFT JOIN outcomes o ON t.outcome = o.outcome_id
      LEFT JOIN markets m ON (m.market_id = o.market_id OR (o.market_id = 'market_total_birdies' AND m.market_id = 'market-total-birdies'))
@@ -104,6 +106,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       outcome_ticker: t.outcome_ticker,
       market_id,
       market_short_name: t.market_short_name,
+      market_type: t.market_type,
       side: mySide,
       taker_side: t.taker_side ?? null,
     };

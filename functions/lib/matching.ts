@@ -419,9 +419,9 @@ export async function updatePositionsForFill(
   let makerClosedAdjust = 0;
 
   if (takerState.newNet !== 0) {
-    takerBasis = Math.round(takerState.totalValueExact / takerState.newNet);
+    takerBasis = Math.round(takerState.totalValueExact / Math.abs(takerState.newNet));
     takerBasis = Math.max(PRICE_BASIS_MIN_CENTS, Math.min(PRICE_BASIS_MAX_CENTS, takerBasis));
-    const takerCost = takerBasis * takerState.newNet;
+    const takerCost = Math.abs(takerState.newNet) * takerBasis;
     const makerCost = exactTotal - takerCost;
     if (makerState.newNet !== 0) {
       makerBasis = Math.round(makerCost / Math.abs(makerState.newNet));
