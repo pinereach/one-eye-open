@@ -31,7 +31,15 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
   const db = getDb(env);
 
   try {
-    const body = await request.json().catch(() => ({}));
+    let body: Record<string, unknown> = {};
+    const contentLength = request.headers.get('content-length');
+    if (contentLength && contentLength !== '0') {
+      try {
+        body = (await request.json()) as Record<string, unknown>;
+      } catch {
+        // invalid or empty JSON body
+      }
+    }
     const fullReset = body?.full_reset === true;
 
     const outcomeRows = await dbQuery<{ outcome: string }>(
@@ -84,8 +92,8 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
         const takerUserId = t.taker_user_id!;
         const makerUserId = t.maker_user_id ?? null;
         const takerSide = t.taker_side === 1 ? 'ask' : 'bid';
-        const price = t.price;
-        const contracts = t.contracts;
+        const price = Number(t.price) || 0;
+        const contracts = Number(t.contracts) || 0;
 
         // Position state before this fill (for risk_off backfill)
         const takerPos = await dbFirst<{ net_position: number; price_basis: number }>(
@@ -149,7 +157,8 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       full_reset_applied: fullReset,
     });
   } catch (err) {
-    console.error('Admin replay-positions error:', err);
-    return errorResponse('Failed to replay positions', 500);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('Admin replay-positions error:', message, err);
+    return errorResponse(`Failed to replay positions: ${message}`, 500);
   }
 };
