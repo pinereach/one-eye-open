@@ -441,8 +441,11 @@ export async function updatePositionsForFill(
     }
   }
 
+  // Keep closed profit zero-sum: taker delta + maker delta = 0 so total closed across all positions stays 0.
   const takerClosed = takerState.newClosedProfit;
-  const makerClosed = makerState.newClosedProfit + makerClosedAdjust;
+  const takerClosedDelta = takerClosed - takerCur.closed;
+  const makerClosed = makerCur.closed - takerClosedDelta;
+  // (Do not add makerClosedAdjust to closed_profit so the sum remains exactly zero.)
 
   if (!takerDb) {
     await dbRun(
@@ -474,6 +477,7 @@ export async function updatePositionsForFill(
   }
 }
 
+/** Returns the change in closed_profit (delta) so callers can keep system closed profit zero-sum. */
 export async function updatePosition(
   db: D1Database,
   outcomeId: string, // Local DB uses outcome, not market_id
@@ -481,7 +485,7 @@ export async function updatePosition(
   side: 'bid' | 'ask',
   priceCents: number,
   qtyContracts: number
-): Promise<void> {
+): Promise<{ closedProfitDelta: number }> {
   const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
   // Local DB uses outcome, net_position, price_basis (not market_id, qty_long, qty_short)
   const positionDb = await dbFirst<{
@@ -585,13 +589,15 @@ export async function updatePosition(
     newPriceBasis = Math.max(PRICE_BASIS_MIN_CENTS, Math.min(PRICE_BASIS_MAX_CENTS, newPriceBasis));
   }
 
+  const closedProfitDelta = newClosedProfit - currentClosedProfit;
+
   // Create position if it doesn't exist
   if (!positionDb) {
     await dbRun(
       db,
       `INSERT INTO positions (user_id, outcome, net_position, price_basis, closed_profit, settled_profit, is_settled, create_time)
-       VALUES (?, ?, ?, ?, 0, 0, 0, ?)`,
-      [userIdNum, outcomeId, newNetPosition, newPriceBasis, Math.floor(Date.now() / 1000)]
+       VALUES (?, ?, ?, ?, ?, 0, 0, ?)`,
+      [userIdNum, outcomeId, newNetPosition, newPriceBasis, newClosedProfit, Math.floor(Date.now() / 1000)]
     );
   } else {
     // Update existing position
@@ -607,6 +613,36 @@ export async function updatePosition(
         outcomeId,
         userIdNum,
       ]
+    );
+  }
+  return { closedProfitDelta };
+}
+
+/** Apply offsetting closed_profit to the system position (user_id NULL) so total closed profit stays zero-sum when maker has no user. */
+async function addSystemClosedProfitOffset(
+  db: D1Database,
+  outcomeId: string,
+  closedProfitOffsetCents: number
+): Promise<void> {
+  if (closedProfitOffsetCents === 0) return;
+  const now = Math.floor(Date.now() / 1000);
+  const existing = await dbFirst<{ id: number; closed_profit: number }>(
+    db,
+    'SELECT id, closed_profit FROM positions WHERE outcome = ? AND user_id IS NULL',
+    [outcomeId]
+  );
+  if (existing) {
+    await dbRun(
+      db,
+      'UPDATE positions SET closed_profit = closed_profit + ? WHERE outcome = ? AND user_id IS NULL',
+      [closedProfitOffsetCents, outcomeId]
+    );
+  } else {
+    await dbRun(
+      db,
+      `INSERT INTO positions (user_id, outcome, net_position, price_basis, closed_profit, settled_profit, is_settled, create_time)
+       VALUES (NULL, ?, 0, 0, ?, 0, 0, ?)`,
+      [outcomeId, closedProfitOffsetCents, now]
     );
   }
 }
@@ -732,7 +768,11 @@ export async function executeMatching(
       );
     } else if (makerOrderDb && !sameUserBothSides) {
       if (!Number.isNaN(takerUserId)) {
-        await updatePosition(db, outcomeId, takerUserId, takerOrder.side, fill.price_cents, fill.qty_contracts);
+        const { closedProfitDelta } = await updatePosition(db, outcomeId, takerUserId, takerOrder.side, fill.price_cents, fill.qty_contracts);
+        // When maker has no user_id, offset taker's closed profit with system position so total stays zero-sum.
+        if (makerUserId == null && closedProfitDelta !== 0) {
+          await addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta);
+        }
       }
       if (makerUserId != null) {
         await updatePosition(
