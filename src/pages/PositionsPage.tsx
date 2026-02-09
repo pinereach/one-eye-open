@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { MARKET_TYPE_ORDER, getMarketTypeLabel } from '../lib/marketTypes';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
-import { formatPrice, formatPriceBasis, formatPriceDecimal } from '../lib/format';
+import { formatPrice, formatPriceBasis, formatPriceRound10, formatPriceTwoDecimals } from '../lib/format';
 import { Card, CardContent } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton, SkeletonCard, SkeletonTable } from '../components/ui/Skeleton';
@@ -153,7 +153,7 @@ export function PositionsPage() {
             </div>
             {hasOpenPosition && (
               <div className="flex flex-col items-end text-right">
-                <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">{positionValueCents !== null ? formatPriceDecimal(positionValueCents) : formatPriceDecimal(costCents)}</div>
+                <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">{positionValueCents !== null ? formatPriceRound10(positionValueCents) : formatPriceRound10(costCents)}</div>
                 <div className={`text-sm sm:text-base font-semibold ${diffCents !== null ? diffCents > 0 ? 'text-green-600 dark:text-green-400' : diffCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400' : 'text-gray-600 dark:text-gray-400'}`}>
                   {diffCents !== null ? <>{diffCents > 0 ? '↑' : diffCents < 0 ? '↓' : ''} {formatPrice(Math.abs(diffCents))}</> : '—'}
                 </div>
@@ -162,8 +162,8 @@ export function PositionsPage() {
           </div>
           <div className="mt-3 -mx-4 sm:-mx-5 -mb-4 sm:-mb-5 px-4 sm:px-5 py-2 rounded-b-lg bg-gray-100 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
             <div className="flex flex-wrap gap-x-4 gap-y-1">
-              <span>Closed profit: <span className={`font-medium ${closedProfitCents >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(closedProfitCents)}</span></span>
-              <span>Settled profit: <span className={`font-medium ${settledProfitCents >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(settledProfitCents)}</span></span>
+              <span>Closed profit: <span className={`font-medium ${closedProfitCents >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceTwoDecimals(closedProfitCents)}</span></span>
+              <span>Settled profit: <span className={`font-medium ${settledProfitCents >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceTwoDecimals(settledProfitCents)}</span></span>
             </div>
             <div className="text-right shrink-0">
               Bid: {position.best_bid != null ? formatPriceBasis(position.best_bid) : '—'} | Ask: {position.best_ask != null ? formatPriceBasis(position.best_ask) : '—'}
@@ -193,19 +193,19 @@ export function PositionsPage() {
           <div className="flex flex-col gap-0.5">
             <span className="text-sm text-gray-600 dark:text-gray-400">Portfolio value</span>
             <span className={`text-lg sm:text-xl font-bold ${totalPositionValueCents > 0 ? 'text-green-600 dark:text-green-400' : totalPositionValueCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
-              {totalPositionValueCents > 0 ? '+' : ''}{formatPrice(totalPositionValueCents)}
+              {totalPositionValueCents > 0 ? '+' : ''}{formatPriceRound10(totalPositionValueCents)}
             </span>
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-sm text-gray-600 dark:text-gray-400">Closed profit</span>
             <span className={`text-base font-semibold ${totalClosedProfitCents > 0 ? 'text-green-600 dark:text-green-400' : totalClosedProfitCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
-              {totalClosedProfitCents > 0 ? '+' : ''}{formatPrice(totalClosedProfitCents)}
+              {totalClosedProfitCents > 0 ? '+' : ''}{formatPriceTwoDecimals(totalClosedProfitCents)}
             </span>
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-sm text-gray-600 dark:text-gray-400">Settled profit</span>
             <span className={`text-base font-semibold ${totalSettledProfitCents > 0 ? 'text-green-600 dark:text-green-400' : totalSettledProfitCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
-              {totalSettledProfitCents > 0 ? '+' : ''}{formatPrice(totalSettledProfitCents)}
+              {totalSettledProfitCents > 0 ? '+' : ''}{formatPriceTwoDecimals(totalSettledProfitCents)}
             </span>
           </div>
         </div>

@@ -230,4 +230,9 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  adminDeleteTrade: (tradeId: number) =>
+    apiRequest<{ deleted: boolean; id: number }>(`/admin/trades/${tradeId}`, {
+      method: 'DELETE',
+    }),
+
 };

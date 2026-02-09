@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { formatPrice } from '../../lib/format';
 import { format } from 'date-fns';
+import { useAuth } from '../../contexts/AuthContext';
 import type { Trade } from '../../types';
 
 const TAPE_LIMIT = 20;
@@ -38,8 +39,10 @@ function formatRelativeTime(ts: number): string {
 }
 
 export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
+  const { user } = useAuth();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -111,28 +114,53 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
             const priceStr = formatPrice(trade.price);
 
             return (
-              <Link
-                key={trade.id}
-                to={marketId ? `/markets/${marketId}` : '#'}
-                className="block py-2.5 px-3 rounded border border-transparent hover:border-gray-200 dark:hover:border-gray-600 hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition-colors touch-manipulation group"
-              >
-                <div className="text-sm text-gray-900 dark:text-gray-100">
-                  <span className="font-semibold" style={takerColor ? { color: takerColor } : undefined}>{taker}</span>
-                  {' '}
-                  {isBuy ? 'bought' : 'sold'}
-                  {' '}
-                  <span className="font-semibold">{shares} {shares === 1 ? 'share' : 'shares'}</span>
-                  {' of '}
-                  <span className="font-medium">{outcomeName}</span>
-                  {isBuy ? ' from ' : ' to '}
-                  <span className="font-semibold" style={makerColor ? { color: makerColor } : undefined}>{maker}</span>
-                  {' @ '}
-                  <span className="font-bold">{priceStr}</span>
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5" title={trade.create_time ? format(new Date(trade.create_time * 1000), 'MMM d, h:mm a') : undefined}>
-                  on {marketName} {timeStr}
-                </div>
-              </Link>
+              <div key={trade.id} className="relative group">
+                <Link
+                  to={marketId ? `/markets/${marketId}` : '#'}
+                  className="block py-2.5 px-3 pr-9 rounded border border-transparent hover:border-gray-200 dark:hover:border-gray-600 hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition-colors touch-manipulation"
+                >
+                  <div className="text-sm text-gray-900 dark:text-gray-100">
+                    <span className="font-semibold" style={takerColor ? { color: takerColor } : undefined}>{taker}</span>
+                    {' '}
+                    {isBuy ? 'bought' : 'sold'}
+                    {' '}
+                    <span className="font-semibold">{shares} {shares === 1 ? 'share' : 'shares'}</span>
+                    {' of '}
+                    <span className="font-medium">{outcomeName}</span>
+                    {isBuy ? ' from ' : ' to '}
+                    <span className="font-semibold" style={makerColor ? { color: makerColor } : undefined}>{maker}</span>
+                    {' @ '}
+                    <span className="font-bold">{priceStr}</span>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5" title={trade.create_time ? format(new Date(trade.create_time * 1000), 'MMM d, h:mm a') : undefined}>
+                    on {marketName} {timeStr}
+                  </div>
+                </Link>
+                {user?.admin && (
+                  <button
+                    type="button"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (deletingId !== null) return;
+                      setDeletingId(trade.id);
+                      try {
+                        await api.adminDeleteTrade(trade.id);
+                        setTrades((prev) => prev.filter((t) => t.id !== trade.id));
+                      } catch {
+                        setDeletingId(null);
+                      } finally {
+                        setDeletingId(null);
+                      }
+                    }}
+                    disabled={deletingId === trade.id}
+                    className="absolute top-1/2 right-2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border border-transparent hover:border-red-200 dark:hover:border-red-800 text-lg font-bold touch-manipulation disabled:opacity-50"
+                    aria-label="Delete trade"
+                  >
+                    {deletingId === trade.id ? '…' : '×'}
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>

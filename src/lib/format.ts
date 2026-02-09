@@ -25,6 +25,22 @@ export function formatPriceBasis(cents: number): string {
 /** Alias for formatPriceBasis */
 export const formatPriceDecimal = formatPriceBasis;
 
+/** Round cents to nearest 10 (for display only). */
+export function roundCentsToNearest10(cents: number): number {
+  return Math.round(cents / 10) * 10;
+}
+
+/** Position value: round to nearest $0.10, display with 2 decimals (e.g. $12.30, $155.00). */
+export function formatPriceRound10(cents: number): string {
+  const rounded = roundCentsToNearest10(cents);
+  return `$${(rounded / 100).toFixed(2)}`;
+}
+
+/** Closed/settled profit: always 2 decimal places (e.g. $2.00, $-6.00, $1.50). */
+export function formatPriceTwoDecimals(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
 /** Notional for buy: price (cents) × contracts → "$X" or "$X.XX" when fractional */
 export function formatNotional(price: number, contracts: number): string {
   const totalCents = price * contracts;

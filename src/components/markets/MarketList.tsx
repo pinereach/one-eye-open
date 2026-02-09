@@ -140,11 +140,14 @@ export function MarketList({ tripId }: { tripId?: string }) {
     setPreferFresh();
   }
 
-  // Group markets by type (use market_id for Total Birdies when market_type is missing)
+  // Group markets by type (use market_id for Total Birdies/Pars when market_type is missing)
   const marketsByType = markets.reduce((acc, market) => {
     let type = market.market_type || 'other';
     if (type === 'other' && (market.market_id === 'market-total-birdies' || market.market_id === 'market_total_birdies')) {
       type = 'market_total_birdies';
+    }
+    if (type === 'other' && (market.market_id === 'market-total-pars' || market.market_id === 'market_total_pars')) {
+      type = 'market_total_pars';
     }
     if (!acc[type]) {
       acc[type] = [];

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
-import { formatPrice, formatPriceBasis, formatPriceDecimal, formatPriceCents, formatNotionalBySide } from '../../lib/format';
+import { formatPrice, formatPriceBasis, formatPriceRound10, formatPriceTwoDecimals, formatPriceCents, formatNotionalBySide } from '../../lib/format';
 import { Orderbook } from './Orderbook';
 import { ToastContainer, useToast } from '../ui/Toast';
 import { BottomSheet } from '../ui/BottomSheet';
@@ -898,7 +898,7 @@ export function MarketDetail() {
                                         const isProfit = totalClosedCents >= 0;
                                         return (
                                           <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium ${isProfit ? 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20' : 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20'}`}>
-                                            {isProfit ? '+' : ''}{formatPriceBasis(totalClosedCents)}
+                                            {isProfit ? '+' : ''}{formatPriceTwoDecimals(totalClosedCents)}
                                           </span>
                                         );
                                       }
@@ -1155,7 +1155,7 @@ export function MarketDetail() {
                                 const isProfitCard = totalClosedCard >= 0;
                                 return (
                                   <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${isProfitCard ? 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20' : 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20'}`}>
-                                    {isProfitCard ? '+' : ''}{formatPriceBasis(totalClosedCard)}
+                                    {isProfitCard ? '+' : ''}{formatPriceTwoDecimals(totalClosedCard)}
                                   </span>
                                 );
                               }
@@ -1169,7 +1169,7 @@ export function MarketDetail() {
                           {hasOpenPosition && (
                             <div className="flex flex-col items-end text-right">
                               <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                                {positionValueCents !== null ? formatPriceDecimal(positionValueCents) : formatPriceDecimal(costCents)}
+                                {positionValueCents !== null ? formatPriceRound10(positionValueCents) : formatPriceRound10(costCents)}
                               </div>
                               <div className={`text-sm sm:text-base font-semibold ${
                                 diffCents !== null
@@ -1189,8 +1189,8 @@ export function MarketDetail() {
                         </div>
                         <div className="mt-3 -mx-2 sm:-mx-5 -mb-4 sm:-mb-5 px-2 sm:px-5 py-2 rounded-b-lg bg-gray-100 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                           <div className="flex flex-wrap gap-x-4 gap-y-1">
-                            <span>Closed profit: <span className={`font-medium ${(position.closed_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(position.closed_profit ?? 0)}</span></span>
-                            <span>Settled profit: <span className={`font-medium ${(position.settled_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(position.settled_profit ?? 0)}</span></span>
+                            <span>Closed profit: <span className={`font-medium ${(position.closed_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceTwoDecimals(position.closed_profit ?? 0)}</span></span>
+                            <span>Settled profit: <span className={`font-medium ${(position.settled_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceTwoDecimals(position.settled_profit ?? 0)}</span></span>
                           </div>
                           <div className="text-right shrink-0">
                             Bid: {position.best_bid != null ? formatPriceBasis(position.best_bid) : '—'} | Ask: {position.best_ask != null ? formatPriceBasis(position.best_ask) : '—'}
@@ -1279,7 +1279,7 @@ export function MarketDetail() {
                                           const isProfitDesktop = totalClosedCentsDesktop >= 0;
                                           return (
                                             <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium ${isProfitDesktop ? 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20' : 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20'}`}>
-                                              {isProfitDesktop ? '+' : ''}{formatPriceBasis(totalClosedCentsDesktop)}
+                                              {isProfitDesktop ? '+' : ''}{formatPriceTwoDecimals(totalClosedCentsDesktop)}
                                             </span>
                                           );
                                         }
@@ -1860,7 +1860,7 @@ export function MarketDetail() {
                                   const isProfitCard2 = totalClosedCard2 >= 0;
                                   return (
                                     <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${isProfitCard2 ? 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20' : 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20'}`}>
-                                      {isProfitCard2 ? '+' : ''}{formatPriceBasis(totalClosedCard2)}
+                                      {isProfitCard2 ? '+' : ''}{formatPriceTwoDecimals(totalClosedCard2)}
                                     </span>
                                   );
                                 }
@@ -1874,7 +1874,7 @@ export function MarketDetail() {
                             {hasOpenPosition && (
                               <div className="flex flex-col items-end text-right">
                                 <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                                  {positionValueCents !== null ? formatPriceDecimal(positionValueCents) : formatPriceDecimal(costCents)}
+                                  {positionValueCents !== null ? formatPriceRound10(positionValueCents) : formatPriceRound10(costCents)}
                                 </div>
                                 <div className={`text-sm sm:text-base font-semibold ${
                                   diffCents !== null
@@ -1894,8 +1894,8 @@ export function MarketDetail() {
                           </div>
                           <div className="mt-3 -mx-2 sm:-mx-5 -mb-4 sm:-mb-5 px-2 sm:px-5 py-2 rounded-b-lg bg-gray-100 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                             <div className="flex flex-wrap gap-x-4 gap-y-1">
-                              <span>Closed profit: <span className={`font-medium ${(position.closed_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(position.closed_profit ?? 0)}</span></span>
-                              <span>Settled profit: <span className={`font-medium ${(position.settled_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceBasis(position.settled_profit ?? 0)}</span></span>
+                              <span>Closed profit: <span className={`font-medium ${(position.closed_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceTwoDecimals(position.closed_profit ?? 0)}</span></span>
+                              <span>Settled profit: <span className={`font-medium ${(position.settled_profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceTwoDecimals(position.settled_profit ?? 0)}</span></span>
                             </div>
                             <div className="text-right shrink-0">
                               Bid: {position.best_bid != null ? formatPriceBasis(position.best_bid) : '—'} | Ask: {position.best_ask != null ? formatPriceBasis(position.best_ask) : '—'}
