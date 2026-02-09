@@ -1,7 +1,7 @@
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbQuery, dbRun, type Env } from '../../lib/db';
+import { getDb, dbQuery, dbRun, dbFirst, type Env } from '../../lib/db';
 import { requireAdmin, jsonResponse, errorResponse } from '../../middleware';
-import { updatePositionsForFill, updatePosition, addSystemClosedProfitOffset } from '../../lib/matching';
+import { updatePositionsForFill, updatePosition, addSystemClosedProfitOffset, computeRiskOffForFill } from '../../lib/matching';
 
 type TradeRow = {
   id: number;
@@ -31,12 +31,37 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
   const db = getDb(env);
 
   try {
+    const body = await request.json().catch(() => ({}));
+    const fullReset = body?.full_reset === true;
+
     const outcomeRows = await dbQuery<{ outcome: string }>(
       db,
       `SELECT DISTINCT outcome FROM trades WHERE outcome IS NOT NULL AND outcome != '' AND taker_user_id IS NOT NULL AND taker_side IS NOT NULL ORDER BY outcome`,
       []
     );
     const outcomes = outcomeRows.map((r) => r.outcome);
+
+    if (fullReset && outcomes.length > 0) {
+      const allOutcomes = await dbQuery<{ outcome: string }>(db, 'SELECT DISTINCT outcome FROM positions', []);
+      for (const row of allOutcomes) {
+        await dbRun(
+          db,
+          `UPDATE positions SET net_position = 0, price_basis = 0, closed_profit = 0 WHERE outcome = ?`,
+          [row.outcome]
+        );
+      }
+    }
+
+    const skippedRows =
+      outcomes.length > 0
+        ? await dbQuery<{ outcome: string; cnt: number }>(
+            db,
+            `SELECT outcome, COUNT(*) AS cnt FROM trades WHERE outcome IN (${outcomes.map(() => '?').join(',')}) AND (taker_user_id IS NULL OR taker_side IS NULL) GROUP BY outcome`,
+            outcomes
+          )
+        : [];
+    const tradesSkipped = skippedRows.reduce((sum, r) => sum + (r.cnt ?? 0), 0);
+    const outcomesWithSkipped = skippedRows.filter((r) => (r.cnt ?? 0) > 0).map((r) => r.outcome);
 
     let totalTradesReplayed = 0;
 
@@ -62,12 +87,40 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
         const price = t.price;
         const contracts = t.contracts;
 
+        // Position state before this fill (for risk_off backfill)
+        const takerPos = await dbFirst<{ net_position: number; price_basis: number }>(
+          db,
+          'SELECT net_position, price_basis FROM positions WHERE outcome = ? AND user_id = ?',
+          [outcomeId, takerUserId]
+        );
+        const takerNet = takerPos?.net_position ?? 0;
+        const takerBasis = takerPos?.price_basis ?? 0;
+        let makerNet = 0;
+        let makerBasis = 0;
+        if (makerUserId != null) {
+          const makerPos = await dbFirst<{ net_position: number; price_basis: number }>(
+            db,
+            'SELECT net_position, price_basis FROM positions WHERE outcome = ? AND user_id = ?',
+            [outcomeId, makerUserId]
+          );
+          makerNet = makerPos?.net_position ?? 0;
+          makerBasis = makerPos?.price_basis ?? 0;
+        }
+        const { riskOffContracts, riskOffPriceDiffCents } = computeRiskOffForFill(
+          takerNet,
+          takerBasis,
+          makerNet,
+          makerBasis,
+          takerSide,
+          price,
+          contracts
+        );
+
         const sameUser = makerUserId != null && makerUserId === takerUserId;
 
         if (makerUserId != null && !sameUser) {
           await updatePositionsForFill(db, outcomeId, takerUserId, makerUserId, takerSide, price, contracts);
         } else if (sameUser) {
-          // Same user on both sides: apply both legs so net position change is correct (taker + maker = 0 for same user).
           await updatePosition(db, outcomeId, takerUserId, takerSide, price, contracts);
           const makerSide = takerSide === 'bid' ? 'ask' : 'bid';
           await updatePosition(db, outcomeId, takerUserId, makerSide, price, contracts);
@@ -76,15 +129,24 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
           const netPositionDelta = takerSide === 'bid' ? contracts : -contracts;
           await addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta, netPositionDelta, price);
         }
+
+        await dbRun(
+          db,
+          'UPDATE trades SET risk_off_contracts = ?, risk_off_price_diff = ? WHERE id = ?',
+          [riskOffContracts, riskOffPriceDiffCents, t.id]
+        );
         totalTradesReplayed++;
       }
     }
 
     return jsonResponse({
       applied: true,
-      message: `Replayed ${totalTradesReplayed} trades across ${outcomes.length} outcome(s). Positions (net_position, price_basis, closed_profit) have been recomputed with zero-sum logic.`,
+      message: `Replayed ${totalTradesReplayed} trades across ${outcomes.length} outcome(s). Positions (net_position, price_basis, closed_profit) recomputed; risk_off backfilled on trades.${tradesSkipped > 0 ? ` ${tradesSkipped} trade(s) skipped (missing taker_user_id or taker_side).` : ''}`,
       outcomes_processed: outcomes.length,
       trades_replayed: totalTradesReplayed,
+      trades_skipped: tradesSkipped,
+      outcomes_with_skipped: outcomesWithSkipped.length > 0 ? outcomesWithSkipped : undefined,
+      full_reset_applied: fullReset,
     });
   } catch (err) {
     console.error('Admin replay-positions error:', err);

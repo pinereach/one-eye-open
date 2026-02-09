@@ -275,13 +275,19 @@ export const api = {
     }>('/admin/rebalance-closed-profit', { method: 'POST' }),
 
   /** Replay all trades per outcome to recompute net_position, price_basis, closed_profit with zero-sum logic. Use after fixing manual/auction bug. */
-  adminReplayPositions: () =>
+  adminReplayPositions: (options?: { full_reset?: boolean }) =>
     apiRequest<{
       applied: boolean;
       message: string;
       outcomes_processed: number;
       trades_replayed: number;
-    }>('/admin/replay-positions', { method: 'POST' }),
+      trades_skipped?: number;
+      outcomes_with_skipped?: string[];
+      full_reset_applied?: boolean;
+    }>('/admin/replay-positions', {
+      method: 'POST',
+      body: options?.full_reset ? JSON.stringify({ full_reset: true }) : undefined,
+    }),
 
   adminRunRoundOuAuction: (data: {
     round: number;

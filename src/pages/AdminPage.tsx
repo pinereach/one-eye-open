@@ -279,7 +279,7 @@ export function AdminPage() {
         <CardContent>
           <h2 className="text-base sm:text-lg font-bold mb-3">Fix closed profit sum</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-            <strong>Replay positions</strong> recomputes every position from trade history (zero-sum). <strong>Rebalance</strong> only adjusts a system offset so the total sums to $0. <strong>Set from risk-off</strong> sets each position’s closed profit from trade <code className="text-xs">risk_off_price_diff</code> (taker sum − maker sum); use after PATCHing trades to fix <code className="text-xs">risk_off_contracts</code> / <code className="text-xs">risk_off_price_diff</code>.
+            <strong>Replay positions</strong> recomputes positions from trade history and backfills <code className="text-xs">risk_off_contracts</code> / <code className="text-xs">risk_off_price_diff</code> on each trade. <strong>Replay with full reset</strong> zeros all positions first, then replays (use for a clean slate). <strong>Rebalance</strong> only adjusts a system offset. <strong>Set from risk-off</strong> sets position closed profit from trade risk_off (run after replay to sync).
           </p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -289,6 +289,9 @@ export function AdminPage() {
                 try {
                   const res = await api.adminReplayPositions();
                   showToast(res.message ?? 'Done', 'success');
+                  if (res.trades_skipped != null && res.trades_skipped > 0) {
+                    showToast(`${res.trades_skipped} trade(s) skipped (missing taker_user_id or taker_side)`, 'info');
+                  }
                 } catch (err) {
                   showToast(err instanceof Error ? err.message : 'Failed to replay positions', 'error');
                 } finally {
@@ -299,6 +302,27 @@ export function AdminPage() {
               className="px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {replayPositionsBusy ? 'Running…' : 'Replay positions'}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                setReplayPositionsBusy(true);
+                try {
+                  const res = await api.adminReplayPositions({ full_reset: true });
+                  showToast(res.message ?? 'Done', 'success');
+                  if (res.trades_skipped != null && res.trades_skipped > 0) {
+                    showToast(`${res.trades_skipped} trade(s) skipped (missing taker_user_id or taker_side)`, 'info');
+                  }
+                } catch (err) {
+                  showToast(err instanceof Error ? err.message : 'Failed to replay with full reset', 'error');
+                } finally {
+                  setReplayPositionsBusy(false);
+                }
+              }}
+              disabled={replayPositionsBusy || rebalanceClosedBusy}
+              className="px-3 py-1.5 text-sm font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
+            >
+              Replay with full reset
             </button>
             <button
               type="button"
