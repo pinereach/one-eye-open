@@ -34,27 +34,21 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   const db = getDb(env);
 
   if (type === 'trades') {
-    // Export trades with basic information
-    // Note: Since trades no longer have direct order/market references,
-    // we can only export the trade data itself
-    const sql = `
-      SELECT 
-        t.id,
-        t.token,
-        t.price,
-        t.contracts,
-        t.create_time,
-        t.risk_off_contracts,
-        t.risk_off_price_diff,
-        t.outcome,
-        t.taker_user_id,
-        t.maker_user_id,
-        t.taker_side
-      FROM trades t
-      ORDER BY t.create_time DESC
-    `;
-
-    const trades = await dbQuery(db, sql, []);
+    // Export trades with basic information (include risk_off_price_diff_maker when migration 0055 applied)
+    let trades: Record<string, unknown>[];
+    try {
+      trades = await dbQuery(
+        db,
+        `SELECT t.id, t.token, t.price, t.contracts, t.create_time, t.risk_off_contracts, t.risk_off_price_diff, t.risk_off_price_diff_maker, t.outcome, t.taker_user_id, t.maker_user_id, t.taker_side FROM trades t ORDER BY t.create_time DESC`,
+        []
+      );
+    } catch {
+      trades = await dbQuery(
+        db,
+        `SELECT t.id, t.token, t.price, t.contracts, t.create_time, t.risk_off_contracts, t.risk_off_price_diff, t.outcome, t.taker_user_id, t.maker_user_id, t.taker_side FROM trades t ORDER BY t.create_time DESC`,
+        []
+      );
+    }
     const csv = arrayToCSV(trades);
 
     return new Response(csv, {

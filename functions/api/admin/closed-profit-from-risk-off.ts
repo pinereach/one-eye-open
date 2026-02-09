@@ -4,10 +4,10 @@ import { requireAdmin, jsonResponse, errorResponse } from '../../middleware';
 
 /**
  * POST /api/admin/closed-profit-from-risk-off — admin only.
- * Recomputes position closed_profit from trade risk_off_price_diff:
- *   closed_profit(user, outcome) = sum(risk_off_price_diff) where taker_user_id=user - sum(risk_off_price_diff) where maker_user_id=user.
+ * Recomputes position closed_profit from trade risk-off columns:
+ *   closed_profit(user, outcome) = sum(risk_off_price_diff) where taker_user_id=user + sum(risk_off_price_diff_maker) where maker_user_id=user.
  * Then sets system (user_id NULL) per outcome so sum(closed_profit) = 0 for that outcome.
- * Use after backfilling risk_off_contracts/risk_off_price_diff on trades so position closed profit matches.
+ * Use after backfilling risk_off_contracts/risk_off_price_diff/risk_off_price_diff_maker on trades (e.g. via replay).
  */
 export const onRequestPost: OnRequest<Env> = async (context) => {
   const { request, env } = context;
@@ -33,13 +33,26 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
        GROUP BY outcome, taker_user_id`,
       []
     );
-    const tradesByMaker = await dbQuery<{ outcome: string; user_id: number; sum_cents: number }>(
-      db,
-      `SELECT outcome, maker_user_id AS user_id, COALESCE(SUM(risk_off_price_diff), 0) AS sum_cents
-       FROM trades WHERE outcome IS NOT NULL AND outcome != '' AND maker_user_id IS NOT NULL
-       GROUP BY outcome, maker_user_id`,
-      []
-    );
+    let tradesByMaker: { outcome: string; user_id: number; sum_cents: number }[];
+    let useMakerColumn = true;
+    try {
+      tradesByMaker = await dbQuery<{ outcome: string; user_id: number; sum_cents: number }>(
+        db,
+        `SELECT outcome, maker_user_id AS user_id, COALESCE(SUM(risk_off_price_diff_maker), 0) AS sum_cents
+         FROM trades WHERE outcome IS NOT NULL AND outcome != '' AND maker_user_id IS NOT NULL
+         GROUP BY outcome, maker_user_id`,
+        []
+      );
+    } catch {
+      useMakerColumn = false;
+      tradesByMaker = await dbQuery<{ outcome: string; user_id: number; sum_cents: number }>(
+        db,
+        `SELECT outcome, maker_user_id AS user_id, COALESCE(SUM(risk_off_price_diff), 0) AS sum_cents
+         FROM trades WHERE outcome IS NOT NULL AND outcome != '' AND maker_user_id IS NOT NULL
+         GROUP BY outcome, maker_user_id`,
+        []
+      );
+    }
 
     const takerSumByKey = new Map<string, number>();
     tradesByTaker.forEach((r) => takerSumByKey.set(`${r.outcome}:${r.user_id}`, r.sum_cents));
@@ -54,7 +67,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       const key = `${p.outcome}:${p.user_id}`;
       const takerSum = takerSumByKey.get(key) ?? 0;
       const makerSum = makerSumByKey.get(key) ?? 0;
-      const closedProfit = takerSum - makerSum;
+      const closedProfit = useMakerColumn ? takerSum + makerSum : takerSum - makerSum;
       outcomeUserTotalCents.set(p.outcome, (outcomeUserTotalCents.get(p.outcome) ?? 0) + closedProfit);
       await dbRun(
         db,

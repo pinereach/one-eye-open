@@ -3,8 +3,8 @@ import { getDb, dbFirst, dbRun, type Env } from '../../../lib/db';
 import { requireAdmin, jsonResponse, errorResponse } from '../../../middleware';
 
 /**
- * PATCH /api/admin/trades/:tradeId — update risk_off_contracts and risk_off_price_diff (admin only).
- * Body: { risk_off_contracts?: number, risk_off_price_diff?: number }. Omitted fields are left unchanged.
+ * PATCH /api/admin/trades/:tradeId — update risk_off fields (admin only).
+ * Body: { risk_off_contracts?: number, risk_off_price_diff?: number, risk_off_price_diff_maker?: number }. Omitted fields left unchanged.
  */
 export const onRequestPatch: OnRequest<Env> = async (context) => {
   const { request, env, params } = context;
@@ -30,6 +30,7 @@ export const onRequestPatch: OnRequest<Env> = async (context) => {
   const body = await request.json().catch(() => ({}));
   const riskOffContracts = body?.risk_off_contracts;
   const riskOffPriceDiff = body?.risk_off_price_diff;
+  const riskOffPriceDiffMaker = body?.risk_off_price_diff_maker;
 
   if (riskOffContracts !== undefined) {
     if (!Number.isInteger(riskOffContracts) || riskOffContracts < 0) {
@@ -41,29 +42,48 @@ export const onRequestPatch: OnRequest<Env> = async (context) => {
       return errorResponse('risk_off_price_diff must be an integer (cents)', 400);
     }
   }
-
-  if (riskOffContracts === undefined && riskOffPriceDiff === undefined) {
-    return errorResponse('Body must include at least one of risk_off_contracts, risk_off_price_diff', 400);
+  if (riskOffPriceDiffMaker !== undefined) {
+    if (!Number.isInteger(riskOffPriceDiffMaker)) {
+      return errorResponse('risk_off_price_diff_maker must be an integer (cents)', 400);
+    }
   }
 
-  if (riskOffContracts !== undefined && riskOffPriceDiff !== undefined) {
-    await dbRun(
+  if (riskOffContracts === undefined && riskOffPriceDiff === undefined && riskOffPriceDiffMaker === undefined) {
+    return errorResponse('Body must include at least one of risk_off_contracts, risk_off_price_diff, risk_off_price_diff_maker', 400);
+  }
+
+  const updates: string[] = [];
+  const updateParams: number[] = [];
+  if (riskOffContracts !== undefined) {
+    updates.push('risk_off_contracts = ?');
+    updateParams.push(riskOffContracts);
+  }
+  if (riskOffPriceDiff !== undefined) {
+    updates.push('risk_off_price_diff = ?');
+    updateParams.push(riskOffPriceDiff);
+  }
+  if (riskOffPriceDiffMaker !== undefined) {
+    updates.push('risk_off_price_diff_maker = ?');
+    updateParams.push(riskOffPriceDiffMaker);
+  }
+  updateParams.push(tradeId);
+  await dbRun(db, `UPDATE trades SET ${updates.join(', ')} WHERE id = ?`, updateParams);
+
+  let updated: Record<string, unknown> | null = null;
+  try {
+    updated = await dbFirst(
       db,
-      'UPDATE trades SET risk_off_contracts = ?, risk_off_price_diff = ? WHERE id = ?',
-      [riskOffContracts, riskOffPriceDiff, tradeId]
-    );
-  } else if (riskOffContracts !== undefined) {
-    await dbRun(db, 'UPDATE trades SET risk_off_contracts = ? WHERE id = ?', [riskOffContracts, tradeId]);
-  } else {
-    await dbRun(db, 'UPDATE trades SET risk_off_price_diff = ? WHERE id = ?', [riskOffPriceDiff, tradeId]);
+      'SELECT id, outcome, risk_off_contracts, risk_off_price_diff, risk_off_price_diff_maker, taker_user_id, maker_user_id FROM trades WHERE id = ?',
+      [tradeId]
+    ) as Record<string, unknown> | null;
+  } catch {
+    updated = await dbFirst(
+      db,
+      'SELECT id, outcome, risk_off_contracts, risk_off_price_diff, taker_user_id, maker_user_id FROM trades WHERE id = ?',
+      [tradeId]
+    ) as Record<string, unknown> | null;
   }
-
-  const updated = await dbFirst(
-    db,
-    'SELECT id, outcome, risk_off_contracts, risk_off_price_diff, taker_user_id, maker_user_id FROM trades WHERE id = ?',
-    [tradeId]
-  );
-  return jsonResponse({ trade: updated, success: true });
+  return jsonResponse({ trade: updated ?? {}, success: true });
 };
 
 /**

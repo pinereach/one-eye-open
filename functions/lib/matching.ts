@@ -195,7 +195,7 @@ export async function updateOrderStatus(
   );
 }
 
-/** Compute risk-off (position-closing) stats for a fill: contracts closed and taker's realized P&L in cents. */
+/** Compute risk-off (position-closing) stats for a fill: contracts closed and each side's realized P&L in cents. */
 export function computeRiskOffForFill(
   takerNet: number,
   takerBasis: number,
@@ -204,7 +204,7 @@ export function computeRiskOffForFill(
   takerSide: 'bid' | 'ask',
   priceCents: number,
   qtyContracts: number
-): { riskOffContracts: number; riskOffPriceDiffCents: number } {
+): { riskOffContracts: number; riskOffPriceDiffCents: number; riskOffPriceDiffMakerCents: number } {
   const makerSide = takerSide === 'bid' ? 'ask' : 'bid';
   const closeQtyTaker =
     takerSide === 'bid' && takerNet < 0
@@ -224,7 +224,12 @@ export function computeRiskOffForFill(
     riskOffPriceDiffCents =
       takerNet < 0 ? (takerBasis - priceCents) * closeQtyTaker : (priceCents - takerBasis) * closeQtyTaker;
   }
-  return { riskOffContracts, riskOffPriceDiffCents };
+  let riskOffPriceDiffMakerCents = 0;
+  if (closeQtyMaker > 0 && makerBasis > 0) {
+    riskOffPriceDiffMakerCents =
+      makerNet < 0 ? (makerBasis - priceCents) * closeQtyMaker : (priceCents - makerBasis) * closeQtyMaker;
+  }
+  return { riskOffContracts, riskOffPriceDiffCents, riskOffPriceDiffMakerCents };
 }
 
 export async function createTrade(
@@ -239,27 +244,39 @@ export async function createTrade(
   makerUserId?: number | null,
   takerSide?: number | null, // 0 = buy (bid), 1 = sell (ask) from taker's perspective
   riskOffContracts: number = 0, // Contracts in this fill that closed (reduced) a position for taker or maker
-  riskOffPriceDiffCents: number = 0 // Realized P&L in cents from those closes (e.g. taker's closed profit delta)
+  riskOffPriceDiffCents: number = 0, // Taker's realized P&L in cents from those closes
+  riskOffPriceDiffMakerCents: number = 0 // Maker's realized P&L in cents from those closes (migration 0055)
 ): Promise<number> {
   // Local DB uses token, price, contracts, create_time, outcome (not id, market_id, etc.)
   const token = crypto.randomUUID();
   const createTime = Math.floor(Date.now() / 1000);
 
-  // Try insert with taker_user_id/maker_user_id/taker_side first (migration 0033). maker_user_id can be null (e.g. system maker).
+  // Try insert with taker_user_id/maker_user_id/taker_side and risk_off_price_diff_maker first (migrations 0033, 0055).
   if (takerUserId != null && takerSide != null) {
     try {
       const result = await dbRun(
         db,
-        `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, outcome, taker_user_id, maker_user_id, taker_side)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [token, priceCents, qtyContracts, createTime, riskOffContracts, riskOffPriceDiffCents, outcomeId || null, takerUserId, makerUserId ?? null, takerSide]
+        `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, risk_off_price_diff_maker, outcome, taker_user_id, maker_user_id, taker_side)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [token, priceCents, qtyContracts, createTime, riskOffContracts, riskOffPriceDiffCents, riskOffPriceDiffMakerCents, outcomeId || null, takerUserId, makerUserId ?? null, takerSide]
       );
       const tradeId = result.meta.last_row_id || 0;
       console.log(`[createTrade] Created trade id=${tradeId}, price=${priceCents}, contracts=${qtyContracts}, outcome=${outcomeId || 'null'}, taker_side=${takerSide}`);
       return tradeId;
     } catch (err: unknown) {
       if (!(err as Error)?.message?.includes('no such column')) throw err;
-      // Fall through to insert without taker/maker columns
+      // Fall back to insert without risk_off_price_diff_maker (pre-0055)
+      try {
+        const result = await dbRun(
+          db,
+          `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, outcome, taker_user_id, maker_user_id, taker_side)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [token, priceCents, qtyContracts, createTime, riskOffContracts, riskOffPriceDiffCents, outcomeId || null, takerUserId, makerUserId ?? null, takerSide]
+        );
+        return result.meta.last_row_id || 0;
+      } catch {
+        // Fall through to insert without taker/maker columns
+      }
     }
   }
 
@@ -820,6 +837,7 @@ export async function executeMatching(
     // Risk-off: contracts that close a position and taker's realized P&L (for trade record)
     let riskOffContracts = 0;
     let riskOffPriceDiffCents = 0;
+    let riskOffPriceDiffMakerCents = 0;
     if (outcomeId && !Number.isNaN(takerUserId) && makerUserIdNum != null && !sameUserBothSides) {
       const takerPos = await dbFirst<{ net_position: number; price_basis: number }>(
         db,
@@ -844,6 +862,7 @@ export async function executeMatching(
       );
       riskOffContracts = riskOff.riskOffContracts;
       riskOffPriceDiffCents = riskOff.riskOffPriceDiffCents;
+      riskOffPriceDiffMakerCents = riskOff.riskOffPriceDiffMakerCents;
     } else if (outcomeId && !Number.isNaN(takerUserId) && (makerUserId == null || sameUserBothSides)) {
       const takerPos = await dbFirst<{ net_position: number; price_basis: number }>(
         db,
@@ -854,6 +873,7 @@ export async function executeMatching(
       const riskOff = computeRiskOffForFill(takerCur.net, takerCur.basis, 0, 0, takerOrder.side, fill.price_cents, fill.qty_contracts);
       riskOffContracts = riskOff.riskOffContracts;
       riskOffPriceDiffCents = riskOff.riskOffPriceDiffCents;
+      riskOffPriceDiffMakerCents = riskOff.riskOffPriceDiffMakerCents;
     }
 
     // Create trade - pass outcomeId, taker/maker/side, and risk-off so UI/export can show closing activity
@@ -869,7 +889,8 @@ export async function executeMatching(
       makerUserId,
       takerSideNum,
       riskOffContracts,
-      riskOffPriceDiffCents
+      riskOffPriceDiffCents,
+      riskOffPriceDiffMakerCents
     );
 
     // Update positions for both users with coordinated rounding so taker_cost + maker_cost is exact (zero-sum).

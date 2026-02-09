@@ -41,7 +41,9 @@
 "market-volume-cache-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0049_market_volume_cache.sql",
     "market-volume-cache-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0049_market_volume_cache.sql",
     "dedupe-positions-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0054_dedupe_positions_unique.sql",
-    "dedupe-positions-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0054_dedupe_positions_unique.sql"
+    "dedupe-positions-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0054_dedupe_positions_unique.sql",
+    "risk-off-maker-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0055_add_risk_off_price_diff_maker.sql",
+    "risk-off-maker-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0055_add_risk_off_price_diff_maker.sql"
 },
   "dependencies": {
     "date-fns": "^2.30.0",

@@ -195,7 +195,7 @@ export async function updateOrderStatus(
   );
 }
 
-/** Compute risk-off (position-closing) stats for a fill: contracts closed and taker's realized P&L in cents. */
+/** Compute risk-off (position-closing) stats for a fill: contracts closed and each side's realized P&L in cents. */
 export function computeRiskOffForFill(
   takerNet: number,
   takerBasis: number,
@@ -204,7 +204,7 @@ export function computeRiskOffForFill(
   takerSide: 'bid' | 'ask',
   priceCents: number,
   qtyContracts: number
-): { riskOffContracts: number; riskOffPriceDiffCents: number } {
+): { riskOffContracts: number; riskOffPriceDiffCents: number; riskOffPriceDiffMakerCents: number } {
   const makerSide = takerSide === 'bid' ? 'ask' : 'bid';
   const closeQtyTaker =
     takerSide === 'bid' && takerNet < 0
@@ -224,7 +224,12 @@ export function computeRiskOffForFill(
     riskOffPriceDiffCents =
       takerNet < 0 ? (takerBasis - priceCents) * closeQtyTaker : (priceCents - takerBasis) * closeQtyTaker;
   }
-  return { riskOffContracts, riskOffPriceDiffCents };
+  let riskOffPriceDiffMakerCents = 0;
+  if (closeQtyMaker > 0 && makerBasis > 0) {
+    riskOffPriceDiffMakerCents =
+      makerNet < 0 ? (makerBasis - priceCents) * closeQtyMaker : (priceCents - makerBasis) * closeQtyMaker;
+  }
+  return { riskOffContracts, riskOffPriceDiffCents, riskOffPriceDiffMakerCents };
 }
 
 export async function createTrade(
