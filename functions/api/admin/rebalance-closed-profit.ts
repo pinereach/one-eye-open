@@ -1,6 +1,6 @@
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbFirst, dbRun, dbQuery, type Env } from '../../../lib/db';
-import { requireAdmin, jsonResponse, errorResponse } from '../../../middleware';
+import { getDb, dbFirst, dbRun, dbQuery, type Env } from '../../lib/db';
+import { requireAdmin, jsonResponse, errorResponse } from '../../middleware';
 
 const OFFSET_OUTCOME = '__closed_profit_offset';
 
