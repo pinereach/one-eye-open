@@ -206,7 +206,7 @@ export const api = {
 
   adminGetLeaderboard: () =>
     apiRequest<{
-      leaderboard: Array<{ user_id: number; username: string; trade_count: number; open_orders_count: number; shares_traded: number; portfolio_value_cents: number }>;
+      leaderboard: Array<{ user_id: number; username: string; trade_count: number; open_orders_count: number; shares_traded: number; portfolio_value_cents: number; closed_profit_cents: number; settled_profit_cents: number }>;
       unattributed_portfolio_value_cents?: number;
       system_total_portfolio_value_cents?: number;
       pnl_by_outcome?: Record<string, number>;
