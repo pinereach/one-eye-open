@@ -28,6 +28,7 @@ export function AdminPage() {
   const [cancelUserBusy, setCancelUserBusy] = useState(false);
   const [pauseBusy, setPauseBusy] = useState<Record<string, boolean>>({});
   const [manualTradeBusy, setManualTradeBusy] = useState(false);
+  const [rebalanceClosedBusy, setRebalanceClosedBusy] = useState(false);
 
   // Manual trade form (taker = user who took; maker = user whose order was hit; side = taker's side)
   const [manualTakerUserId, setManualTakerUserId] = useState<number | ''>('');
@@ -270,6 +271,37 @@ export function AdminPage() {
               {cancelUserBusy ? 'Canceling…' : 'Cancel all for this user'}
             </button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <h2 className="text-base sm:text-lg font-bold mb-3">Fix closed profit sum</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+            If the leaderboard shows closed profit total ≠ $0, run this once. It inserts or updates a system row so sum(closed_profit) = 0. New trades are already zero-sum.
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              setRebalanceClosedBusy(true);
+              try {
+                const res = await api.adminRebalanceClosedProfit();
+                if (res.applied) {
+                  showToast(res.message + (res.previous_sum_cents != null ? ` (was ${(res.previous_sum_cents / 100).toFixed(2)})` : ''), 'success');
+                } else {
+                  showToast(res.message ?? 'Already balanced', 'success');
+                }
+              } catch (err) {
+                showToast(err instanceof Error ? err.message : 'Failed to rebalance', 'error');
+              } finally {
+                setRebalanceClosedBusy(false);
+              }
+            }}
+            disabled={rebalanceClosedBusy}
+            className="px-3 py-1.5 text-sm font-medium rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+          >
+            {rebalanceClosedBusy ? 'Running…' : 'Rebalance closed profit'}
+          </button>
         </CardContent>
       </Card>
 

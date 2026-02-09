@@ -242,6 +242,17 @@ export const api = {
       method: 'DELETE',
     }),
 
+  /** One-time fix: make sum(closed_profit) = 0 by inserting/updating system offset row. Call once to fix historical imbalance. */
+  adminRebalanceClosedProfit: () =>
+    apiRequest<{
+      applied: boolean;
+      message: string;
+      sum_cents?: number;
+      previous_sum_cents?: number;
+      offset_row_new_cents?: number;
+      offset_row_previous_cents?: number;
+    }>('/admin/rebalance-closed-profit', { method: 'POST' }),
+
   adminRunRoundOuAuction: (data: {
     round: number;
     participant_id: string;
