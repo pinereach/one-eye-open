@@ -1,7 +1,10 @@
 import type { OnRequest } from '@cloudflare/pages';
-import { getDb, dbQuery, dbRun, dbFirst, type Env } from '../../lib/db';
+import { getDb, dbQuery, dbRun, dbFirst, dbBatch, type Env } from '../../lib/db';
 import { requireAdmin, jsonResponse, errorResponse } from '../../middleware';
 import { updatePositionsForFill, updatePosition, addSystemClosedProfitOffset, computeRiskOffForFill } from '../../lib/matching';
+
+/** Max trades to replay per request to stay under D1 per-invocation query limit (e.g. 50 free / 1000 paid). */
+const MAX_TRADES_PER_REQUEST = 40;
 
 type TradeRow = {
   id: number;
@@ -41,6 +44,8 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       }
     }
     const fullReset = body?.full_reset === true;
+    const afterTradeId = typeof body?.after_trade_id === 'number' ? body.after_trade_id : null;
+    const maxTrades = typeof body?.max_trades === 'number' && body.max_trades > 0 ? Math.min(body.max_trades, 200) : MAX_TRADES_PER_REQUEST;
 
     const outcomeRows = await dbQuery<{ outcome: string }>(
       db,
@@ -49,7 +54,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     );
     const outcomes = outcomeRows.map((r) => r.outcome);
 
-    if (fullReset && outcomes.length > 0) {
+    if (fullReset && outcomes.length > 0 && afterTradeId == null) {
       const allOutcomes = await dbQuery<{ outcome: string }>(db, 'SELECT DISTINCT outcome FROM positions', []);
       for (const row of allOutcomes) {
         await dbRun(
@@ -72,14 +77,10 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const outcomesWithSkipped = skippedRows.filter((r) => (r.cnt ?? 0) > 0).map((r) => r.outcome);
 
     let totalTradesReplayed = 0;
+    let lastTradeIdProcessed: number | null = null;
+    let hasMore = false;
 
     for (const outcomeId of outcomes) {
-      await dbRun(
-        db,
-        `UPDATE positions SET net_position = 0, price_basis = 0, closed_profit = 0 WHERE outcome = ?`,
-        [outcomeId]
-      );
-
       const trades = await dbQuery<TradeRow>(
         db,
         `SELECT id, outcome, price, contracts, taker_user_id, maker_user_id, taker_side
@@ -88,14 +89,33 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
         [outcomeId]
       );
 
-      for (const t of trades) {
+      const tradesToProcess = afterTradeId != null ? trades.filter((t) => t.id > afterTradeId) : trades;
+      const isResumingThisOutcome = afterTradeId != null && trades.some((t) => t.id <= afterTradeId);
+
+      if (tradesToProcess.length === 0) continue;
+
+      if (!isResumingThisOutcome) {
+        await dbRun(
+          db,
+          `UPDATE positions SET net_position = 0, price_basis = 0, closed_profit = 0 WHERE outcome = ?`,
+          [outcomeId]
+        );
+      }
+
+      const tradeUpdates: { id: number; riskOffContracts: number; riskOffPriceDiffCents: number }[] = [];
+
+      for (const t of tradesToProcess) {
+        if (totalTradesReplayed >= maxTrades) {
+          hasMore = true;
+          break;
+        }
+
         const takerUserId = t.taker_user_id!;
         const makerUserId = t.maker_user_id ?? null;
         const takerSide = t.taker_side === 1 ? 'ask' : 'bid';
         const price = Number(t.price) || 0;
         const contracts = Number(t.contracts) || 0;
 
-        // Position state before this fill (for risk_off backfill)
         const takerPos = await dbFirst<{ net_position: number; price_basis: number }>(
           db,
           'SELECT net_position, price_basis FROM positions WHERE outcome = ? AND user_id = ?',
@@ -138,23 +158,39 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
           await addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta, netPositionDelta, price);
         }
 
-        await dbRun(
-          db,
-          'UPDATE trades SET risk_off_contracts = ?, risk_off_price_diff = ? WHERE id = ?',
-          [riskOffContracts, riskOffPriceDiffCents, t.id]
-        );
+        tradeUpdates.push({ id: t.id, riskOffContracts, riskOffPriceDiffCents });
+        lastTradeIdProcessed = t.id;
         totalTradesReplayed++;
       }
+
+      if (tradeUpdates.length > 0) {
+        await dbBatch(
+          db,
+          tradeUpdates.map((u) => ({
+            sql: 'UPDATE trades SET risk_off_contracts = ?, risk_off_price_diff = ? WHERE id = ?',
+            params: [u.riskOffContracts, u.riskOffPriceDiffCents, u.id],
+          }))
+        );
+      }
+
+      if (hasMore) break;
     }
+
+    const message =
+      hasMore
+        ? `Replayed ${totalTradesReplayed} trades (chunk). Call again with after_trade_id: ${lastTradeIdProcessed} to continue.`
+        : `Replayed ${totalTradesReplayed} trades across ${outcomes.length} outcome(s). Positions recomputed; risk_off backfilled.${tradesSkipped > 0 ? ` ${tradesSkipped} trade(s) skipped (missing taker_user_id or taker_side).` : ''}`;
 
     return jsonResponse({
       applied: true,
-      message: `Replayed ${totalTradesReplayed} trades across ${outcomes.length} outcome(s). Positions (net_position, price_basis, closed_profit) recomputed; risk_off backfilled on trades.${tradesSkipped > 0 ? ` ${tradesSkipped} trade(s) skipped (missing taker_user_id or taker_side).` : ''}`,
+      message,
       outcomes_processed: outcomes.length,
       trades_replayed: totalTradesReplayed,
       trades_skipped: tradesSkipped,
       outcomes_with_skipped: outcomesWithSkipped.length > 0 ? outcomesWithSkipped : undefined,
       full_reset_applied: fullReset,
+      has_more: hasMore,
+      after_trade_id: lastTradeIdProcessed,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

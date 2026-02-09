@@ -287,8 +287,13 @@ export function AdminPage() {
               onClick={async () => {
                 setReplayPositionsBusy(true);
                 try {
-                  const res = await api.adminReplayPositions();
-                  showToast(res.message ?? 'Done', 'success');
+                  let res = await api.adminReplayPositions();
+                  let total = res.trades_replayed;
+                  while (res.has_more && res.after_trade_id != null) {
+                    res = await api.adminReplayPositions({ after_trade_id: res.after_trade_id });
+                    total += res.trades_replayed;
+                  }
+                  showToast(res.message ?? `Done. ${total} trades replayed.`, 'success');
                   if (res.trades_skipped != null && res.trades_skipped > 0) {
                     showToast(`${res.trades_skipped} trade(s) skipped (missing taker_user_id or taker_side)`, 'info');
                   }
@@ -308,8 +313,13 @@ export function AdminPage() {
               onClick={async () => {
                 setReplayPositionsBusy(true);
                 try {
-                  const res = await api.adminReplayPositions({ full_reset: true });
-                  showToast(res.message ?? 'Done', 'success');
+                  let res = await api.adminReplayPositions({ full_reset: true });
+                  let total = res.trades_replayed;
+                  while (res.has_more && res.after_trade_id != null) {
+                    res = await api.adminReplayPositions({ after_trade_id: res.after_trade_id });
+                    total += res.trades_replayed;
+                  }
+                  showToast(res.message ?? `Done. ${total} trades replayed.`, 'success');
                   if (res.trades_skipped != null && res.trades_skipped > 0) {
                     showToast(`${res.trades_skipped} trade(s) skipped (missing taker_user_id or taker_side)`, 'info');
                   }
