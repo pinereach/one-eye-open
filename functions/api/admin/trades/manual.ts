@@ -90,14 +90,13 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       takerSide
     );
 
-    // Update positions with zero-sum closed profit (same invariant as order-book matching)
+    // Update positions with zero-sum closed profit and unrealized P&L (same invariant as order-book matching)
     if (makerUserId != null) {
       await updatePositionsForFill(db, outcomeIdSanitized, takerUserId, makerUserId, side, price, contractSize);
     } else {
       const { closedProfitDelta } = await updatePosition(db, outcomeIdSanitized, takerUserId, side, price, contractSize);
-      if (closedProfitDelta !== 0) {
-        await addSystemClosedProfitOffset(db, outcomeIdSanitized, -closedProfitDelta);
-      }
+      const netPositionDelta = side === 'bid' ? contractSize : -contractSize;
+      await addSystemClosedProfitOffset(db, outcomeIdSanitized, -closedProfitDelta, netPositionDelta, price);
     }
 
     // Insert synthetic "filled" orders for logging/audit so order history shows this trade (manual trades don't hit the book)

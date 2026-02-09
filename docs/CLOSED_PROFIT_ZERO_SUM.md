@@ -12,7 +12,7 @@ When an order matches via the book, **executeMatching** in `shared/lib/matching.
   - `makerClosed = makerCur.closed - takerClosedDelta`
   - So taker delta + maker delta = 0 by construction (no rounding leak).
 
-- If maker has no `user_id`: it calls **updatePosition** for the taker only, then **addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta)** so the system position (user_id NULL) absorbs the opposite of the taker’s delta. Total closed profit still sums to zero.
+- If maker has no `user_id`: it calls **updatePosition** for the taker only, then **addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta, netPositionDelta, fillPriceCents)** so the system position (user_id NULL) gets the opposite closed-profit delta and the opposite net position at the same fill price. That keeps both **closed profit** and **unrealized P&amp;L** (mark-to-market) zero-sum.
 
 So all **order-book** trades keep the invariant.
 
@@ -28,7 +28,7 @@ So all **order-book** trades keep the invariant.
   - Rounding of `price_basis` (e.g. weighted average, clamp to $1–$99) can make taker_delta + maker_delta ≠ 0.
   - So every manual trade with a maker can add a small (or occasionally larger) error to the global sum.
 
-- When **maker is null**, only the taker position is updated. There is **no** call to **addSystemClosedProfitOffset**. So the entire taker closed-profit delta is added to the system total with no offset → a direct source of imbalance.
+- When **maker is null**, only the taker position was updated and **addSystemClosedProfitOffset** was either missing or only updated closed profit (not the system’s net position). That left **sum(net_position)** non-zero for that outcome, so unrealized P&amp;L did not sum to zero. Fixed by passing **netPositionDelta** and **fillPriceCents** into **addSystemClosedProfitOffset** so the system holds the opposite position.
 
 ### 2. Round O/U auction (`functions/api/admin/auction/round-ou.ts`)
 
@@ -45,7 +45,7 @@ So all **order-book** trades keep the invariant.
 
 1. **Manual trade**
    - When **maker is set**: use **updatePositionsForFill(db, outcomeId, takerUserId, makerUserId, takerSide, priceCents, contractSize)** instead of two **updatePosition** calls.
-   - When **maker is null**: keep a single **updatePosition** for the taker, then call **addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta)** so the system absorbs the taker’s closed profit (same as executeMatching).
+   - When **maker is null**: keep a single **updatePosition** for the taker, then call **addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta, netPositionDelta, price)** so the system gets the opposite closed profit and opposite net position (same as executeMatching). That keeps both closed profit and unrealized P&amp;L zero-sum.
 
 2. **Auction (round-ou)**
    - For each auction trade that has both taker and maker, use **updatePositionsForFill** once instead of two **updatePosition** calls.

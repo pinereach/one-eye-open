@@ -45,7 +45,11 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
         t.contracts,
         t.create_time,
         t.risk_off_contracts,
-        t.risk_off_price_diff
+        t.risk_off_price_diff,
+        t.outcome,
+        t.taker_user_id,
+        t.maker_user_id,
+        t.taker_side
       FROM trades t
       ORDER BY t.create_time DESC
     `;

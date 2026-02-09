@@ -382,7 +382,7 @@ function computePositionUpdate(
 /**
  * Update both taker and maker positions for a single fill with coordinated rounding
  * so that (taker_basis * taker_net + maker_basis * maker_net) equals the exact total cost,
- * preserving zero-sum P&L. Any residual from rounding maker_basis is added to maker's closed_profit.
+ * preserving zero-sum P&L. Rounding residual (makerClosedAdjust) is applied to the system position so unrealized P&L stays zero-sum.
  */
 export async function updatePositionsForFill(
   db: D1Database,
@@ -474,6 +474,11 @@ export async function updatePositionsForFill(
       `UPDATE positions SET net_position = ?, price_basis = ?, closed_profit = ? WHERE outcome = ? AND user_id = ?`,
       [makerState.newNet, makerBasis, makerClosed, outcomeId, makerUserId]
     );
+  }
+
+  // Put rounding residual into system row so total cost basis is preserved and unrealized P&L stays zero-sum.
+  if (makerClosedAdjust !== 0) {
+    await addSystemClosedProfitOffset(db, outcomeId, -makerClosedAdjust);
   }
 }
 
@@ -618,31 +623,64 @@ export async function updatePosition(
   return { closedProfitDelta };
 }
 
-/** Apply offsetting closed_profit to the system position (user_id NULL) so total closed profit stays zero-sum when maker has no user. */
+/**
+ * Apply offsetting closed_profit and (when provided) opposite net_position/price_basis to the system
+ * position (user_id NULL) so both closed profit and unrealized P&L stay zero-sum when maker has no user.
+ * When netPositionDelta and fillPriceCents are provided, the system row is updated so sum(net_position)=0
+ * and mark-to-market unrealized P&L nets to zero.
+ */
 export async function addSystemClosedProfitOffset(
   db: D1Database,
   outcomeId: string,
-  closedProfitOffsetCents: number
+  closedProfitOffsetCents: number,
+  netPositionDelta?: number,
+  fillPriceCents?: number
 ): Promise<void> {
-  if (closedProfitOffsetCents === 0) return;
   const now = Math.floor(Date.now() / 1000);
-  const existing = await dbFirst<{ id: number; closed_profit: number }>(
+  const existing = await dbFirst<{ id: number; closed_profit: number; net_position: number; price_basis: number }>(
     db,
-    'SELECT id, closed_profit FROM positions WHERE outcome = ? AND user_id IS NULL',
+    'SELECT id, closed_profit, net_position, price_basis FROM positions WHERE outcome = ? AND user_id IS NULL',
     [outcomeId]
   );
+
+  const updateNetAndBasis = netPositionDelta != null && netPositionDelta !== 0 && fillPriceCents != null;
+  const systemNetDelta = updateNetAndBasis ? -netPositionDelta : 0;
+  if (closedProfitOffsetCents === 0 && !updateNetAndBasis) return;
+
   if (existing) {
+    let newClosed = existing.closed_profit + closedProfitOffsetCents;
+    let newNet = existing.net_position;
+    let newBasis = existing.price_basis;
+    if (updateNetAndBasis) {
+      newNet = existing.net_position + systemNetDelta;
+      const denom = existing.net_position + systemNetDelta;
+      if (denom === 0) {
+        newBasis = 0;
+      } else {
+        const totalValue = existing.net_position * existing.price_basis + systemNetDelta * fillPriceCents;
+        newBasis = Math.round(totalValue / denom);
+      }
+      if (newNet !== 0 && newBasis > 0) {
+        newBasis = Math.max(PRICE_BASIS_MIN_CENTS, Math.min(PRICE_BASIS_MAX_CENTS, newBasis));
+      }
+    }
     await dbRun(
       db,
-      'UPDATE positions SET closed_profit = closed_profit + ? WHERE outcome = ? AND user_id IS NULL',
-      [closedProfitOffsetCents, outcomeId]
+      'UPDATE positions SET closed_profit = ?, net_position = ?, price_basis = ? WHERE outcome = ? AND user_id IS NULL',
+      [newClosed, newNet, newBasis, outcomeId]
     );
   } else {
+    const initialNet = updateNetAndBasis ? systemNetDelta : 0;
+    const initialBasis = updateNetAndBasis ? fillPriceCents : 0;
+    const basisClamped =
+      initialNet !== 0 && initialBasis > 0
+        ? Math.max(PRICE_BASIS_MIN_CENTS, Math.min(PRICE_BASIS_MAX_CENTS, initialBasis))
+        : initialBasis;
     await dbRun(
       db,
       `INSERT INTO positions (user_id, outcome, net_position, price_basis, closed_profit, settled_profit, is_settled, create_time)
-       VALUES (NULL, ?, 0, 0, ?, 0, 0, ?)`,
-      [outcomeId, closedProfitOffsetCents, now]
+       VALUES (NULL, ?, ?, ?, ?, 0, 0, ?)`,
+      [outcomeId, initialNet, basisClamped, closedProfitOffsetCents, now]
     );
   }
 }

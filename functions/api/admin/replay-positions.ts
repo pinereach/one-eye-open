@@ -66,11 +66,15 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
         if (makerUserId != null && !sameUser) {
           await updatePositionsForFill(db, outcomeId, takerUserId, makerUserId, takerSide, price, contracts);
+        } else if (sameUser) {
+          // Same user on both sides: apply both legs so net position change is correct (taker + maker = 0 for same user).
+          await updatePosition(db, outcomeId, takerUserId, takerSide, price, contracts);
+          const makerSide = takerSide === 'bid' ? 'ask' : 'bid';
+          await updatePosition(db, outcomeId, takerUserId, makerSide, price, contracts);
         } else {
           const { closedProfitDelta } = await updatePosition(db, outcomeId, takerUserId, takerSide, price, contracts);
-          if (makerUserId == null && closedProfitDelta !== 0) {
-            await addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta);
-          }
+          const netPositionDelta = takerSide === 'bid' ? contracts : -contracts;
+          await addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta, netPositionDelta, price);
         }
         totalTradesReplayed++;
       }
