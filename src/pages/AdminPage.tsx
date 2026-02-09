@@ -19,6 +19,7 @@ export function AdminPage() {
 
   const [users, setUsers] = useState<Array<{ id: number; username: string }>>([]);
   const [markets, setMarkets] = useState<Market[]>([]);
+  const [participants, setParticipants] = useState<Array<{ id: string; name: string }>>([]);
   const [loadingMarkets, setLoadingMarkets] = useState(false);
   const [cancelAllConfirmOpen, setCancelAllConfirmOpen] = useState(false);
   const [cancelAllUserConfirmOpen, setCancelAllUserConfirmOpen] = useState(false);
@@ -37,6 +38,15 @@ export function AdminPage() {
   const [manualPrice, setManualPrice] = useState<string>('');
   const [manualContracts, setManualContracts] = useState<string>('');
 
+  // Round O/U auction
+  const [auctionRound, setAuctionRound] = useState<number>(1);
+  const [auctionParticipantId, setAuctionParticipantId] = useState<string>('');
+  const [auctionBids, setAuctionBids] = useState<Array<{ user_id: number; guess: string }>>([
+    { user_id: 0, guess: '' },
+    { user_id: 0, guess: '' },
+  ]);
+  const [auctionBusy, setAuctionBusy] = useState(false);
+
   // Load once per visit when user is admin. Throttle + ref prevent duplicate runs (e.g. Strict Mode).
   useEffect(() => {
     if (!user?.admin) return;
@@ -48,11 +58,12 @@ export function AdminPage() {
 
     let cancelled = false;
     setLoadingMarkets(true);
-    Promise.all([api.adminGetUsers(), api.getMarkets()])
-      .then(([usersRes, marketsRes]) => {
+    Promise.all([api.adminGetUsers(), api.getMarkets(), api.getParticipants()])
+      .then(([usersRes, marketsRes, participantsRes]) => {
         if (cancelled) return;
         setUsers(usersRes.users ?? []);
         setMarkets(marketsRes.markets ?? []);
+        setParticipants((participantsRes.participants ?? []).map((p: any) => ({ id: p.id ?? p.name, name: p.name })));
       })
       .catch(() => {
         if (!cancelled) {
@@ -151,6 +162,62 @@ export function AdminPage() {
       showToast(err instanceof Error ? err.message : 'Failed to create manual trade', 'error');
     } finally {
       setManualTradeBusy(false);
+    }
+  }
+
+  function addAuctionBid() {
+    setAuctionBids((prev) => [...prev, { user_id: 0, guess: '' }]);
+  }
+
+  function removeAuctionBid(index: number) {
+    setAuctionBids((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function setAuctionBidAt(index: number, field: 'user_id' | 'guess', value: number | string) {
+    setAuctionBids((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row))
+    );
+  }
+
+  async function handleRunAuction(e: React.FormEvent) {
+    e.preventDefault();
+    if (auctionBids.length < 2) {
+      showToast('At least 2 bids are required', 'error');
+      return;
+    }
+    const userIds = auctionBids.map((b) => b.user_id);
+    const duplicate = userIds.some((id, i) => id !== 0 && userIds.indexOf(id) !== i);
+    if (duplicate) {
+      showToast('Duplicate user in bids; each user may only appear once', 'error');
+      return;
+    }
+    const bids: Array<{ user_id: number; guess: number }> = [];
+    for (let i = 0; i < auctionBids.length; i++) {
+      const uid = auctionBids[i].user_id;
+      const g = auctionBids[i].guess.trim() ? parseFloat(auctionBids[i].guess) : NaN;
+      if (!uid || Number.isNaN(g)) {
+        showToast(`Bid ${i + 1}: select user and enter a numeric guess`, 'error');
+        return;
+      }
+      bids.push({ user_id: uid, guess: g });
+    }
+    if (!auctionParticipantId) {
+      showToast('Select a participant', 'error');
+      return;
+    }
+    setAuctionBusy(true);
+    try {
+      const res = await api.adminRunRoundOuAuction({
+        round: auctionRound,
+        participant_id: auctionParticipantId,
+        bids,
+      });
+      showToast(`Auction done. Strike: ${res.strike}. ${res.trades_created} trade(s) created.`, 'success');
+      navigate(`/markets/${res.market_id}`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to run auction', 'error');
+    } finally {
+      setAuctionBusy(false);
     }
   }
 
@@ -355,6 +422,102 @@ export function AdminPage() {
               className="px-3 py-2 text-sm font-medium bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50"
             >
               {manualTradeBusy ? 'Creating…' : 'Add manual trade'}
+            </button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <h2 className="text-base sm:text-lg font-bold mb-3">Round O/U auction</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+            Run an auction: enter round (1–6), participant (golfer), and N bids (user + guess). Strike = average of guesses. Lowest half are short, rest long; paired trades at 50¢.
+          </p>
+          <form onSubmit={handleRunAuction} className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Round</label>
+              <select
+                value={auctionRound}
+                onChange={(e) => setAuctionRound(Number(e.target.value))}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
+              >
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <option key={n} value={n}>
+                    Round {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Participant</label>
+              <select
+                value={auctionParticipantId}
+                onChange={(e) => setAuctionParticipantId(e.target.value)}
+                required
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
+              >
+                <option value="">Select participant</option>
+                {participants.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium">Bids (min 2)</label>
+                <button
+                  type="button"
+                  onClick={addAuctionBid}
+                  className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
+                >
+                  Add bid
+                </button>
+              </div>
+              <div className="space-y-2">
+                {auctionBids.map((row, index) => (
+                  <div key={index} className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={row.user_id || ''}
+                      onChange={(e) => setAuctionBidAt(index, 'user_id', Number(e.target.value) || 0)}
+                      className="flex-1 min-w-[120px] border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
+                    >
+                      <option value="">User</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.username}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      step="any"
+                      value={row.guess}
+                      onChange={(e) => setAuctionBidAt(index, 'guess', e.target.value)}
+                      placeholder="Guess"
+                      className="w-20 border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
+                    />
+                    {auctionBids.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => removeAuctionBid(index)}
+                        className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                        aria-label="Remove bid"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={auctionBusy}
+              className="px-3 py-2 text-sm font-medium bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50"
+            >
+              {auctionBusy ? 'Running…' : 'Run auction'}
             </button>
           </form>
         </CardContent>

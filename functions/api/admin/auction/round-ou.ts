@@ -1,0 +1,187 @@
+import type { OnRequest } from '@cloudflare/pages';
+import { getDb, dbFirst, dbRun, type Env } from '../../../lib/db';
+import { requireAdmin, jsonResponse, errorResponse } from '../../../middleware';
+import { createTrade, updatePosition } from '../../../lib/matching';
+
+/** Slug for outcome_id: lowercase, spaces and dots to hyphen/underscore, strip non-alphanumeric */
+function slugForOutcomeId(s: string): string {
+  return (s || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/\./g, '_')
+    .replace(/[^a-z0-9_-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^\-|\-$/g, '') || 'x';
+}
+
+/** Initials from participant name, e.g. "Alex Smith" -> "AS" */
+function initials(name: string): string {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return parts.map((p) => p[0]).join('').toUpperCase().slice(0, 3);
+  return (name || 'X').slice(0, 2).toUpperCase();
+}
+
+const AUCTION_PRICE_CENTS = 5000;
+const CONTRACTS_PER_TRADE = 1;
+
+export const onRequestPost: OnRequest<Env> = async (context) => {
+  const { request, env } = context;
+
+  const adminResult = await requireAdmin(request, env);
+  if ('error' in adminResult) {
+    return adminResult.error;
+  }
+
+  const db = getDb(env);
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const round = body?.round != null ? Number(body.round) : undefined;
+    const participantId = typeof body?.participant_id === 'string' ? body.participant_id.trim() : '';
+    const bids = Array.isArray(body?.bids) ? body.bids : [];
+
+    if (round == null || !Number.isInteger(round) || round < 1 || round > 6) {
+      return errorResponse('round must be an integer between 1 and 6', 400);
+    }
+    if (!participantId) {
+      return errorResponse('participant_id is required', 400);
+    }
+    if (bids.length < 2) {
+      return errorResponse('At least 2 bids are required', 400);
+    }
+
+    for (let i = 0; i < bids.length; i++) {
+      const b = bids[i];
+      const uid = b?.user_id != null ? Number(b.user_id) : undefined;
+      const guess = b?.guess != null ? Number(b.guess) : undefined;
+      if (uid == null || !Number.isInteger(uid) || uid < 1) {
+        return errorResponse(`bids[${i}]: user_id must be a positive integer`, 400);
+      }
+      if (guess == null || typeof guess !== 'number' || Number.isNaN(guess)) {
+        return errorResponse(`bids[${i}]: guess must be a number`, 400);
+      }
+    }
+
+    const participant = await dbFirst<{ id: string; name: string }>(
+      db,
+      'SELECT id, name FROM participants WHERE id = ?',
+      [participantId]
+    );
+    if (!participant) {
+      return errorResponse('Participant not found', 404);
+    }
+    const participantName = participant.name;
+
+    const userIds = new Set(bids.map((b: any) => Number(b.user_id)));
+    for (const uid of userIds) {
+      const user = await dbFirst<{ id: number }>(db, 'SELECT id FROM users WHERE id = ?', [uid]);
+      if (!user) {
+        return errorResponse(`User id ${uid} not found`, 404);
+      }
+    }
+
+    const N = bids.length;
+    const strikeNum = bids.reduce((s: number, b: any) => s + Number(b.guess), 0) / N;
+    const strikeStr = strikeNum % 1 === 0 ? String(strikeNum) : strikeNum.toFixed(1);
+    const strikeSlug = slugForOutcomeId(strikeStr.replace('.', '_'));
+    const participantSlug = slugForOutcomeId(participantName);
+    const outcomeId = `outcome-round-${round}-ou-${participantSlug}-${strikeSlug}`;
+
+    const newMarketId = `market-round-${round}-ou`;
+    let market = await dbFirst<{ market_id: string }>(
+      db,
+      `SELECT market_id FROM markets WHERE market_type = 'round_ou' AND short_name LIKE ?`,
+      [`Round ${round} Over/Under%`]
+    );
+    if (!market) {
+      await dbRun(
+        db,
+        `INSERT INTO markets (market_id, short_name, symbol, max_winners, min_winners, created_date, market_type)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [newMarketId, `Round ${round} Over/Under`, `R${round}OU`, 12, 1, Math.floor(Date.now() / 1000), 'round_ou']
+      );
+      market = { market_id: newMarketId };
+    }
+    const resolvedMarketId = market.market_id;
+
+    let outcome = await dbFirst<{ outcome_id: string }>(
+      db,
+      'SELECT outcome_id FROM outcomes WHERE outcome_id = ? AND market_id = ?',
+      [outcomeId, resolvedMarketId]
+    );
+    if (!outcome) {
+      const outcomeName = `${participantName} Over ${strikeStr} - Round ${round}`;
+      const ticker = `${initials(participantName)}-OV-R${round}-${strikeStr.replace('.', '_')}`;
+      await dbRun(
+        db,
+        `INSERT INTO outcomes (outcome_id, name, ticker, market_id, strike, created_date)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [outcomeId, outcomeName, ticker, resolvedMarketId, strikeStr, Math.floor(Date.now() / 1000)]
+      );
+    }
+
+    const sortedBids = [...bids].sort((a, b) => {
+      const ga = Number(a.guess);
+      const gb = Number(b.guess);
+      if (ga !== gb) return ga - gb;
+      return Number(a.user_id) - Number(b.user_id);
+    });
+    const half = Math.floor(N / 2);
+    const shortUserIds = sortedBids.slice(0, half).map((b: any) => Number(b.user_id));
+    const longUserIds = sortedBids.slice(half).map((b: any) => Number(b.user_id));
+
+    const createTime = Math.floor(Date.now() / 1000);
+    let tradesCreated = 0;
+
+    for (let i = 0; i < longUserIds.length; i++) {
+      const takerUserId = longUserIds[i];
+      const makerUserId = shortUserIds[i % shortUserIds.length];
+
+      const tradeId = await createTrade(
+        db,
+        resolvedMarketId,
+        'auction',
+        0,
+        AUCTION_PRICE_CENTS,
+        CONTRACTS_PER_TRADE,
+        outcomeId,
+        takerUserId,
+        makerUserId,
+        0
+      );
+
+      await updatePosition(db, outcomeId, takerUserId, 'bid', AUCTION_PRICE_CENTS, CONTRACTS_PER_TRADE);
+      await updatePosition(db, outcomeId, makerUserId, 'ask', AUCTION_PRICE_CENTS, CONTRACTS_PER_TRADE);
+
+      const manualToken = `auction-${tradeId}`;
+      await dbRun(
+        db,
+        `INSERT INTO orders (create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size, original_contract_size)
+         VALUES (?, ?, ?, ?, ?, ?, 'filled', 'GTC', 0, 0, ?)`,
+        [createTime, takerUserId, `${manualToken}-t`, -tradeId, outcomeId, AUCTION_PRICE_CENTS, CONTRACTS_PER_TRADE]
+      );
+      await dbRun(
+        db,
+        `INSERT INTO orders (create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size, original_contract_size)
+         VALUES (?, ?, ?, ?, ?, ?, 'filled', 'GTC', 1, 0, ?)`,
+        [createTime, makerUserId, `${manualToken}-m`, -tradeId, outcomeId, AUCTION_PRICE_CENTS, CONTRACTS_PER_TRADE]
+      );
+      tradesCreated++;
+    }
+
+    await dbRun(db, 'UPDATE markets SET trading_paused = 0 WHERE market_id = ?', [resolvedMarketId]);
+
+    return jsonResponse({
+      market_id: resolvedMarketId,
+      outcome_id: outcomeId,
+      strike: strikeStr,
+      short_user_ids: shortUserIds,
+      long_user_ids: longUserIds,
+      trades_created: tradesCreated,
+    }, 201);
+  } catch (err) {
+    console.error('Admin round-ou auction error:', err);
+    return errorResponse(err instanceof Error ? err.message : 'Failed to run auction', 500);
+  }
+};
