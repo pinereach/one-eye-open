@@ -55,6 +55,9 @@ export function PositionsPage() {
     return sum + contribution;
   }, 0);
 
+  const totalClosedProfitCents = positionsToShow.reduce((sum, p) => sum + (p.closed_profit ?? 0), 0);
+  const totalSettledProfitCents = positionsToShow.reduce((sum, p) => sum + (p.settled_profit ?? 0), 0);
+
   const marketTypeFilterOptions = useMemo(() => {
     const types = new Set(showablePositions.map((p) => p.market_type ?? 'other'));
     const sorted = [...types].sort((a, b) => {
@@ -186,11 +189,25 @@ export function PositionsPage() {
     <div className="space-y-4 sm:space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold">Positions</h1>
       {positionsToShow.length > 0 && (
-        <div className="flex flex-col gap-0.5">
-          <span className="text-sm text-gray-600 dark:text-gray-400">Portfolio value</span>
-          <span className={`text-lg sm:text-xl font-bold ${totalPositionValueCents > 0 ? 'text-green-600 dark:text-green-400' : totalPositionValueCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
-            {totalPositionValueCents > 0 ? '+' : ''}{formatPrice(totalPositionValueCents)}
-          </span>
+        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm text-gray-600 dark:text-gray-400">Portfolio value</span>
+            <span className={`text-lg sm:text-xl font-bold ${totalPositionValueCents > 0 ? 'text-green-600 dark:text-green-400' : totalPositionValueCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
+              {totalPositionValueCents > 0 ? '+' : ''}{formatPrice(totalPositionValueCents)}
+            </span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm text-gray-600 dark:text-gray-400">Closed profit</span>
+            <span className={`text-base font-semibold ${totalClosedProfitCents > 0 ? 'text-green-600 dark:text-green-400' : totalClosedProfitCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
+              {totalClosedProfitCents > 0 ? '+' : ''}{formatPrice(totalClosedProfitCents)}
+            </span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm text-gray-600 dark:text-gray-400">Settled profit</span>
+            <span className={`text-base font-semibold ${totalSettledProfitCents > 0 ? 'text-green-600 dark:text-green-400' : totalSettledProfitCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
+              {totalSettledProfitCents > 0 ? '+' : ''}{formatPrice(totalSettledProfitCents)}
+            </span>
+          </div>
         </div>
       )}
       {showablePositions.length > 0 && (
