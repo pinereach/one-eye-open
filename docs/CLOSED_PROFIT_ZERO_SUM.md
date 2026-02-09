@@ -8,9 +8,7 @@ In a zero-sum, no-fee market, **sum(closed_profit) across all positions (includi
 
 When an order matches via the book, **executeMatching** in `shared/lib/matching.ts`:
 
-- If both taker and maker have a `user_id`: it calls **updatePositionsForFill** once for the fill. That function updates both positions in a **coordinated** way and enforces zero-sum:
-  - `makerClosed = makerCur.closed - takerClosedDelta`
-  - So taker delta + maker delta = 0 by construction (no rounding leak).
+- If both taker and maker have a `user_id`: it calls **updatePositionsForFill** once for the fill. That function updates both positions using each side’s **actual** realized closed profit from the fill (`takerState.newClosedProfit`, `makerState.newClosedProfit`). Global zero-sum is enforced by applying any imbalance to the **system** position (user_id NULL) for that outcome via **addSystemClosedProfitOffset(db, outcomeId, -totalClosedDelta)**. So the maker can correctly realize P&amp;L (e.g. selling into a taker buy) even when the taker has no closed profit delta.
 
 - If maker has no `user_id`: it calls **updatePosition** for the taker only, then **addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta, netPositionDelta, fillPriceCents)** so the system position (user_id NULL) gets the opposite closed-profit delta and the opposite net position at the same fill price. That keeps both **closed profit** and **unrealized P&amp;L** (mark-to-market) zero-sum.
 

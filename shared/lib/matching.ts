@@ -475,10 +475,11 @@ export async function updatePositionsForFill(
     }
   }
 
-  // Keep closed profit zero-sum: taker delta + maker delta = 0 so total closed across all positions stays 0.
+  // Use each side's actual realized closed profit from the fill. Keep global closed profit zero-sum
+  // by applying the imbalance to the system position (user_id NULL) so sum(closed_profit) = 0 per outcome.
   const takerClosed = takerState.newClosedProfit;
-  const takerClosedDelta = takerClosed - takerCur.closed;
-  const makerClosed = makerCur.closed - takerClosedDelta;
+  const makerClosed = makerState.newClosedProfit;
+  const totalClosedDelta = (takerClosed - takerCur.closed) + (makerClosed - makerCur.closed);
   // (Do not add makerClosedAdjust to closed_profit so the sum remains exactly zero.)
 
   if (!takerDb) {
@@ -513,6 +514,10 @@ export async function updatePositionsForFill(
   // Put rounding residual into system row so total cost basis is preserved and unrealized P&L stays zero-sum.
   if (makerClosedAdjust !== 0) {
     await addSystemClosedProfitOffset(db, outcomeId, -makerClosedAdjust);
+  }
+  // Absorb closed-profit imbalance into system so sum(closed_profit) = 0 per outcome (maker may realize P&L without taker closing).
+  if (totalClosedDelta !== 0) {
+    await addSystemClosedProfitOffset(db, outcomeId, -totalClosedDelta);
   }
 }
 
