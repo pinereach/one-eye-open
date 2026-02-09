@@ -38,9 +38,11 @@
     "backfill-manual-trade-31-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0052_backfill_manual_trade_31_orders.sql",
     "total-strokes-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0053_add_total_strokes_market.sql",
     "total-strokes-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0053_add_total_strokes_market.sql",
-    "market-volume-cache-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0049_market_volume_cache.sql",
-    "market-volume-cache-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0049_market_volume_cache.sql"
-  },
+"market-volume-cache-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0049_market_volume_cache.sql",
+    "market-volume-cache-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0049_market_volume_cache.sql",
+    "dedupe-positions-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0054_dedupe_positions_unique.sql",
+    "dedupe-positions-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0054_dedupe_positions_unique.sql"
+},
   "dependencies": {
     "date-fns": "^2.30.0",
     "react": "^18.2.0",
