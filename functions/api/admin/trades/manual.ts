@@ -1,7 +1,7 @@
 import type { OnRequest } from '@cloudflare/pages';
 import { getDb, dbFirst, dbRun, type Env } from '../../../lib/db';
 import { requireAdmin, jsonResponse, errorResponse } from '../../../middleware';
-import { createTrade, updatePosition } from '../../../lib/matching';
+import { createTrade, updatePosition, updatePositionsForFill, addSystemClosedProfitOffset } from '../../../lib/matching';
 
 export const onRequestPost: OnRequest<Env> = async (context) => {
   const { request, env } = context;
@@ -90,13 +90,14 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       takerSide
     );
 
-    // Update taker position (same as all other trades)
-    await updatePosition(db, outcomeIdSanitized, takerUserId, side, price, contractSize);
-
-    // Update maker position when maker is a real user (opposite side: taker bought → maker sold, taker sold → maker bought)
+    // Update positions with zero-sum closed profit (same invariant as order-book matching)
     if (makerUserId != null) {
-      const makerSide = side === 'bid' ? 'ask' : 'bid';
-      await updatePosition(db, outcomeIdSanitized, makerUserId, makerSide, price, contractSize);
+      await updatePositionsForFill(db, outcomeIdSanitized, takerUserId, makerUserId, side, price, contractSize);
+    } else {
+      const { closedProfitDelta } = await updatePosition(db, outcomeIdSanitized, takerUserId, side, price, contractSize);
+      if (closedProfitDelta !== 0) {
+        await addSystemClosedProfitOffset(db, outcomeIdSanitized, -closedProfitDelta);
+      }
     }
 
     // Insert synthetic "filled" orders for logging/audit so order history shows this trade (manual trades don't hit the book)

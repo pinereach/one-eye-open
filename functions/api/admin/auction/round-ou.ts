@@ -1,7 +1,7 @@
 import type { OnRequest } from '@cloudflare/pages';
 import { getDb, dbFirst, dbRun, type Env } from '../../../lib/db';
 import { requireAdmin, jsonResponse, errorResponse } from '../../../middleware';
-import { createTrade, updatePosition } from '../../../lib/matching';
+import { createTrade, updatePositionsForFill } from '../../../lib/matching';
 
 /** Slug for outcome_id: lowercase, spaces and dots to hyphen/underscore, strip non-alphanumeric */
 function slugForOutcomeId(s: string): string {
@@ -151,8 +151,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
         0
       );
 
-      await updatePosition(db, outcomeId, takerUserId, 'bid', AUCTION_PRICE_CENTS, CONTRACTS_PER_TRADE);
-      await updatePosition(db, outcomeId, makerUserId, 'ask', AUCTION_PRICE_CENTS, CONTRACTS_PER_TRADE);
+      await updatePositionsForFill(db, outcomeId, takerUserId, makerUserId, 'bid', AUCTION_PRICE_CENTS, CONTRACTS_PER_TRADE);
 
       const manualToken = `auction-${tradeId}`;
       await dbRun(

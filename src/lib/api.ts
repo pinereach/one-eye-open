@@ -215,6 +215,12 @@ export const api = {
       system_total_portfolio_value_cents?: number;
       pnl_by_outcome?: Record<string, number>;
       position_contributions?: Array<{ outcome: string; user_id: number | null; contribution_cents: number }>;
+      system_total_closed_profit_cents?: number;
+      system_total_settled_profit_cents?: number;
+      closed_profit_by_outcome?: Record<string, number>;
+      settled_profit_by_outcome?: Record<string, number>;
+      closed_profit_contributions?: Array<{ outcome: string; user_id: number | null; closed_profit_cents: number }>;
+      settled_profit_contributions?: Array<{ outcome: string; user_id: number | null; settled_profit_cents: number }>;
     }>('/admin/leaderboard'),
 
   adminUpdateMarketPause: (marketId: string, tradingPaused: boolean) =>
@@ -252,6 +258,15 @@ export const api = {
       offset_row_new_cents?: number;
       offset_row_previous_cents?: number;
     }>('/admin/rebalance-closed-profit', { method: 'POST' }),
+
+  /** Replay all trades per outcome to recompute net_position, price_basis, closed_profit with zero-sum logic. Use after fixing manual/auction bug. */
+  adminReplayPositions: () =>
+    apiRequest<{
+      applied: boolean;
+      message: string;
+      outcomes_processed: number;
+      trades_replayed: number;
+    }>('/admin/replay-positions', { method: 'POST' }),
 
   adminRunRoundOuAuction: (data: {
     round: number;

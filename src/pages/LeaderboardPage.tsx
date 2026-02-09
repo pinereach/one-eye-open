@@ -39,6 +39,12 @@ export function LeaderboardPage() {
   const [systemTotalCents, setSystemTotalCents] = useState<number>(0);
   const [pnlByOutcome, setPnlByOutcome] = useState<Record<string, number>>({});
   const [positionContributions, setPositionContributions] = useState<Array<{ outcome: string; user_id: number | null; contribution_cents: number }>>([]);
+  const [systemTotalClosedCents, setSystemTotalClosedCents] = useState<number>(0);
+  const [systemTotalSettledCents, setSystemTotalSettledCents] = useState<number>(0);
+  const [closedProfitByOutcome, setClosedProfitByOutcome] = useState<Record<string, number>>({});
+  const [settledProfitByOutcome, setSettledProfitByOutcome] = useState<Record<string, number>>({});
+  const [closedProfitContributions, setClosedProfitContributions] = useState<Array<{ outcome: string; user_id: number | null; closed_profit_cents: number }>>([]);
+  const [settledProfitContributions, setSettledProfitContributions] = useState<Array<{ outcome: string; user_id: number | null; settled_profit_cents: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>(DEFAULT_SORT);
@@ -74,7 +80,8 @@ export function LeaderboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const { leaderboard: data, unattributed_portfolio_value_cents: unattributed, unattributed_closed_profit_cents: unattributedClosed, unattributed_settled_profit_cents: unattributedSettled, system_total_portfolio_value_cents: systemTotal, pnl_by_outcome: byOutcome, position_contributions: contributions } = await api.adminGetLeaderboard();
+      const res = await api.adminGetLeaderboard();
+      const { leaderboard: data, unattributed_portfolio_value_cents: unattributed, unattributed_closed_profit_cents: unattributedClosed, unattributed_settled_profit_cents: unattributedSettled, system_total_portfolio_value_cents: systemTotal, pnl_by_outcome: byOutcome, position_contributions: contributions, system_total_closed_profit_cents: sysClosed, system_total_settled_profit_cents: sysSettled, closed_profit_by_outcome: closedByOutcome, settled_profit_by_outcome: settledByOutcome, closed_profit_contributions: closedContrib, settled_profit_contributions: settledContrib } = res;
       setLeaderboard(data ?? []);
       setUnattributedCents(unattributed ?? 0);
       setUnattributedClosedCents(unattributedClosed ?? 0);
@@ -82,6 +89,12 @@ export function LeaderboardPage() {
       setSystemTotalCents(systemTotal ?? 0);
       setPnlByOutcome(byOutcome ?? {});
       setPositionContributions(contributions ?? []);
+      setSystemTotalClosedCents(sysClosed ?? 0);
+      setSystemTotalSettledCents(sysSettled ?? 0);
+      setClosedProfitByOutcome(closedByOutcome ?? {});
+      setSettledProfitByOutcome(settledByOutcome ?? {});
+      setClosedProfitContributions(closedContrib ?? []);
+      setSettledProfitContributions(settledContrib ?? []);
     } catch (err) {
       console.error('Failed to load leaderboard:', err);
       setError(err instanceof Error ? err.message : 'Failed to load leaderboard');
@@ -176,6 +189,79 @@ export function LeaderboardPage() {
                 )}
               </div>
             )}
+
+            {/* Closed / settled profit (should each sum to $0 system-wide) */}
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+              <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Closed / settled profit</div>
+              <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm mb-2">
+                <span><span className="text-gray-600 dark:text-gray-400">System total closed:</span>{' '}
+                  <span className={`font-semibold ${systemTotalClosedCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                    {formatPortfolio(systemTotalClosedCents, true)}
+                  </span>
+                  {systemTotalClosedCents !== 0 && <span className="ml-2 text-amber-600 dark:text-amber-400 text-xs">(should be $0)</span>}
+                </span>
+                <span><span className="text-gray-600 dark:text-gray-400">System total settled:</span>{' '}
+                  <span className={`font-semibold ${systemTotalSettledCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                    {formatPortfolio(systemTotalSettledCents, true)}
+                  </span>
+                  {systemTotalSettledCents !== 0 && <span className="ml-2 text-amber-600 dark:text-amber-400 text-xs">(should be $0)</span>}
+                </span>
+              </div>
+              {systemTotalClosedCents !== 0 && (Object.keys(closedProfitByOutcome).length > 0 || closedProfitContributions.length > 0) && (
+                <div className="mb-2">
+                  <span className="text-xs text-gray-600 dark:text-gray-400">Closed by outcome (non-zero):</span>
+                  <ul className="mt-1 space-y-0.5 text-sm font-mono">
+                    {Object.entries(closedProfitByOutcome)
+                      .filter(([, c]) => c !== 0)
+                      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+                      .map(([outcome, cents]) => (
+                        <li key={outcome} className={cents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                          {outcome}: {formatPortfolio(cents, true)}
+                        </li>
+                      ))}
+                  </ul>
+                  {closedProfitContributions.length > 0 && (
+                    <>
+                      <span className="text-xs text-gray-600 dark:text-gray-400 block mt-1">Top closed profit contributions:</span>
+                      <ul className="mt-0.5 space-y-0.5 text-sm font-mono max-h-32 overflow-y-auto">
+                        {closedProfitContributions.slice(0, 15).map((c, i) => (
+                          <li key={i} className={c.closed_profit_cents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                            user {c.user_id ?? 'null'} · {c.outcome}: {formatPortfolio(c.closed_profit_cents, true)}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              )}
+              {systemTotalSettledCents !== 0 && (Object.keys(settledProfitByOutcome).length > 0 || settledProfitContributions.length > 0) && (
+                <div>
+                  <span className="text-xs text-gray-600 dark:text-gray-400">Settled by outcome (non-zero):</span>
+                  <ul className="mt-1 space-y-0.5 text-sm font-mono">
+                    {Object.entries(settledProfitByOutcome)
+                      .filter(([, c]) => c !== 0)
+                      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+                      .map(([outcome, cents]) => (
+                        <li key={outcome} className={cents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                          {outcome}: {formatPortfolio(cents, true)}
+                        </li>
+                      ))}
+                  </ul>
+                  {settledProfitContributions.length > 0 && (
+                    <>
+                      <span className="text-xs text-gray-600 dark:text-gray-400 block mt-1">Top settled profit contributions:</span>
+                      <ul className="mt-0.5 space-y-0.5 text-sm font-mono max-h-32 overflow-y-auto">
+                        {settledProfitContributions.slice(0, 15).map((c, i) => (
+                          <li key={i} className={c.settled_profit_cents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                            user {c.user_id ?? 'null'} · {c.outcome}: {formatPortfolio(c.settled_profit_cents, true)}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

@@ -619,7 +619,7 @@ export async function updatePosition(
 }
 
 /** Apply offsetting closed_profit to the system position (user_id NULL) so total closed profit stays zero-sum when maker has no user. */
-async function addSystemClosedProfitOffset(
+export async function addSystemClosedProfitOffset(
   db: D1Database,
   outcomeId: string,
   closedProfitOffsetCents: number

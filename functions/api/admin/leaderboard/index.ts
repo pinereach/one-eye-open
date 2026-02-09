@@ -122,19 +122,35 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     const closedProfitByUser = new Map<number, number>();
     const settledProfitByUser = new Map<number, number>();
     const pnlByOutcome: Record<string, number> = {};
+    const closedProfitByOutcome: Record<string, number> = {};
+    const settledProfitByOutcome: Record<string, number> = {};
     const positionContributions: Array<{ outcome: string; user_id: number | null; contribution_cents: number }> = [];
+    const closedProfitContributions: Array<{ outcome: string; user_id: number | null; closed_profit_cents: number }> = [];
+    const settledProfitContributions: Array<{ outcome: string; user_id: number | null; settled_profit_cents: number }> = [];
     let unattributedCentsRaw = 0;
     let unattributedClosedProfitCents = 0;
     let unattributedSettledProfitCents = 0;
     let systemTotalCentsRaw = 0;
+    let systemTotalClosedProfitCents = 0;
+    let systemTotalSettledProfitCents = 0;
     for (const p of positionsRows) {
       const currentPrice = currentPriceByOutcome[p.outcome] ?? null;
       const contributionRaw = pnlRaw(p, currentPrice);
       const contributionRounded = Math.round(contributionRaw);
       systemTotalCentsRaw += contributionRaw;
+      systemTotalClosedProfitCents += p.closed_profit;
+      systemTotalSettledProfitCents += p.settled_profit;
       pnlByOutcome[p.outcome] = (pnlByOutcome[p.outcome] ?? 0) + contributionRaw;
+      closedProfitByOutcome[p.outcome] = (closedProfitByOutcome[p.outcome] ?? 0) + p.closed_profit;
+      settledProfitByOutcome[p.outcome] = (settledProfitByOutcome[p.outcome] ?? 0) + p.settled_profit;
       if (contributionRounded !== 0) {
         positionContributions.push({ outcome: p.outcome, user_id: p.user_id, contribution_cents: contributionRounded });
+      }
+      if (p.closed_profit !== 0) {
+        closedProfitContributions.push({ outcome: p.outcome, user_id: p.user_id, closed_profit_cents: p.closed_profit });
+      }
+      if (p.settled_profit !== 0) {
+        settledProfitContributions.push({ outcome: p.outcome, user_id: p.user_id, settled_profit_cents: p.settled_profit });
       }
       // Unattributed: no user_id, or user_id not in current users table (e.g. deleted user)
       if (p.user_id == null || !userIds.has(p.user_id)) {
@@ -149,6 +165,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     }
     // Sort by contribution descending so largest imbalances show first
     positionContributions.sort((a, b) => Math.abs(b.contribution_cents) - Math.abs(a.contribution_cents));
+    closedProfitContributions.sort((a, b) => Math.abs(b.closed_profit_cents) - Math.abs(a.closed_profit_cents));
+    settledProfitContributions.sort((a, b) => Math.abs(b.settled_profit_cents) - Math.abs(a.settled_profit_cents));
 
     const leaderboard: LeaderboardRow[] = users.map((u) => ({
       user_id: u.id,
@@ -172,9 +190,16 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       unattributed_closed_profit_cents: unattributedClosedProfitCents,
       unattributed_settled_profit_cents: unattributedSettledProfitCents,
       system_total_portfolio_value_cents: systemTotalReported,
-      // Debug: where the imbalance comes from (should net to 0 per outcome in a zero-sum game)
+      // Debug: P&L / portfolio
       pnl_by_outcome: pnlByOutcome,
       position_contributions: positionContributions.slice(0, 50),
+      // Debug: closed and settled profit (should each sum to 0 system-wide and per outcome in zero-sum)
+      system_total_closed_profit_cents: systemTotalClosedProfitCents,
+      system_total_settled_profit_cents: systemTotalSettledProfitCents,
+      closed_profit_by_outcome: closedProfitByOutcome,
+      settled_profit_by_outcome: settledProfitByOutcome,
+      closed_profit_contributions: closedProfitContributions.slice(0, 30),
+      settled_profit_contributions: settledProfitContributions.slice(0, 30),
     });
   } catch (err) {
     console.error('Admin leaderboard error:', err);
