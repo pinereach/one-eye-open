@@ -243,10 +243,25 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  adminPatchTradeRiskOff: (tradeId: number, data: { risk_off_contracts?: number; risk_off_price_diff?: number }) =>
+    apiRequest<{ trade: { id: number; outcome: string; risk_off_contracts: number; risk_off_price_diff: number; taker_user_id?: number; maker_user_id?: number | null }; success: boolean }>(`/admin/trades/${tradeId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
   adminDeleteTrade: (tradeId: number) =>
     apiRequest<{ deleted: boolean; id: number }>(`/admin/trades/${tradeId}`, {
       method: 'DELETE',
     }),
+
+  /** Recompute position closed_profit from trade risk_off_price_diff (taker sum − maker sum per user/outcome). Run after backfilling risk_off on trades. */
+  adminClosedProfitFromRiskOff: () =>
+    apiRequest<{
+      applied: boolean;
+      message: string;
+      positions_updated: number;
+      outcomes_system_updated: number;
+    }>('/admin/closed-profit-from-risk-off', { method: 'POST' }),
 
   /** One-time fix: make sum(closed_profit) = 0 by inserting/updating system offset row. Call once to fix historical imbalance. */
   adminRebalanceClosedProfit: () =>

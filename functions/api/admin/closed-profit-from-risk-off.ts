@@ -1,0 +1,101 @@
+import type { OnRequest } from '@cloudflare/pages';
+import { getDb, dbQuery, dbRun, dbFirst, type Env } from '../../lib/db';
+import { requireAdmin, jsonResponse, errorResponse } from '../../middleware';
+
+/**
+ * POST /api/admin/closed-profit-from-risk-off — admin only.
+ * Recomputes position closed_profit from trade risk_off_price_diff:
+ *   closed_profit(user, outcome) = sum(risk_off_price_diff) where taker_user_id=user - sum(risk_off_price_diff) where maker_user_id=user.
+ * Then sets system (user_id NULL) per outcome so sum(closed_profit) = 0 for that outcome.
+ * Use after backfilling risk_off_contracts/risk_off_price_diff on trades so position closed profit matches.
+ */
+export const onRequestPost: OnRequest<Env> = async (context) => {
+  const { request, env } = context;
+
+  const adminResult = await requireAdmin(request, env);
+  if ('error' in adminResult) {
+    return adminResult.error;
+  }
+
+  const db = getDb(env);
+
+  try {
+    const positions = await dbQuery<{ user_id: number | null; outcome: string }>(
+      db,
+      'SELECT DISTINCT user_id, outcome FROM positions',
+      []
+    );
+
+    const tradesByTaker = await dbQuery<{ outcome: string; user_id: number; sum_cents: number }>(
+      db,
+      `SELECT outcome, taker_user_id AS user_id, COALESCE(SUM(risk_off_price_diff), 0) AS sum_cents
+       FROM trades WHERE outcome IS NOT NULL AND outcome != '' AND taker_user_id IS NOT NULL
+       GROUP BY outcome, taker_user_id`,
+      []
+    );
+    const tradesByMaker = await dbQuery<{ outcome: string; user_id: number; sum_cents: number }>(
+      db,
+      `SELECT outcome, maker_user_id AS user_id, COALESCE(SUM(risk_off_price_diff), 0) AS sum_cents
+       FROM trades WHERE outcome IS NOT NULL AND outcome != '' AND maker_user_id IS NOT NULL
+       GROUP BY outcome, maker_user_id`,
+      []
+    );
+
+    const takerSumByKey = new Map<string, number>();
+    tradesByTaker.forEach((r) => takerSumByKey.set(`${r.outcome}:${r.user_id}`, r.sum_cents));
+    const makerSumByKey = new Map<string, number>();
+    tradesByMaker.forEach((r) => makerSumByKey.set(`${r.outcome}:${r.user_id}`, r.sum_cents));
+
+    let updated = 0;
+    const outcomeUserTotalCents = new Map<string, number>();
+
+    for (const p of positions) {
+      if (p.user_id == null) continue;
+      const key = `${p.outcome}:${p.user_id}`;
+      const takerSum = takerSumByKey.get(key) ?? 0;
+      const makerSum = makerSumByKey.get(key) ?? 0;
+      const closedProfit = takerSum - makerSum;
+      outcomeUserTotalCents.set(p.outcome, (outcomeUserTotalCents.get(p.outcome) ?? 0) + closedProfit);
+      await dbRun(
+        db,
+        'UPDATE positions SET closed_profit = ? WHERE outcome = ? AND user_id = ?',
+        [closedProfit, p.outcome, p.user_id]
+      );
+      updated++;
+    }
+
+    for (const [outcome, userTotal] of outcomeUserTotalCents) {
+      const systemClosed = -userTotal;
+      const existing = await dbFirst<{ id: number }>(
+        db,
+        'SELECT id FROM positions WHERE outcome = ? AND user_id IS NULL',
+        [outcome]
+      );
+      const now = Math.floor(Date.now() / 1000);
+      if (existing) {
+        await dbRun(
+          db,
+          'UPDATE positions SET closed_profit = ? WHERE outcome = ? AND user_id IS NULL',
+          [systemClosed, outcome]
+        );
+      } else {
+        await dbRun(
+          db,
+          `INSERT INTO positions (user_id, outcome, net_position, price_basis, closed_profit, settled_profit, is_settled, create_time)
+           VALUES (NULL, ?, 0, 0, ?, 0, 0, ?)`,
+          [outcome, systemClosed, now]
+        );
+      }
+    }
+
+    return jsonResponse({
+      applied: true,
+      message: `Set closed_profit from trade risk_off_price_diff for ${updated} user positions; system rows updated for ${outcomeUserTotalCents.size} outcome(s).`,
+      positions_updated: updated,
+      outcomes_system_updated: outcomeUserTotalCents.size,
+    });
+  } catch (err) {
+    console.error('Admin closed-profit-from-risk-off error:', err);
+    return errorResponse('Failed to recompute closed profit from risk-off', 500);
+  }
+};

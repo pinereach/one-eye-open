@@ -195,6 +195,38 @@ export async function updateOrderStatus(
   );
 }
 
+/** Compute risk-off (position-closing) stats for a fill: contracts closed and taker's realized P&L in cents. */
+export function computeRiskOffForFill(
+  takerNet: number,
+  takerBasis: number,
+  makerNet: number,
+  makerBasis: number,
+  takerSide: 'bid' | 'ask',
+  priceCents: number,
+  qtyContracts: number
+): { riskOffContracts: number; riskOffPriceDiffCents: number } {
+  const makerSide = takerSide === 'bid' ? 'ask' : 'bid';
+  const closeQtyTaker =
+    takerSide === 'bid' && takerNet < 0
+      ? Math.min(qtyContracts, Math.abs(takerNet))
+      : takerSide === 'ask' && takerNet > 0
+        ? Math.min(qtyContracts, takerNet)
+        : 0;
+  const closeQtyMaker =
+    makerSide === 'bid' && makerNet < 0
+      ? Math.min(qtyContracts, Math.abs(makerNet))
+      : makerSide === 'ask' && makerNet > 0
+        ? Math.min(qtyContracts, makerNet)
+        : 0;
+  const riskOffContracts = closeQtyTaker + closeQtyMaker;
+  let riskOffPriceDiffCents = 0;
+  if (closeQtyTaker > 0 && takerBasis > 0) {
+    riskOffPriceDiffCents =
+      takerNet < 0 ? (takerBasis - priceCents) * closeQtyTaker : (priceCents - takerBasis) * closeQtyTaker;
+  }
+  return { riskOffContracts, riskOffPriceDiffCents };
+}
+
 export async function createTrade(
   db: D1Database,
   _marketId: string, // Keep for reference but trades table doesn't have market_id
@@ -205,7 +237,9 @@ export async function createTrade(
   outcomeId?: string, // Optional outcome_id to link trade to outcome
   takerUserId?: number | null,
   makerUserId?: number | null,
-  takerSide?: number | null // 0 = buy (bid), 1 = sell (ask) from taker's perspective
+  takerSide?: number | null, // 0 = buy (bid), 1 = sell (ask) from taker's perspective
+  riskOffContracts: number = 0, // Contracts in this fill that closed (reduced) a position for taker or maker
+  riskOffPriceDiffCents: number = 0 // Realized P&L in cents from those closes (e.g. taker's closed profit delta)
 ): Promise<number> {
   // Local DB uses token, price, contracts, create_time, outcome (not id, market_id, etc.)
   const token = crypto.randomUUID();
@@ -217,8 +251,8 @@ export async function createTrade(
       const result = await dbRun(
         db,
         `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, outcome, taker_user_id, maker_user_id, taker_side)
-         VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?, ?)`,
-        [token, priceCents, qtyContracts, createTime, outcomeId || null, takerUserId, makerUserId ?? null, takerSide]
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [token, priceCents, qtyContracts, createTime, riskOffContracts, riskOffPriceDiffCents, outcomeId || null, takerUserId, makerUserId ?? null, takerSide]
       );
       const tradeId = result.meta.last_row_id || 0;
       console.log(`[createTrade] Created trade id=${tradeId}, price=${priceCents}, contracts=${qtyContracts}, outcome=${outcomeId || 'null'}, taker_side=${takerSide}`);
@@ -234,8 +268,8 @@ export async function createTrade(
     const result = await dbRun(
       db,
       `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, outcome)
-       VALUES (?, ?, ?, ?, 0, 0, ?)`,
-      [token, priceCents, qtyContracts, createTime, outcomeId || null]
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [token, priceCents, qtyContracts, createTime, riskOffContracts, riskOffPriceDiffCents, outcomeId || null]
     );
     const tradeId = result.meta.last_row_id || 0;
     console.log(`[createTrade] Created trade id=${tradeId}, price=${priceCents}, contracts=${qtyContracts}, outcome=${outcomeId || 'null'}`);
@@ -246,8 +280,8 @@ export async function createTrade(
       const result = await dbRun(
         db,
         `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff)
-         VALUES (?, ?, ?, ?, 0, 0)`,
-        [token, priceCents, qtyContracts, createTime]
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [token, priceCents, qtyContracts, createTime, riskOffContracts, riskOffPriceDiffCents]
       );
       return result.meta.last_row_id || 0;
     }
@@ -775,8 +809,49 @@ export async function executeMatching(
     const takerUserId = typeof takerOrder.user_id === 'string' ? parseInt(takerOrder.user_id, 10) : Number(takerOrder.user_id);
     const takerSideNum = takerOrder.side === 'bid' ? 0 : 1; // 0 = buy, 1 = sell
     const makerUserId = makerOrderDb?.user_id ?? null;
+    const makerUserIdNum = makerUserId != null ? (typeof makerUserId === 'string' ? parseInt(makerUserId, 10) : makerUserId) : null;
+    const sameUserBothSides = makerOrderDb && makerUserIdNum != null && !Number.isNaN(takerUserId) && takerUserId === makerUserIdNum;
 
-    // Create trade - pass outcomeId and taker/maker/side so UI can show Buy/Sell (migration 0033)
+    // Risk-off: contracts that close a position and taker's realized P&L (for trade record)
+    let riskOffContracts = 0;
+    let riskOffPriceDiffCents = 0;
+    if (outcomeId && !Number.isNaN(takerUserId) && makerUserIdNum != null && !sameUserBothSides) {
+      const takerPos = await dbFirst<{ net_position: number; price_basis: number }>(
+        db,
+        'SELECT net_position, price_basis FROM positions WHERE outcome = ? AND user_id = ?',
+        [outcomeId, takerUserId]
+      );
+      const makerPos = await dbFirst<{ net_position: number; price_basis: number }>(
+        db,
+        'SELECT net_position, price_basis FROM positions WHERE outcome = ? AND user_id = ?',
+        [outcomeId, makerUserIdNum]
+      );
+      const takerCur = { net: takerPos?.net_position ?? 0, basis: takerPos?.price_basis ?? 0 };
+      const makerCur = { net: makerPos?.net_position ?? 0, basis: makerPos?.price_basis ?? 0 };
+      const riskOff = computeRiskOffForFill(
+        takerCur.net,
+        takerCur.basis,
+        makerCur.net,
+        makerCur.basis,
+        takerOrder.side,
+        fill.price_cents,
+        fill.qty_contracts
+      );
+      riskOffContracts = riskOff.riskOffContracts;
+      riskOffPriceDiffCents = riskOff.riskOffPriceDiffCents;
+    } else if (outcomeId && !Number.isNaN(takerUserId) && (makerUserId == null || sameUserBothSides)) {
+      const takerPos = await dbFirst<{ net_position: number; price_basis: number }>(
+        db,
+        'SELECT net_position, price_basis FROM positions WHERE outcome = ? AND user_id = ?',
+        [outcomeId, takerUserId]
+      );
+      const takerCur = { net: takerPos?.net_position ?? 0, basis: takerPos?.price_basis ?? 0 };
+      const riskOff = computeRiskOffForFill(takerCur.net, takerCur.basis, 0, 0, takerOrder.side, fill.price_cents, fill.qty_contracts);
+      riskOffContracts = riskOff.riskOffContracts;
+      riskOffPriceDiffCents = riskOff.riskOffPriceDiffCents;
+    }
+
+    // Create trade - pass outcomeId, taker/maker/side, and risk-off so UI/export can show closing activity
     const tradeId = await createTrade(
       db,
       takerOrder.market_id,
@@ -787,13 +862,12 @@ export async function executeMatching(
       outcomeId,
       Number.isNaN(takerUserId) ? null : takerUserId,
       makerUserId,
-      takerSideNum
+      takerSideNum,
+      riskOffContracts,
+      riskOffPriceDiffCents
     );
 
     // Update positions for both users with coordinated rounding so taker_cost + maker_cost is exact (zero-sum).
-    const makerUserIdNum = makerUserId != null ? (typeof makerUserId === 'string' ? parseInt(makerUserId, 10) : makerUserId) : null;
-    const sameUserBothSides = makerOrderDb && makerUserIdNum != null && !Number.isNaN(takerUserId) && takerUserId === makerUserIdNum;
-
     if (makerOrderDb && !sameUserBothSides && !Number.isNaN(takerUserId) && makerUserIdNum != null) {
       await updatePositionsForFill(
         db,
@@ -804,12 +878,16 @@ export async function executeMatching(
         fill.price_cents,
         fill.qty_contracts
       );
+    } else if (makerOrderDb && sameUserBothSides && !Number.isNaN(takerUserId)) {
+      await updatePosition(db, outcomeId, takerUserId, takerOrder.side, fill.price_cents, fill.qty_contracts);
+      const makerSideForPos = takerOrder.side === 'bid' ? 'ask' : 'bid';
+      await updatePosition(db, outcomeId, takerUserId, makerSideForPos, fill.price_cents, fill.qty_contracts);
     } else if (makerOrderDb && !sameUserBothSides) {
       if (!Number.isNaN(takerUserId)) {
         const { closedProfitDelta } = await updatePosition(db, outcomeId, takerUserId, takerOrder.side, fill.price_cents, fill.qty_contracts);
-        // When maker has no user_id, offset taker's closed profit with system position so total stays zero-sum.
-        if (makerUserId == null && closedProfitDelta !== 0) {
-          await addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta);
+        if (makerUserId == null) {
+          const netPositionDelta = takerOrder.side === 'bid' ? fill.qty_contracts : -fill.qty_contracts;
+          await addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta, netPositionDelta, fill.price_cents);
         }
       }
       if (makerUserId != null) {
