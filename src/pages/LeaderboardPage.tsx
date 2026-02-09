@@ -12,9 +12,11 @@ type LeaderboardRow = {
   open_orders_count: number;
   shares_traded: number;
   portfolio_value_cents: number;
+  closed_profit_cents: number;
+  settled_profit_cents: number;
 };
 
-type SortKey = 'username' | 'trade_count' | 'open_orders_count' | 'shares_traded' | 'portfolio_value_cents';
+type SortKey = 'username' | 'trade_count' | 'open_orders_count' | 'shares_traded' | 'portfolio_value_cents' | 'closed_profit_cents' | 'settled_profit_cents';
 type SortDir = 'asc' | 'desc';
 
 function formatPortfolio(cents: number, signed = false): string {
@@ -49,8 +51,8 @@ export function LeaderboardPage() {
       if (key === 'username') {
         cmp = (a.username ?? '').localeCompare(b.username ?? '');
       } else {
-        const va = key === 'portfolio_value_cents' ? a.portfolio_value_cents : key === 'trade_count' ? a.trade_count : key === 'open_orders_count' ? a.open_orders_count : a.shares_traded;
-        const vb = key === 'portfolio_value_cents' ? b.portfolio_value_cents : key === 'trade_count' ? b.trade_count : key === 'open_orders_count' ? b.open_orders_count : b.shares_traded;
+        const va = key === 'portfolio_value_cents' ? a.portfolio_value_cents : key === 'closed_profit_cents' ? a.closed_profit_cents : key === 'settled_profit_cents' ? a.settled_profit_cents : key === 'trade_count' ? a.trade_count : key === 'open_orders_count' ? a.open_orders_count : a.shares_traded;
+        const vb = key === 'portfolio_value_cents' ? b.portfolio_value_cents : key === 'closed_profit_cents' ? b.closed_profit_cents : key === 'settled_profit_cents' ? b.settled_profit_cents : key === 'trade_count' ? b.trade_count : key === 'open_orders_count' ? b.open_orders_count : b.shares_traded;
         cmp = va - vb;
       }
       return cmp * dir;
@@ -118,7 +120,7 @@ export function LeaderboardPage() {
     <PullToRefresh onRefresh={loadLeaderboard}>
       <div className="space-y-4 sm:space-y-6">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Leaderboard</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Per-user stats: trades, open orders, shares traded, portfolio value (P&amp;L). Zero-sum: system total should be $0.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Per-user stats: trades, open orders, shares traded, closed profit, settled profit, portfolio value (P&amp;L). Zero-sum: system total should be $0.</p>
 
         {/* Debug: system total — if non-zero, indicates a bug elsewhere in the stack */}
         {leaderboard.length > 0 && (
@@ -189,6 +191,10 @@ export function LeaderboardPage() {
                     <span className="text-right font-medium">{row.open_orders_count}</span>
                     <span className="text-gray-500 dark:text-gray-400">Shares traded</span>
                     <span className="text-right font-medium">{row.shares_traded}</span>
+                    <span className="text-gray-500 dark:text-gray-400">Closed profit</span>
+                    <span className={`text-right font-medium ${row.closed_profit_cents > 0 ? 'text-green-600 dark:text-green-400' : row.closed_profit_cents < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{formatPortfolio(row.closed_profit_cents, true)}</span>
+                    <span className="text-gray-500 dark:text-gray-400">Settled profit</span>
+                    <span className={`text-right font-medium ${row.settled_profit_cents > 0 ? 'text-green-600 dark:text-green-400' : row.settled_profit_cents < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{formatPortfolio(row.settled_profit_cents, true)}</span>
                     <span className="text-gray-500 dark:text-gray-400">Portfolio value</span>
                     <span className={`text-right font-medium ${row.portfolio_value_cents > 0 ? 'text-green-600 dark:text-green-400' : row.portfolio_value_cents < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{formatPortfolio(row.portfolio_value_cents, true)}</span>
                   </div>
@@ -209,6 +215,8 @@ export function LeaderboardPage() {
                 <span><span className="text-gray-600 dark:text-gray-400">Trades:</span> <span className="font-semibold">{leaderboard.reduce((s, r) => s + r.trade_count, 0)}</span></span>
                 <span><span className="text-gray-600 dark:text-gray-400">Open orders:</span> <span className="font-semibold">{leaderboard.reduce((s, r) => s + r.open_orders_count, 0)}</span></span>
                 <span><span className="text-gray-600 dark:text-gray-400">Shares traded:</span> <span className="font-semibold">{leaderboard.reduce((s, r) => s + r.shares_traded, 0)}</span></span>
+                <span><span className="text-gray-600 dark:text-gray-400">Closed profit (users):</span> <span className={`font-semibold ${leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0) > 0 ? 'text-green-600 dark:text-green-400' : leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0) < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0), true)}</span></span>
+                <span><span className="text-gray-600 dark:text-gray-400">Settled profit (users):</span> <span className={`font-semibold ${leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0) > 0 ? 'text-green-600 dark:text-green-400' : leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0) < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0), true)}</span></span>
                 <span><span className="text-gray-600 dark:text-gray-400">Portfolio (users):</span> <span className={`font-semibold ${totalUsers > 0 ? 'text-green-600 dark:text-green-400' : totalUsers < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalUsers, true)}</span></span>
                 {unattributedCents !== 0 && (
                   <span><span className="text-gray-600 dark:text-gray-400">Unattributed:</span> <span className={`font-semibold ${unattributedCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedCents, true)}</span></span>

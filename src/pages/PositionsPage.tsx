@@ -189,22 +189,22 @@ export function PositionsPage() {
     <div className="space-y-4 sm:space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold">Positions</h1>
       {positionsToShow.length > 0 && (
-        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-3">
-          <div className="flex flex-col gap-0.5">
+        <div className="flex flex-wrap items-stretch gap-x-6 gap-y-3">
+          <div className="flex flex-1 min-w-[120px] flex-col gap-0.5">
             <span className="text-sm text-gray-600 dark:text-gray-400">Portfolio value</span>
             <span className={`text-lg sm:text-xl font-bold ${totalPositionValueCents > 0 ? 'text-green-600 dark:text-green-400' : totalPositionValueCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
               {totalPositionValueCents > 0 ? '+' : ''}{formatPriceRound10(totalPositionValueCents)}
             </span>
           </div>
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-1 min-w-[120px] flex-col gap-0.5">
             <span className="text-sm text-gray-600 dark:text-gray-400">Closed profit</span>
-            <span className={`text-base font-semibold ${totalClosedProfitCents > 0 ? 'text-green-600 dark:text-green-400' : totalClosedProfitCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
+            <span className={`text-lg sm:text-xl font-bold ${totalClosedProfitCents > 0 ? 'text-green-600 dark:text-green-400' : totalClosedProfitCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
               {totalClosedProfitCents > 0 ? '+' : ''}{formatPriceTwoDecimals(totalClosedProfitCents)}
             </span>
           </div>
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-1 min-w-[120px] flex-col gap-0.5">
             <span className="text-sm text-gray-600 dark:text-gray-400">Settled profit</span>
-            <span className={`text-base font-semibold ${totalSettledProfitCents > 0 ? 'text-green-600 dark:text-green-400' : totalSettledProfitCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
+            <span className={`text-lg sm:text-xl font-bold ${totalSettledProfitCents > 0 ? 'text-green-600 dark:text-green-400' : totalSettledProfitCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
               {totalSettledProfitCents > 0 ? '+' : ''}{formatPriceTwoDecimals(totalSettledProfitCents)}
             </span>
           </div>

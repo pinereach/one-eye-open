@@ -9,6 +9,8 @@ type LeaderboardRow = {
   open_orders_count: number;
   shares_traded: number;
   portfolio_value_cents: number;
+  closed_profit_cents: number;
+  settled_profit_cents: number;
 };
 
 /**
@@ -117,6 +119,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
 
     const userIds = new Set(users.map((u) => u.id));
     const portfolioByUser = new Map<number, number>();
+    const closedProfitByUser = new Map<number, number>();
+    const settledProfitByUser = new Map<number, number>();
     const pnlByOutcome: Record<string, number> = {};
     const positionContributions: Array<{ outcome: string; user_id: number | null; contribution_cents: number }> = [];
     let unattributedCentsRaw = 0;
@@ -135,6 +139,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
         unattributedCentsRaw += contributionRaw;
       } else {
         portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + contributionRaw);
+        closedProfitByUser.set(p.user_id, (closedProfitByUser.get(p.user_id) ?? 0) + p.closed_profit);
+        settledProfitByUser.set(p.user_id, (settledProfitByUser.get(p.user_id) ?? 0) + p.settled_profit);
       }
     }
     // Sort by contribution descending so largest imbalances show first
@@ -147,6 +153,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       open_orders_count: openOrdersByUser.get(u.id) ?? 0,
       shares_traded: sharesByUser.get(u.id) ?? 0,
       portfolio_value_cents: Math.round(portfolioByUser.get(u.id) ?? 0),
+      closed_profit_cents: closedProfitByUser.get(u.id) ?? 0,
+      settled_profit_cents: settledProfitByUser.get(u.id) ?? 0,
     }));
 
     // Report system total as $0 when within ±10¢ (rounding drift from legacy position updates)

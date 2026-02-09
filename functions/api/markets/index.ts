@@ -8,7 +8,14 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     const url = new URL(request.url);
 
     const db = getDb(env);
-    const markets = await dbQuery(db, 'SELECT * FROM markets ORDER BY created_date DESC', []);
+    const markets = await dbQuery(
+      db,
+      `SELECT m.*, COALESCE(mv.volume_contracts, 0) AS volume_contracts
+       FROM markets m
+       LEFT JOIN market_volume mv ON m.market_id = mv.market_id
+       ORDER BY m.created_date DESC`,
+      []
+    );
 
     // Single query for all outcomes (no N+1). Include outcomes for market_total_birdies under market-total-birdies.
     const marketIds = markets.map((m: { market_id: string }) => m.market_id);
@@ -31,15 +38,14 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       if (outcomesByMarket[targetMarketId]) outcomesByMarket[targetMarketId].push(o);
     });
 
-    // Volume is not included on the list; individual market pages compute volume from trades.
     const marketsWithOutcomes = markets.map((market: any) => ({
       ...market,
       outcomes: outcomesByMarket[market.market_id] || [],
     }));
 
     const response = jsonResponse({ markets: marketsWithOutcomes });
-    // Markets + outcomes are reference data. Cache 12h to cut D1 reads.
-    response.headers.set('Cache-Control', 'public, max-age=43200'); // 12h
+    // Same cache structure as market data; 4h aligns with market_volume refresh.
+    response.headers.set('Cache-Control', 'public, max-age=14400'); // 4h
     return response;
   } catch (error: any) {
     console.error('Error in /api/markets:', error);
