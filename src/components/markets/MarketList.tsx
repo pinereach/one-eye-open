@@ -1,6 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
+import { MARKET_TYPE_ORDER, getMarketTypeLabel } from '../../lib/marketTypes';
 import { PullToRefresh } from '../ui/PullToRefresh';
 import type { Market } from '../../types';
 
@@ -139,26 +140,12 @@ export function MarketList({ tripId }: { tripId?: string }) {
     setPreferFresh();
   }
 
-  function getMarketTypeLabel(marketType: string | null | undefined): string {
-    if (!marketType) return 'Other';
-    const labels: Record<string, string> = {
-      'team_champion': 'Team',
-      'individual_champion': 'Individual',
-      'matchups': 'Matchups',
-      'h2h_matchups': 'Head-to-Head',
-      'round_matchups': 'Round Matchups',
-      'special_matchups': 'Special Matchups',
-      'round_ou': 'Round Over/Under',
-      'total_birdies': 'Totals',
-      'specials': 'Specials',
-      'hole_in_one': 'Specials',
-    };
-    return labels[marketType] || 'Other';
-  }
-
-  // Group markets by type
+  // Group markets by type (use market_id for Total Birdies when market_type is missing)
   const marketsByType = markets.reduce((acc, market) => {
-    const type = market.market_type || 'other';
+    let type = market.market_type || 'other';
+    if (type === 'other' && (market.market_id === 'market-total-birdies' || market.market_id === 'market_total_birdies')) {
+      type = 'market_total_birdies';
+    }
     if (!acc[type]) {
       acc[type] = [];
     }
@@ -166,8 +153,8 @@ export function MarketList({ tripId }: { tripId?: string }) {
     return acc;
   }, {} as Record<string, Market[]>);
 
-  // Define display order for market types (matchups/specials = production; *_matchups/hole_in_one = legacy)
-  const typeOrder = ['team_champion', 'individual_champion', 'matchups', 'h2h_matchups', 'round_matchups', 'special_matchups', 'round_ou', 'total_birdies', 'specials', 'hole_in_one', 'other'];
+  // Display order for market types (shared with Positions/Orders/Trades filter chips)
+  const typeOrder = [...MARKET_TYPE_ORDER];
   // Within Matchups section: tournament (H2H) first, then round, then special
   const matchupMarketOrder = ['market-h2h-matchups', 'market-round-matchups', 'market-special-matchups'];
 
