@@ -14,11 +14,19 @@ export function SettingsPage() {
     navigate('/');
   }
 
+  function handleBack() {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/markets');
+    }
+  }
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center gap-2 sm:gap-4">
         <button
-          onClick={() => navigate('/markets')}
+          onClick={handleBack}
           className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition touch-manipulation"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

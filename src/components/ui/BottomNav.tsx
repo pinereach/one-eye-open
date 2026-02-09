@@ -1,11 +1,22 @@
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useTradeNotifications } from '../../contexts/TradeNotificationsContext';
+import { api } from '../../lib/api';
 
 export function BottomNav() {
   const location = useLocation();
   const { user } = useAuth();
   const { unreadCount } = useTradeNotifications();
+  const [positionsCount, setPositionsCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getPositionsSummary().then(({ count }) => {
+      if (!cancelled) setPositionsCount(count ?? 0);
+    }).catch(() => { /* ignore */ });
+    return () => { cancelled = true; };
+  }, []);
 
   const baseNavItems = [
     {
@@ -99,28 +110,36 @@ export function BottomNav() {
       <div className="flex justify-around items-center h-16">
         {navItems.map((item) => {
           const active = isActive(item.path);
-          const showBadge = item.path === '/trades' && unreadCount > 0;
-          const badgeLabel = unreadCount >= 10 ? '9+' : String(unreadCount);
+          const showTradesBadge = item.path === '/trades' && unreadCount > 0;
+          const tradesBadgeLabel = unreadCount >= 10 ? '9+' : String(unreadCount);
+          const showPositionsBadge = item.path === '/positions' && positionsCount > 0;
+          const ariaExtra = showTradesBadge ? `, ${unreadCount} new trades` : showPositionsBadge ? `, ${positionsCount} position${positionsCount !== 1 ? 's' : ''}` : '';
           return (
             <Link
               key={item.path}
               to={item.path}
-              className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] min-w-[44px] touch-manipulation transition-colors ${
+              className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] min-w-[44px] touch-manipulation transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset ${
                 active
                   ? 'text-primary-600 dark:text-primary-400'
                   : 'text-gray-600 dark:text-gray-400'
               }`}
-              aria-label={showBadge ? `${item.label}, ${unreadCount} new trades` : item.label}
+              aria-label={`${item.label}${ariaExtra}`}
             >
               <div className={`relative mb-1 ${active ? 'scale-110' : ''} transition-transform`}>
                 {item.icon}
-                {showBadge && (
+                {showTradesBadge && (
                   <span
                     className="absolute -top-1 -right-2 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-bold px-1"
                     aria-hidden="true"
                   >
-                    {badgeLabel}
+                    {tradesBadgeLabel}
                   </span>
+                )}
+                {showPositionsBadge && !showTradesBadge && (
+                  <span
+                    className="absolute top-0 right-0 w-2 h-2 rounded-full bg-primary-500 dark:bg-primary-400"
+                    aria-hidden="true"
+                  />
                 )}
               </div>
               <span className={`text-xs font-medium ${active ? 'font-semibold' : ''}`}>

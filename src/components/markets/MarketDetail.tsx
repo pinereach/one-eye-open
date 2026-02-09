@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { formatPrice, formatPriceBasis, formatPriceRound10, formatPriceTwoDecimals, formatPriceCents, formatNotionalBySide } from '../../lib/format';
 import { Orderbook } from './Orderbook';
@@ -787,10 +787,20 @@ export function MarketDetail() {
     <div className="space-y-4 sm:space-y-6">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
+      <nav className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400" aria-label="Breadcrumb">
+        <Link to="/markets" className="hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded">
+          Markets
+        </Link>
+        <span aria-hidden="true">/</span>
+        <span className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[200px] sm:max-w-none" aria-current="page">
+          {market.short_name}
+        </span>
+      </nav>
+
       <div className="flex items-center gap-2 sm:gap-4">
         <button
           onClick={() => navigate('/markets')}
-          className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition touch-manipulation"
+          className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />

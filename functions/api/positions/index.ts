@@ -227,6 +227,16 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
   const db = getDb(env);
 
+  const url = new URL(request.url);
+  if (url.searchParams.get('summary') === '1') {
+    const rows = await dbQuery<{ count: number }>(
+      db,
+      'SELECT COUNT(*) AS count FROM positions WHERE user_id = ?',
+      [userIdNum]
+    );
+    return jsonResponse({ count: rows[0]?.count ?? 0 });
+  }
+
   // Get all positions for the user, joined with outcomes and markets.
   // Total Birdies: outcomes may have market_id 'market_total_birdies' while markets row is 'market-total-birdies'; join both so all positions show.
   const positionsDb = await dbQuery<Position & { outcome_name: string; outcome_ticker: string; market_id: string; market_name: string; outcome_id: string; market_type: string | null }>(

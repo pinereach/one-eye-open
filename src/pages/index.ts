@@ -9,3 +9,4 @@ export { MarketSuggestionsPage } from './MarketSuggestionsPage';
 export { SettingsPage } from './SettingsPage';
 export { AdminPage } from './AdminPage';
 export { LeaderboardPage } from './LeaderboardPage';
+export { NotFoundPage } from './NotFoundPage';

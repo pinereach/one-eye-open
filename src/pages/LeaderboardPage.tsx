@@ -230,7 +230,8 @@ export function LeaderboardPage() {
 
         {/* Desktop: table */}
         <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
-          <table className="w-full min-w-[700px] border-collapse">
+          <table className="w-full min-w-[700px] border-collapse" aria-describedby="leaderboard-caption">
+            <caption id="leaderboard-caption" className="sr-only">Admin leaderboard: per-user stats including trades, open orders, shares traded, closed profit, settled profit, and portfolio value</caption>
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">
                 <th className="py-3 px-4 text-left text-xs font-bold text-gray-600 dark:text-gray-400">

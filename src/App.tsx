@@ -6,6 +6,7 @@ import { DarkModeToggle } from './components/ui/DarkModeToggle';
 import { TradeNotificationBell } from './components/ui/TradeNotificationBell';
 import { BottomNav } from './components/ui/BottomNav';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { Skeleton } from './components/ui/Skeleton';
 import { isDevelopment } from './lib/env';
 
 // Lazy-load route chunks so nav clicks don't block on parsing/executing whole app (improves INP).
@@ -21,6 +22,7 @@ const MarketSuggestionsPage = lazy(() => import('./pages/MarketSuggestionsPage')
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage').then(m => ({ default: m.LeaderboardPage })));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 const DEFAULT_TITLE = 'One Eye Open';
 
@@ -178,7 +180,7 @@ export default function App() {
         <AuthProvider>
           <TradeNotificationsProvider>
             <Layout>
-            <Suspense fallback={<div className="flex items-center justify-center min-h-[40vh] text-gray-500 dark:text-gray-400">Loading…</div>}>
+            <Suspense fallback={<div className="max-w-7xl mx-auto px-4 py-8"><Skeleton variant="text" width="40%" height={32} className="mb-6" /><Skeleton variant="rectangular" height={320} className="rounded-lg" /></div>}>
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/scoring" element={<ProtectedRoute><HistoricalScoringPage /></ProtectedRoute>} />
@@ -192,6 +194,7 @@ export default function App() {
                 <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
                 <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
                 <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>
             </Layout>

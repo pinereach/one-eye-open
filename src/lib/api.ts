@@ -122,6 +122,9 @@ export const api = {
   getAllPositions: () =>
     apiRequest<{ positions: any[] }>('/positions'),
 
+  getPositionsSummary: () =>
+    apiRequest<{ count: number }>('/positions?summary=1'),
+
   getAllOrders: (options?: { limit?: number; offset?: number }) => {
     const params = new URLSearchParams();
     if (options?.limit != null) params.set('limit', String(options.limit));
@@ -233,6 +236,23 @@ export const api = {
   adminDeleteTrade: (tradeId: number) =>
     apiRequest<{ deleted: boolean; id: number }>(`/admin/trades/${tradeId}`, {
       method: 'DELETE',
+    }),
+
+  adminRunRoundOuAuction: (data: {
+    round: number;
+    participant_id: string;
+    bids: Array<{ user_id: number; guess: number }>;
+  }) =>
+    apiRequest<{
+      market_id: string;
+      outcome_id: string;
+      strike: string;
+      short_user_ids: number[];
+      long_user_ids: number[];
+      trades_created: number;
+    }>('/admin/auction/round-ou', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
 
 };

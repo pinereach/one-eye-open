@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { formatPrice } from '../../lib/format';
 import { format } from 'date-fns';
 import { useAuth } from '../../contexts/AuthContext';
+import { Skeleton } from '../ui/Skeleton';
+import { EmptyState } from '../ui/EmptyState';
 import type { Trade } from '../../types';
 
 const TAPE_LIMIT = 20;
@@ -38,35 +40,41 @@ function formatRelativeTime(ts: number): string {
   return format(new Date(ts * 1000), 'M/d h:mm a');
 }
 
-export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
+export const TradeTape = forwardRef<
+  { refresh: () => Promise<void> },
+  { showTitle?: boolean }
+>(function TradeTape({ showTitle = true }, ref) {
   const { user } = useAuth();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const { trades: data } = await api.getTape(TAPE_LIMIT);
-        setTrades(data ?? []);
-      } catch (err) {
-        console.error('Failed to load trade tape:', err);
-        setTrades([]);
-      } finally {
-        setLoading(false);
-      }
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { trades: data } = await api.getTape(TAPE_LIMIT);
+      setTrades(data ?? []);
+    } catch (err) {
+      console.error('Failed to load trade tape:', err);
+      setTrades([]);
+    } finally {
+      setLoading(false);
     }
-    load();
   }, []);
+
+  useImperativeHandle(ref, () => ({ refresh: load }), [load]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   if (loading) {
     return (
       <div className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800/80 shadow-sm p-4">
         {showTitle && <h2 className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-3">Trade tape</h2>}
-        <div className="animate-pulse space-y-2">
+        <div className="space-y-3">
           {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-            <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 rounded border border-gray-100 dark:border-gray-700" />
+            <Skeleton key={i} variant="rectangular" height={48} className="rounded" />
           ))}
         </div>
       </div>
@@ -77,13 +85,11 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
     return (
       <div className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800/80 shadow-sm p-6">
         {showTitle && <h2 className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-3">Trade tape</h2>}
-        <div className="flex flex-col items-center justify-center py-10 text-center">
-          <svg className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-          </svg>
-          <p className="text-sm text-gray-500 dark:text-gray-400">No recent trades</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Trades will appear here as they happen</p>
-        </div>
+        <EmptyState
+          icon={<svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>}
+          title="No recent trades"
+          message="Trades will appear here as they happen across all markets."
+        />
       </div>
     );
   }
@@ -167,4 +173,4 @@ export function TradeTape({ showTitle = true }: { showTitle?: boolean }) {
       </div>
     </div>
   );
-}
+});

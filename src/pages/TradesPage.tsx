@@ -80,7 +80,7 @@ export function TradesPage() {
         tabIndex={hasMarket ? 0 : undefined}
         onClick={hasMarket ? () => navigate(`/markets/${trade.market_id}`) : undefined}
         onKeyDown={hasMarket ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/markets/${trade.market_id}`); } } : undefined}
-        className={`bg-white dark:bg-gray-800 rounded-lg p-3 mb-2 border border-gray-300 dark:border-gray-600 ${hasMarket ? 'cursor-pointer hover:border-primary-500 dark:hover:border-primary-400 transition-colors' : ''}`}
+        className={`bg-white dark:bg-gray-800 rounded-lg p-3 mb-2 border border-gray-300 dark:border-gray-600 ${hasMarket ? 'cursor-pointer hover:border-primary-500 dark:hover:border-primary-400 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800' : ''}`}
       >
         <span className={`inline-block font-bold text-xs sm:text-sm uppercase tracking-wide mb-1.5 px-2 py-0.5 rounded-md ${isSell ? 'bg-red-500 text-white' : 'bg-primary-500 text-white'}`} aria-label={`${tradeType} trade`}>{tradeType}</span>
         <div className="flex items-center justify-between gap-4 mb-1">

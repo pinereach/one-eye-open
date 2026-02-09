@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { MARKET_TYPE_ORDER, getMarketTypeLabel } from '../../lib/marketTypes';
 import { PullToRefresh } from '../ui/PullToRefresh';
+import { Skeleton } from '../ui/Skeleton';
+import { EmptyState } from '../ui/EmptyState';
 import type { Market } from '../../types';
 
 function getMarketIcon(marketId: string) {
@@ -179,7 +181,22 @@ export function MarketList({ tripId }: { tripId?: string }) {
 
   let content: ReactNode;
   if (loading && markets.length === 0) {
-    content = <div className="text-center py-8">Loading markets...</div>;
+    content = (
+      <div className="space-y-4">
+        <Skeleton variant="text" width="40%" height={28} className="mb-4" />
+        <div className="grid gap-2 sm:gap-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="flex items-center gap-3 p-3 sm:p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
+              <Skeleton variant="circular" width={32} height={32} />
+              <div className="flex-1 space-y-2">
+                <Skeleton variant="text" width={i % 2 === 0 ? '70%' : '85%'} height={18} />
+                <Skeleton variant="text" width="50%" height={14} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   } else if (error && markets.length === 0) {
     content = (
       <div className="text-center py-8">
@@ -212,7 +229,7 @@ export function MarketList({ tripId }: { tripId?: string }) {
                 <Link
                   key={market.id}
                   to={`/markets/${market.market_id}`}
-                  className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-primary-500 dark:hover:border-primary-400 hover:shadow-md transition-all cursor-pointer touch-manipulation active:bg-gray-100 dark:active:bg-gray-700 active:scale-[0.98]"
+                  className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-primary-500 dark:hover:border-primary-400 hover:shadow-md transition-all cursor-pointer touch-manipulation active:bg-gray-100 dark:active:bg-gray-700 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
                 >
                   <div className="flex-shrink-0 text-primary-600 dark:text-primary-400">
                     <div className="w-8 h-8 sm:w-7 sm:h-7">
@@ -242,9 +259,11 @@ export function MarketList({ tripId }: { tripId?: string }) {
       })}
 
       {markets.length === 0 && (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          No markets found
-        </div>
+        <EmptyState
+          icon={<svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+          title="No markets found"
+          message="There are no markets available right now. Check back later or refresh the page."
+        />
       )}
     </div>
     );

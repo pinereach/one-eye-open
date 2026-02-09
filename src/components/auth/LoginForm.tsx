@@ -59,6 +59,8 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
           required
           autoComplete="current-password"
           className="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 min-h-[44px]"
+          aria-describedby={error ? 'login-error' : undefined}
+          aria-invalid={!!error}
         />
       </div>
 

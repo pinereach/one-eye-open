@@ -150,7 +150,7 @@ export function OrdersPage() {
         <div className="flex items-center justify-between gap-4 mb-2">
           <div className={`font-bold text-sm ${orderTypeColor}`}>{orderType}</div>
           {(order.status === 'open' || order.status === 'partial') && (
-            <button onClick={(e) => { e.stopPropagation(); handleCancelOrder(order.id); }} className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-base font-bold p-1 touch-manipulation flex-shrink-0" title="Cancel order" aria-label="Cancel order">×</button>
+            <button onClick={(e) => { e.stopPropagation(); handleCancelOrder(order.id); }} className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-base font-bold p-1 touch-manipulation flex-shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-500" title="Cancel order" aria-label="Cancel order">×</button>
           )}
         </div>
         <div className="flex items-stretch gap-4">
@@ -192,7 +192,7 @@ export function OrdersPage() {
         <div className="flex items-center justify-center gap-2">
           <span className={`text-xs sm:text-sm px-2 py-1 rounded ${order.status === 'filled' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' : order.status === 'open' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' : order.status === 'partial' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>{order.status}</span>
           {order.status === 'open' || order.status === 'partial' ? (
-            <button onClick={() => handleCancelOrder(order.id)} className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-xs sm:text-sm font-bold px-1 py-1 rounded touch-manipulation" title="Cancel order" aria-label="Cancel order">×</button>
+            <button onClick={() => handleCancelOrder(order.id)} className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-xs sm:text-sm font-bold px-1 py-1 rounded touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary-500" title="Cancel order" aria-label="Cancel order">×</button>
           ) : null}
         </div>
       </td>
@@ -200,10 +200,11 @@ export function OrdersPage() {
   );
 
   const thClass = 'py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-300 dark:border-gray-600';
-  const renderOrderTable = (orderList: any[], emptyMessage: string) => (
+  const renderOrderTable = (orderList: any[], emptyMessage: string, captionId: string, captionText: string) => (
     <div className="overflow-x-auto -mx-3 sm:mx-0">
       <div className="inline-block min-w-full align-middle">
-        <table className="w-full min-w-[600px] border-collapse">
+        <table className="w-full min-w-[600px] border-collapse" aria-describedby={captionId}>
+          <caption id={captionId} className="sr-only">{captionText}</caption>
           <thead>
             <tr className="border-b border-gray-300 dark:border-gray-600">
               <th className={thClass}>Time</th>
@@ -283,7 +284,7 @@ export function OrdersPage() {
             activeOrders.map(renderOrderCard)
           )}
         </div>
-        <div className="hidden md:block">{renderOrderTable(activeOrders, 'No open orders')}</div>
+        <div className="hidden md:block">{renderOrderTable(activeOrders, 'No open orders', 'orders-open-caption', 'Open orders')}</div>
       </div>
       <div className="space-y-3 sm:space-y-4">
         <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Order History</h2>
@@ -294,7 +295,7 @@ export function OrdersPage() {
             completedVisible.map(renderOrderCard)
           )}
         </div>
-        <div className="hidden md:block">{renderOrderTable(completedVisible, 'No completed orders')}</div>
+        <div className="hidden md:block">{renderOrderTable(completedVisible, 'No completed orders', 'orders-history-caption', 'Order history')}</div>
         {canShowMore && (
           <div className="flex justify-center pt-2">
             <button
