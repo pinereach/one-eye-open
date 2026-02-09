@@ -210,6 +210,8 @@ export const api = {
     apiRequest<{
       leaderboard: Array<{ user_id: number; username: string; trade_count: number; open_orders_count: number; shares_traded: number; portfolio_value_cents: number; closed_profit_cents: number; settled_profit_cents: number }>;
       unattributed_portfolio_value_cents?: number;
+      unattributed_closed_profit_cents?: number;
+      unattributed_settled_profit_cents?: number;
       system_total_portfolio_value_cents?: number;
       pnl_by_outcome?: Record<string, number>;
       position_contributions?: Array<{ outcome: string; user_id: number | null; contribution_cents: number }>;

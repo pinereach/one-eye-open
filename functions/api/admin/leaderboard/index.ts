@@ -124,6 +124,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     const pnlByOutcome: Record<string, number> = {};
     const positionContributions: Array<{ outcome: string; user_id: number | null; contribution_cents: number }> = [];
     let unattributedCentsRaw = 0;
+    let unattributedClosedProfitCents = 0;
+    let unattributedSettledProfitCents = 0;
     let systemTotalCentsRaw = 0;
     for (const p of positionsRows) {
       const currentPrice = currentPriceByOutcome[p.outcome] ?? null;
@@ -137,6 +139,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       // Unattributed: no user_id, or user_id not in current users table (e.g. deleted user)
       if (p.user_id == null || !userIds.has(p.user_id)) {
         unattributedCentsRaw += contributionRaw;
+        unattributedClosedProfitCents += p.closed_profit;
+        unattributedSettledProfitCents += p.settled_profit;
       } else {
         portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + contributionRaw);
         closedProfitByUser.set(p.user_id, (closedProfitByUser.get(p.user_id) ?? 0) + p.closed_profit);
@@ -165,6 +169,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     return jsonResponse({
       leaderboard,
       unattributed_portfolio_value_cents: Math.round(unattributedCentsRaw),
+      unattributed_closed_profit_cents: unattributedClosedProfitCents,
+      unattributed_settled_profit_cents: unattributedSettledProfitCents,
       system_total_portfolio_value_cents: systemTotalReported,
       // Debug: where the imbalance comes from (should net to 0 per outcome in a zero-sum game)
       pnl_by_outcome: pnlByOutcome,

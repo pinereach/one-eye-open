@@ -34,6 +34,8 @@ export function LeaderboardPage() {
   const { user } = useAuth();
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [unattributedCents, setUnattributedCents] = useState<number>(0);
+  const [unattributedClosedCents, setUnattributedClosedCents] = useState<number>(0);
+  const [unattributedSettledCents, setUnattributedSettledCents] = useState<number>(0);
   const [systemTotalCents, setSystemTotalCents] = useState<number>(0);
   const [pnlByOutcome, setPnlByOutcome] = useState<Record<string, number>>({});
   const [positionContributions, setPositionContributions] = useState<Array<{ outcome: string; user_id: number | null; contribution_cents: number }>>([]);
@@ -72,9 +74,11 @@ export function LeaderboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const { leaderboard: data, unattributed_portfolio_value_cents: unattributed, system_total_portfolio_value_cents: systemTotal, pnl_by_outcome: byOutcome, position_contributions: contributions } = await api.adminGetLeaderboard();
+      const { leaderboard: data, unattributed_portfolio_value_cents: unattributed, unattributed_closed_profit_cents: unattributedClosed, unattributed_settled_profit_cents: unattributedSettled, system_total_portfolio_value_cents: systemTotal, pnl_by_outcome: byOutcome, position_contributions: contributions } = await api.adminGetLeaderboard();
       setLeaderboard(data ?? []);
       setUnattributedCents(unattributed ?? 0);
+      setUnattributedClosedCents(unattributedClosed ?? 0);
+      setUnattributedSettledCents(unattributedSettled ?? 0);
       setSystemTotalCents(systemTotal ?? 0);
       setPnlByOutcome(byOutcome ?? {});
       setPositionContributions(contributions ?? []);
@@ -216,7 +220,15 @@ export function LeaderboardPage() {
                 <span><span className="text-gray-600 dark:text-gray-400">Open orders:</span> <span className="font-semibold">{leaderboard.reduce((s, r) => s + r.open_orders_count, 0)}</span></span>
                 <span><span className="text-gray-600 dark:text-gray-400">Shares traded:</span> <span className="font-semibold">{leaderboard.reduce((s, r) => s + r.shares_traded, 0)}</span></span>
                 <span><span className="text-gray-600 dark:text-gray-400">Closed profit (users):</span> <span className={`font-semibold ${leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0) > 0 ? 'text-green-600 dark:text-green-400' : leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0) < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0), true)}</span></span>
+                {unattributedClosedCents !== 0 && (
+                  <span><span className="text-gray-600 dark:text-gray-400">Closed profit (system):</span> <span className={`font-semibold ${unattributedClosedCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedClosedCents, true)}</span></span>
+                )}
+                <span><span className="text-gray-600 dark:text-gray-400">Closed profit total:</span> <span className={`font-semibold ${leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0) + unattributedClosedCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPortfolio(leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0) + unattributedClosedCents, true)}</span></span>
                 <span><span className="text-gray-600 dark:text-gray-400">Settled profit (users):</span> <span className={`font-semibold ${leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0) > 0 ? 'text-green-600 dark:text-green-400' : leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0) < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0), true)}</span></span>
+                {unattributedSettledCents !== 0 && (
+                  <span><span className="text-gray-600 dark:text-gray-400">Settled profit (system):</span> <span className={`font-semibold ${unattributedSettledCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedSettledCents, true)}</span></span>
+                )}
+                <span><span className="text-gray-600 dark:text-gray-400">Settled profit total:</span> <span className={`font-semibold ${leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0) + unattributedSettledCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPortfolio(leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0) + unattributedSettledCents, true)}</span></span>
                 <span><span className="text-gray-600 dark:text-gray-400">Portfolio (users):</span> <span className={`font-semibold ${totalUsers > 0 ? 'text-green-600 dark:text-green-400' : totalUsers < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalUsers, true)}</span></span>
                 {unattributedCents !== 0 && (
                   <span><span className="text-gray-600 dark:text-gray-400">Unattributed:</span> <span className={`font-semibold ${unattributedCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedCents, true)}</span></span>
@@ -298,6 +310,8 @@ export function LeaderboardPage() {
               const totalShares = leaderboard.reduce((s, r) => s + r.shares_traded, 0);
               const totalClosed = leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0);
               const totalSettled = leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0);
+              const totalClosedAll = totalClosed + unattributedClosedCents;
+              const totalSettledAll = totalSettled + unattributedSettledCents;
               const totalUsers = leaderboard.reduce((s, r) => s + r.portfolio_value_cents, 0);
               const totalAll = totalUsers + unattributedCents;
               return (
@@ -311,13 +325,24 @@ export function LeaderboardPage() {
                     <td className={`py-3 px-4 text-right ${totalSettled > 0 ? 'text-green-600 dark:text-green-400' : totalSettled < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalSettled, true)}</td>
                     <td className={`py-3 px-4 text-right ${totalUsers > 0 ? 'text-green-600 dark:text-green-400' : totalUsers < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalUsers, true)}</td>
                   </tr>
-                  {unattributedCents !== 0 && (
+                  {(unattributedClosedCents !== 0 || unattributedSettledCents !== 0 || unattributedCents !== 0) && (
                     <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 font-medium">
-                      <td className="py-2 px-4 text-gray-600 dark:text-gray-400 text-xs">Unattributed (no user_id or deleted user)</td>
-                      <td colSpan={5} className="py-2 px-4" />
-                      <td className={`py-2 px-4 text-right ${unattributedCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedCents, true)}</td>
+                      <td className="py-2 px-4 text-gray-600 dark:text-gray-400 text-xs">System (no user_id or deleted user)</td>
+                      <td className="py-2 px-4 text-right">—</td>
+                      <td className="py-2 px-4 text-right">—</td>
+                      <td className="py-2 px-4 text-right">—</td>
+                      <td className={`py-2 px-4 text-right ${unattributedClosedCents > 0 ? 'text-green-600 dark:text-green-400' : unattributedClosedCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>{formatPortfolio(unattributedClosedCents, true)}</td>
+                      <td className={`py-2 px-4 text-right ${unattributedSettledCents > 0 ? 'text-green-600 dark:text-green-400' : unattributedSettledCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>{formatPortfolio(unattributedSettledCents, true)}</td>
+                      <td className={`py-2 px-4 text-right ${unattributedCents > 0 ? 'text-green-600 dark:text-green-400' : unattributedCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>{formatPortfolio(unattributedCents, true)}</td>
                     </tr>
                   )}
+                  <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 font-medium">
+                    <td className="py-2 px-4 text-gray-600 dark:text-gray-400 text-xs">Closed / settled total (should be $0)</td>
+                    <td colSpan={3} className="py-2 px-4" />
+                    <td className={`py-2 px-4 text-right font-semibold ${totalClosedAll === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPortfolio(totalClosedAll, true)}</td>
+                    <td className={`py-2 px-4 text-right font-semibold ${totalSettledAll === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPortfolio(totalSettledAll, true)}</td>
+                    <td className="py-2 px-4" />
+                  </tr>
                   <tr className="border-t border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-800 font-semibold">
                     <td className="py-3 px-4 text-gray-900 dark:text-gray-100">Total (users + unattributed)</td>
                     <td colSpan={5} className="py-3 px-4" />
