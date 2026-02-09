@@ -230,7 +230,7 @@ export function LeaderboardPage() {
 
         {/* Desktop: table */}
         <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
-          <table className="w-full min-w-[600px] border-collapse">
+          <table className="w-full min-w-[700px] border-collapse">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">
                 <th className="py-3 px-4 text-left text-xs font-bold text-gray-600 dark:text-gray-400">
@@ -254,6 +254,16 @@ export function LeaderboardPage() {
                   </button>
                 </th>
                 <th className="py-3 px-4 text-right text-xs font-bold text-gray-600 dark:text-gray-400">
+                  <button type="button" onClick={() => handleSort('closed_profit_cents')} className="inline-flex items-center gap-1 ml-auto hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded" aria-sort={sortBy === 'closed_profit_cents' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}>
+                    Closed profit {sortBy === 'closed_profit_cents' && (sortDir === 'asc' ? '↑' : '↓')}
+                  </button>
+                </th>
+                <th className="py-3 px-4 text-right text-xs font-bold text-gray-600 dark:text-gray-400">
+                  <button type="button" onClick={() => handleSort('settled_profit_cents')} className="inline-flex items-center gap-1 ml-auto hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded" aria-sort={sortBy === 'settled_profit_cents' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}>
+                    Settled profit {sortBy === 'settled_profit_cents' && (sortDir === 'asc' ? '↑' : '↓')}
+                  </button>
+                </th>
+                <th className="py-3 px-4 text-right text-xs font-bold text-gray-600 dark:text-gray-400">
                   <button type="button" onClick={() => handleSort('portfolio_value_cents')} className="inline-flex items-center gap-1 ml-auto hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded" aria-sort={sortBy === 'portfolio_value_cents' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}>
                     Portfolio value {sortBy === 'portfolio_value_cents' && (sortDir === 'asc' ? '↑' : '↓')}
                   </button>
@@ -263,7 +273,7 @@ export function LeaderboardPage() {
             <tbody>
               {sortedLeaderboard.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={7} className="py-8 text-center text-gray-500 dark:text-gray-400">
                     No users.
                   </td>
                 </tr>
@@ -274,6 +284,8 @@ export function LeaderboardPage() {
                     <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{row.trade_count}</td>
                     <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{row.open_orders_count}</td>
                     <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{row.shares_traded}</td>
+                    <td className={`py-3 px-4 text-right font-medium ${row.closed_profit_cents > 0 ? 'text-green-600 dark:text-green-400' : row.closed_profit_cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>{formatPortfolio(row.closed_profit_cents, true)}</td>
+                    <td className={`py-3 px-4 text-right font-medium ${row.settled_profit_cents > 0 ? 'text-green-600 dark:text-green-400' : row.settled_profit_cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>{formatPortfolio(row.settled_profit_cents, true)}</td>
                     <td className={`py-3 px-4 text-right font-medium ${row.portfolio_value_cents > 0 ? 'text-green-600 dark:text-green-400' : row.portfolio_value_cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>{formatPortfolio(row.portfolio_value_cents, true)}</td>
                   </tr>
                 ))
@@ -283,6 +295,8 @@ export function LeaderboardPage() {
               const totalTrades = leaderboard.reduce((s, r) => s + r.trade_count, 0);
               const totalOrders = leaderboard.reduce((s, r) => s + r.open_orders_count, 0);
               const totalShares = leaderboard.reduce((s, r) => s + r.shares_traded, 0);
+              const totalClosed = leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0);
+              const totalSettled = leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0);
               const totalUsers = leaderboard.reduce((s, r) => s + r.portfolio_value_cents, 0);
               const totalAll = totalUsers + unattributedCents;
               return (
@@ -292,23 +306,25 @@ export function LeaderboardPage() {
                     <td className="py-3 px-4 text-right">{totalTrades}</td>
                     <td className="py-3 px-4 text-right">{totalOrders}</td>
                     <td className="py-3 px-4 text-right">{totalShares}</td>
+                    <td className={`py-3 px-4 text-right ${totalClosed > 0 ? 'text-green-600 dark:text-green-400' : totalClosed < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalClosed, true)}</td>
+                    <td className={`py-3 px-4 text-right ${totalSettled > 0 ? 'text-green-600 dark:text-green-400' : totalSettled < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalSettled, true)}</td>
                     <td className={`py-3 px-4 text-right ${totalUsers > 0 ? 'text-green-600 dark:text-green-400' : totalUsers < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalUsers, true)}</td>
                   </tr>
                   {unattributedCents !== 0 && (
                     <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 font-medium">
                       <td className="py-2 px-4 text-gray-600 dark:text-gray-400 text-xs">Unattributed (no user_id or deleted user)</td>
-                      <td colSpan={3} className="py-2 px-4" />
+                      <td colSpan={5} className="py-2 px-4" />
                       <td className={`py-2 px-4 text-right ${unattributedCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedCents, true)}</td>
                     </tr>
                   )}
                   <tr className="border-t border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-800 font-semibold">
                     <td className="py-3 px-4 text-gray-900 dark:text-gray-100">Total (users + unattributed)</td>
-                    <td colSpan={3} className="py-3 px-4" />
+                    <td colSpan={5} className="py-3 px-4" />
                     <td className={`py-3 px-4 text-right ${totalAll === 0 ? 'text-gray-700 dark:text-gray-300' : totalAll > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(totalAll, true)}</td>
                   </tr>
                   <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 font-medium">
                     <td className="py-2 px-4 text-gray-600 dark:text-gray-400 text-xs">System total (all positions; should be $0)</td>
-                    <td colSpan={3} className="py-2 px-4" />
+                    <td colSpan={5} className="py-2 px-4" />
                     <td className={`py-2 px-4 text-right font-semibold ${systemTotalCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPortfolio(systemTotalCents, true)}</td>
                   </tr>
                 </tfoot>
