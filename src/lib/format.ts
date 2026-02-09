@@ -16,11 +16,8 @@ export function formatPricePercent(cents: number): string {
   return `${pct.toFixed(1)}%`;
 }
 
-/** Price in cents → "$X" or "$X.XX" when fractional (e.g. $1.50) */
-export function formatPriceBasis(cents: number): string {
-  if (isWholeDollars(cents)) return `$${cents / 100}`;
-  return `$${(cents / 100).toFixed(2)}`;
-}
+/** Alias for formatPrice (same behavior; name used for cost-basis display). */
+export const formatPriceBasis = formatPrice;
 
 /** Alias for formatPriceBasis */
 export const formatPriceDecimal = formatPriceBasis;

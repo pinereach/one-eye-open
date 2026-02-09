@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { MARKET_TYPE_ORDER, getMarketTypeLabel } from '../lib/marketTypes';
+import { useMarketTypeFilter } from '../hooks/useMarketTypeFilter';
 import { useTradeNotifications } from '../contexts/TradeNotificationsContext';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { formatPrice, formatPricePercent, formatNotionalBySide } from '../lib/format';
@@ -13,7 +13,7 @@ export function TradesPage() {
   const navigate = useNavigate();
   const [trades, setTrades] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMarketType, setSelectedMarketType] = useState<string>('all');
+  const { selectedMarketType, setSelectedMarketType, filteredItems: tradesToShow, filterOptions: marketTypeFilterOptions } = useMarketTypeFilter(trades, (t) => t.market_type ?? 'other');
   const { clearUnread } = useTradeNotifications();
 
   useEffect(() => {
@@ -23,23 +23,6 @@ export function TradesPage() {
   useEffect(() => {
     clearUnread();
   }, [clearUnread]);
-
-  const tradesToShow =
-    selectedMarketType === 'all'
-      ? trades
-      : trades.filter((t) => (t.market_type ?? 'other') === selectedMarketType);
-
-  const marketTypeFilterOptions = useMemo(() => {
-    const types = new Set(trades.map((t) => t.market_type ?? 'other'));
-    const sorted = [...types].sort((a, b) => {
-      const i = MARKET_TYPE_ORDER.indexOf(a);
-      const j = MARKET_TYPE_ORDER.indexOf(b);
-      const ai = i === -1 ? MARKET_TYPE_ORDER.length : i;
-      const aj = j === -1 ? MARKET_TYPE_ORDER.length : j;
-      return ai - aj;
-    });
-    return [{ value: 'all', label: 'All' }, ...sorted.map((t) => ({ value: t, label: getMarketTypeLabel(t) }))];
-  }, [trades]);
 
   async function loadTrades() {
     setLoading(true);

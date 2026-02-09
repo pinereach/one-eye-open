@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "sync-lib": "cp src/lib/db.ts functions/lib/ && cp src/lib/auth.ts functions/lib/ && cp src/lib/matching.ts functions/lib/ && cp src/lib/settlement.ts functions/lib/",
+    "sync-lib": "cp shared/lib/db.ts shared/lib/auth.ts shared/lib/matching.ts shared/lib/settlement.ts functions/lib/",
     "prebuild": "npm run sync-lib",
     "dev": "npm run sync-lib && vite",
     "dev:style": "vite --port 3000",
@@ -37,7 +37,9 @@
     "backfill-manual-trade-31-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0052_backfill_manual_trade_31_orders.sql",
     "backfill-manual-trade-31-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0052_backfill_manual_trade_31_orders.sql",
     "total-strokes-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0053_add_total_strokes_market.sql",
-    "total-strokes-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0053_add_total_strokes_market.sql"
+    "total-strokes-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0053_add_total_strokes_market.sql",
+    "market-volume-cache-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0049_market_volume_cache.sql",
+    "market-volume-cache-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0049_market_volume_cache.sql"
   },
   "dependencies": {
     "date-fns": "^2.30.0",

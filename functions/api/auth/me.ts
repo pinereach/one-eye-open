@@ -1,7 +1,6 @@
 import type { OnRequest } from '@cloudflare/pages';
-import { type Env } from '../../lib/db';
+import { getDb, type Env } from '../../lib/db';
 import { getUserFromToken, getCookieValue } from '../../lib/auth';
-import { getDb } from '../../lib/db';
 import { jsonResponse } from '../../middleware';
 
 export const onRequestGet: OnRequest<Env> = async (context) => {

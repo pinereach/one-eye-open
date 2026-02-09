@@ -1,3 +1,5 @@
+import type { User, Participant, Market, Outcome, Order, Trade, Position } from '../types';
+
 const API_BASE = '/api';
 
 /** GETs to these paths respect server Cache-Control (markets/outcomes/participants cached 12h or 2m). */
@@ -64,13 +66,13 @@ async function apiRequest<T>(
 export const api = {
   // Auth
   register: (data: { username: string; password: string }) =>
-    apiRequest<{ user: any }>('/auth/register', {
+    apiRequest<{ user: User }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   login: (data: { username: string; password: string }) =>
-    apiRequest<{ user: any }>('/auth/login', {
+    apiRequest<{ user: User }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -80,18 +82,18 @@ export const api = {
       method: 'POST',
     }),
 
-  me: () => apiRequest<{ user: any | null }>('/auth/me'),
+  me: () => apiRequest<{ user: User | null }>('/auth/me'),
 
   // Participants
-  getParticipants: () => apiRequest<{ participants: any[] }>('/participants'),
+  getParticipants: () => apiRequest<{ participants: Participant[] }>('/participants'),
 
   // Markets
   getMarkets: (options?: { cacheBust?: boolean }) => {
-    return apiRequest<{ markets: any[] }>('/markets', options);
+    return apiRequest<{ markets: Market[] }>('/markets', options);
   },
 
   getMarket: (id: string, options?: { cacheBust?: boolean }) =>
-    apiRequest<{ market: any; outcomes: any[]; orderbook: Record<string, { bids: any[]; asks: any[] }>; trades?: any[]; positions?: any[] }>(`/markets/${id}`, options),
+    apiRequest<{ market: Market; outcomes: Outcome[]; orderbook: Record<string, { bids: any[]; asks: any[] }>; trades?: Trade[]; positions?: Position[] }>(`/markets/${id}`, options),
 
   placeOrder: (marketId: string, data: { outcome_id: string; side: 'bid' | 'ask'; price: number; contract_size: number; tif?: string; token?: string }) =>
     apiRequest<{ order: any; fills: any[]; trades: any[] }>(`/markets/${marketId}/orders`, {
@@ -101,26 +103,26 @@ export const api = {
 
   getTrades: (marketId: string, limit?: number) => {
     const query = limit ? `?limit=${limit}` : '';
-    return apiRequest<{ trades: any[] }>(`/markets/${marketId}/trades${query}`);
+    return apiRequest<{ trades: Trade[] }>(`/markets/${marketId}/trades${query}`);
   },
 
   getPositions: (marketId: string) =>
-    apiRequest<{ positions: any[] }>(`/markets/${marketId}/positions`),
+    apiRequest<{ positions: Position[] }>(`/markets/${marketId}/positions`),
 
   // All trades and positions (across all markets) — only the current user's trades
   getAllTrades: (limit?: number) => {
     const query = limit ? `?limit=${limit}` : '';
-    return apiRequest<{ trades: any[] }>(`/trades${query}`);
+    return apiRequest<{ trades: Trade[] }>(`/trades${query}`);
   },
 
   // Global trade tape — all taker trades across the app (not filtered by user)
   getTape: (limit?: number) => {
     const query = limit ? `?limit=${limit}` : '';
-    return apiRequest<{ trades: any[] }>(`/tape${query}`);
+    return apiRequest<{ trades: Trade[] }>(`/tape${query}`);
   },
 
   getAllPositions: () =>
-    apiRequest<{ positions: any[] }>('/positions'),
+    apiRequest<{ positions: Position[] }>('/positions'),
 
   getPositionsSummary: () =>
     apiRequest<{ count: number }>('/positions?summary=1'),
@@ -130,7 +132,7 @@ export const api = {
     if (options?.limit != null) params.set('limit', String(options.limit));
     if (options?.offset != null && options.offset > 0) params.set('offset', String(options.offset));
     const query = params.toString() ? `?${params.toString()}` : '';
-    return apiRequest<{ orders: any[]; hasMore?: boolean }>(`/orders${query}`);
+    return apiRequest<{ orders: Order[]; hasMore?: boolean }>(`/orders${query}`);
   },
 
   cancelOrder: (orderId: number) => {
@@ -214,7 +216,7 @@ export const api = {
     }>('/admin/leaderboard'),
 
   adminUpdateMarketPause: (marketId: string, tradingPaused: boolean) =>
-    apiRequest<{ market: any; success: boolean }>(`/admin/markets/${marketId}`, {
+    apiRequest<{ market: Market; success: boolean }>(`/admin/markets/${marketId}`, {
       method: 'PATCH',
       body: JSON.stringify({ trading_paused: tradingPaused }),
     }),

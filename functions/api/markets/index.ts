@@ -8,14 +8,27 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     const url = new URL(request.url);
 
     const db = getDb(env);
-    const markets = await dbQuery(
-      db,
-      `SELECT m.*, COALESCE(mv.volume_contracts, 0) AS volume_contracts
-       FROM markets m
-       LEFT JOIN market_volume mv ON m.market_id = mv.market_id
-       ORDER BY m.created_date DESC`,
-      []
-    );
+    let markets: any[];
+    try {
+      markets = await dbQuery(
+        db,
+        `SELECT m.*, COALESCE(mv.volume_contracts, 0) AS volume_contracts
+         FROM markets m
+         LEFT JOIN market_volume mv ON m.market_id = mv.market_id
+         ORDER BY m.created_date DESC`,
+        []
+      );
+    } catch (e: any) {
+      if (e?.message?.includes('market_volume') || e?.message?.includes('no such table')) {
+        markets = await dbQuery(
+          db,
+          `SELECT m.*, 0 AS volume_contracts FROM markets m ORDER BY m.created_date DESC`,
+          []
+        );
+      } else {
+        throw e;
+      }
+    }
 
     // Single query for all outcomes (no N+1). Include outcomes for market_total_birdies under market-total-birdies.
     const marketIds = markets.map((m: { market_id: string }) => m.market_id);

@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TradeNotificationsProvider } from './contexts/TradeNotificationsContext';
@@ -8,6 +8,7 @@ import { BottomNav } from './components/ui/BottomNav';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { Skeleton } from './components/ui/Skeleton';
 import { isDevelopment } from './lib/env';
+import { MAIN_NAV_ITEMS, isNavItemVisible, isNavPathActive } from './config/nav';
 
 // Lazy-load route chunks so nav clicks don't block on parsing/executing whole app (improves INP).
 const LandingPage = lazy(() => import('./pages/LandingPage').then(m => ({ default: m.LandingPage })));
@@ -42,11 +43,20 @@ function getPageTitle(pathname: string): string {
   return DEFAULT_TITLE;
 }
 
+const linkActive = 'text-primary-600 dark:text-primary-400 font-medium';
+const linkDesktop = 'text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center';
+const linkMobile = 'block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md';
+
 function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const visibleNavItems = useMemo(
+    () => MAIN_NAV_ITEMS.filter((item) => isNavItemVisible(item, user ?? null)),
+    [user]
+  );
 
   useEffect(() => {
     document.title = getPageTitle(location.pathname);
@@ -77,27 +87,20 @@ function Layout({ children }: { children: React.ReactNode }) {
                 One Eye Open
               </Link>
               {(user || isDevelopment) && (
-                <>
-                  <div className="hidden md:flex items-center gap-3 lg:gap-4">
-                    {user?.view_scores && (
-                      <Link to="/scoring" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/scoring' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Scoring</Link>
-                    )}
-                    <Link to="/markets" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname.startsWith('/markets') ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Markets</Link>
-                    <Link to="/tape" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/tape' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Tape</Link>
-                    <Link to="/orders" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/orders' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Orders</Link>
-                    <Link to="/trades" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/trades' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Trades</Link>
-                    <Link to="/positions" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/positions' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Positions</Link>
-                    {user?.view_market_creation && (
-                      <Link to="/market-suggestions" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/market-suggestions' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Market Suggestions</Link>
-                    )}
-                    {user?.admin && (
-                      <>
-                        <Link to="/leaderboard" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/leaderboard' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Leaderboard</Link>
-                        <Link to="/admin" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/admin' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Admin</Link>
-                      </>
-                    )}
-                  </div>
-                </>
+                <div className="hidden md:flex items-center gap-3 lg:gap-4">
+                  {visibleNavItems.map((item) => {
+                    const active = isNavPathActive(item.path, location.pathname);
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        className={`${linkDesktop} ${active ? linkActive : ''}`}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
               )}
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
@@ -106,7 +109,7 @@ function Layout({ children }: { children: React.ReactNode }) {
               {(user || isDevelopment) ? (
                 <>
                   <div className="hidden md:flex items-center gap-3 lg:gap-4">
-                    <Link to="/settings" className={`text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center ${location.pathname === '/settings' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>{user?.username || 'User'}</Link>
+                    <Link to="/settings" className={`${linkDesktop} ${isNavPathActive('/settings', location.pathname) ? linkActive : ''}`}>{user?.username || 'User'}</Link>
                     {!isDevelopment && (
                       <button onClick={handleLogout} className="text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center">Logout</button>
                     )}
@@ -124,24 +127,20 @@ function Layout({ children }: { children: React.ReactNode }) {
           </div>
           {(user || isDevelopment) && mobileMenuOpen && (
             <div className="md:hidden border-t border-gray-300 dark:border-gray-700 py-3 space-y-2">
-              {user?.view_scores && (
-                <Link to="/scoring" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/scoring' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Scoring</Link>
-              )}
-              <Link to="/markets" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname.startsWith('/markets') ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Markets</Link>
-              <Link to="/tape" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/tape' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Tape</Link>
-              <Link to="/orders" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/orders' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Orders</Link>
-              <Link to="/trades" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/trades' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Trades</Link>
-              <Link to="/positions" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/positions' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Positions</Link>
-              {user?.view_market_creation && (
-                <Link to="/market-suggestions" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/market-suggestions' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Market Suggestions</Link>
-              )}
-              {user?.admin && (
-                <>
-                  <Link to="/leaderboard" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/leaderboard' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Leaderboard</Link>
-                  <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/admin' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>Admin</Link>
-                </>
-              )}
-              <Link to="/settings" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md ${location.pathname === '/settings' ? 'text-primary-600 dark:text-primary-400 font-medium' : ''}`}>{user?.username || 'User'}</Link>
+              {visibleNavItems.map((item) => {
+                const active = isNavPathActive(item.path, location.pathname);
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`${linkMobile} ${active ? linkActive : ''}`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+              <Link to="/settings" onClick={() => setMobileMenuOpen(false)} className={`${linkMobile} ${isNavPathActive('/settings', location.pathname) ? linkActive : ''}`}>{user?.username || 'User'}</Link>
               {!isDevelopment && (
                 <button onClick={handleLogout} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-600 dark:text-gray-400">Logout</button>
               )}

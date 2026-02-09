@@ -1,8 +1,7 @@
+export { jsonResponse, errorResponse } from './response';
 export {
-  jsonResponse,
-  errorResponse,
   requireAuth,
   requireAdmin,
   isAuthRequired,
   type AuthenticatedRequest,
-} from './lib/api-helpers';
+} from './auth-middleware';

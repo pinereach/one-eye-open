@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api';
-import { MARKET_TYPE_ORDER, getMarketTypeLabel } from '../lib/marketTypes';
+import { useMarketTypeFilter } from '../hooks/useMarketTypeFilter';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { formatPrice, formatPriceBasis, formatPriceRound10, formatPriceTwoDecimals } from '../lib/format';
 import { Card, CardContent } from '../components/ui/Card';
@@ -12,7 +12,16 @@ export function PositionsPage() {
   const navigate = useNavigate();
   const [positions, setPositions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMarketType, setSelectedMarketType] = useState<string>('all');
+
+  const showablePositions = useMemo(
+    () =>
+      positions.filter(
+        (p) => p.net_position !== 0 || (p.closed_profit ?? 0) !== 0 || (p.settled_profit ?? 0) !== 0
+      ),
+    [positions]
+  );
+
+  const { selectedMarketType, setSelectedMarketType, filteredItems: positionsToShow, filterOptions: marketTypeFilterOptions } = useMarketTypeFilter(showablePositions, (p) => p.market_type ?? 'other');
 
   useEffect(() => {
     loadPositions();
@@ -29,15 +38,6 @@ export function PositionsPage() {
       setLoading(false);
     }
   }
-
-  const showablePositions = positions.filter(
-    (p) => p.net_position !== 0 || (p.closed_profit ?? 0) !== 0 || (p.settled_profit ?? 0) !== 0
-  );
-
-  const positionsToShow =
-    selectedMarketType === 'all'
-      ? showablePositions
-      : showablePositions.filter((p) => (p.market_type ?? 'other') === selectedMarketType);
 
   const totalPositionValueCents = positionsToShow.reduce((sum, position) => {
     let contribution = 0;
@@ -57,18 +57,6 @@ export function PositionsPage() {
 
   const totalClosedProfitCents = positionsToShow.reduce((sum, p) => sum + (p.closed_profit ?? 0), 0);
   const totalSettledProfitCents = positionsToShow.reduce((sum, p) => sum + (p.settled_profit ?? 0), 0);
-
-  const marketTypeFilterOptions = useMemo(() => {
-    const types = new Set(showablePositions.map((p) => p.market_type ?? 'other'));
-    const sorted = [...types].sort((a, b) => {
-      const i = MARKET_TYPE_ORDER.indexOf(a);
-      const j = MARKET_TYPE_ORDER.indexOf(b);
-      const ai = i === -1 ? MARKET_TYPE_ORDER.length : i;
-      const aj = j === -1 ? MARKET_TYPE_ORDER.length : j;
-      return ai - aj;
-    });
-    return [{ value: 'all', label: 'All' }, ...sorted.map((t) => ({ value: t, label: getMarketTypeLabel(t) }))];
-  }, [showablePositions]);
 
   const positionsByMarket = useMemo(() => {
     const map: Record<string, { marketLabel: string; positions: typeof positionsToShow }> = {};

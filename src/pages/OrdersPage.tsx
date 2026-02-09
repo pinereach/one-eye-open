@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
-import { MARKET_TYPE_ORDER, getMarketTypeLabel } from '../lib/marketTypes';
+import { useMarketTypeFilter } from '../hooks/useMarketTypeFilter';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 import { formatPrice, formatPricePercent } from '../lib/format';
 import { format } from 'date-fns';
@@ -24,29 +24,12 @@ export function OrdersPage() {
   const [completedVisibleCount, setCompletedVisibleCount] = useState(INITIAL_HISTORY_VISIBLE);
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
   const [cancelAllOpen, setCancelAllOpen] = useState(false);
-  const [selectedMarketType, setSelectedMarketType] = useState<string>('all');
+  const { selectedMarketType, setSelectedMarketType, filteredItems: ordersToShow, filterOptions: marketTypeFilterOptions } = useMarketTypeFilter(orders, (o) => o.market_type ?? 'other');
   const { toasts, showToast, removeToast } = useToast();
 
   useEffect(() => {
     loadOrders();
   }, []);
-
-  const ordersToShow =
-    selectedMarketType === 'all'
-      ? orders
-      : orders.filter((o) => (o.market_type ?? 'other') === selectedMarketType);
-
-  const marketTypeFilterOptions = useMemo(() => {
-    const types = new Set(orders.map((o) => o.market_type ?? 'other'));
-    const sorted = [...types].sort((a, b) => {
-      const i = MARKET_TYPE_ORDER.indexOf(a);
-      const j = MARKET_TYPE_ORDER.indexOf(b);
-      const ai = i === -1 ? MARKET_TYPE_ORDER.length : i;
-      const aj = j === -1 ? MARKET_TYPE_ORDER.length : j;
-      return ai - aj;
-    });
-    return [{ value: 'all', label: 'All' }, ...sorted.map((t) => ({ value: t, label: getMarketTypeLabel(t) }))];
-  }, [orders]);
 
   async function loadOrders(append = false) {
     if (!append) setLoading(true);
