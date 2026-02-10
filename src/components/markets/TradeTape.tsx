@@ -149,6 +149,7 @@ export const TradeTape = forwardRef<
                       e.preventDefault();
                       e.stopPropagation();
                       if (deletingId !== null) return;
+                      if (!window.confirm('Back out this trade? Positions and the crossed order will be reverted.')) return;
                       setDeletingId(trade.id);
                       try {
                         await api.adminDeleteTrade(trade.id);

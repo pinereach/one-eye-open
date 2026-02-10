@@ -1,6 +1,11 @@
 import type { OnRequest } from '@cloudflare/pages';
 import { getDb, dbFirst, dbRun, type Env } from '../../../lib/db';
 import { requireAdmin, jsonResponse, errorResponse } from '../../../middleware';
+import {
+  updatePositionsForFill,
+  updatePosition,
+  addSystemClosedProfitOffset,
+} from '../../../lib/matching';
 
 /**
  * PATCH /api/admin/trades/:tradeId — update risk_off fields (admin only).
@@ -105,8 +110,8 @@ export const onRequestPatch: OnRequest<Env> = async (context) => {
 };
 
 /**
- * DELETE /api/admin/trades/:tradeId — delete a trade by id (admin only).
- * Used from the tape to remove erroneous trades.
+ * DELETE /api/admin/trades/:tradeId — back out a trade (admin only).
+ * Reverses both positions, reinstates the maker order when present, then deletes the trade.
  */
 export const onRequestDelete: OnRequest<Env> = async (context) => {
   const { request, env, params } = context;
@@ -124,12 +129,91 @@ export const onRequestDelete: OnRequest<Env> = async (context) => {
 
   const db = getDb(env);
 
-  const existing = await dbFirst<{ id: number }>(db, 'SELECT id FROM trades WHERE id = ?', [tradeId]);
-  if (!existing) {
+  const trade = await dbFirst<{
+    id: number;
+    outcome: string | null;
+    price: number;
+    contracts: number;
+    taker_user_id: number | null;
+    maker_user_id: number | null;
+    taker_side: number | null;
+    maker_order_id: number | null;
+  }>(
+    db,
+    'SELECT id, outcome, price, contracts, taker_user_id, maker_user_id, taker_side, maker_order_id FROM trades WHERE id = ?',
+    [tradeId]
+  );
+
+  if (!trade) {
     return errorResponse('Trade not found', 404);
   }
 
-  await dbRun(db, 'DELETE FROM trades WHERE id = ?', [tradeId]);
+  const outcomeId = trade.outcome ?? '';
+  const contracts = trade.contracts ?? 0;
+  const priceCents = trade.price ?? 0;
+  const takerUserId = trade.taker_user_id;
+  const makerUserId = trade.maker_user_id;
+  const takerSide = trade.taker_side;
+  const makerOrderId = trade.maker_order_id;
 
-  return jsonResponse({ deleted: true, id: tradeId });
+  if (!outcomeId || contracts < 1 || priceCents < 0) {
+    return errorResponse('Trade cannot be backed out: missing outcome, invalid contracts, or invalid price', 400);
+  }
+  if (takerUserId == null || takerSide == null || (takerSide !== 0 && takerSide !== 1)) {
+    return errorResponse('Trade cannot be backed out: missing taker user or taker side', 400);
+  }
+
+  const reverseSide = takerSide === 0 ? 'ask' : 'bid';
+  const reverseMakerSide = takerSide === 0 ? 'bid' : 'ask';
+
+  try {
+    // 1) Reverse positions
+    if (makerUserId != null && makerUserId !== takerUserId) {
+      await updatePositionsForFill(db, outcomeId, takerUserId, makerUserId, reverseSide, priceCents, contracts);
+    } else if (makerUserId != null && makerUserId === takerUserId) {
+      await updatePosition(db, outcomeId, takerUserId, reverseSide, priceCents, contracts);
+      await updatePosition(db, outcomeId, takerUserId, reverseMakerSide, priceCents, contracts);
+    } else {
+      await updatePosition(db, outcomeId, takerUserId, reverseSide, priceCents, contracts);
+      const netPositionDelta = takerSide === 0 ? contracts : -contracts;
+      await addSystemClosedProfitOffset(db, outcomeId, 0, -netPositionDelta, priceCents);
+    }
+
+    // 2) Reinstate maker order when present
+    let makerOrderReinstated = false;
+    if (makerOrderId != null && makerOrderId > 0) {
+      const orderRow = await dbFirst<{
+        id: number;
+        contract_size: number | null;
+        original_contract_size: number | null;
+        status: string | null;
+      }>(db, 'SELECT id, contract_size, original_contract_size, status FROM orders WHERE id = ?', [makerOrderId]);
+      if (orderRow) {
+        const currentSize = orderRow.contract_size ?? 0;
+        const originalSize = orderRow.original_contract_size ?? currentSize + contracts;
+        const newContractSize = Math.min((currentSize + contracts) | 0, originalSize);
+        const newStatus =
+          newContractSize >= originalSize ? 'open' : 'partial';
+        await dbRun(db, 'UPDATE orders SET contract_size = ?, status = ? WHERE id = ?', [
+          newContractSize,
+          newStatus,
+          makerOrderId,
+        ]);
+        makerOrderReinstated = true;
+      }
+    }
+
+    // 3) Delete the trade
+    await dbRun(db, 'DELETE FROM trades WHERE id = ?', [tradeId]);
+
+    return jsonResponse({
+      deleted: true,
+      id: tradeId,
+      positions_reversed: true,
+      maker_order_reinstated: makerOrderReinstated,
+    });
+  } catch (err) {
+    console.error('Backout trade failed:', err);
+    return errorResponse('Failed to back out trade', 500);
+  }
 };

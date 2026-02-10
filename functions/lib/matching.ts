@@ -248,7 +248,7 @@ export async function createTrade(
   db: D1Database,
   _marketId: string, // Keep for reference but trades table doesn't have market_id
   _takerOrderId: string | number,
-  _makerOrderId: string | number,
+  makerOrderIdParam: string | number | null | undefined,
   priceCents: number,
   qtyContracts: number,
   outcomeId?: string, // Optional outcome_id to link trade to outcome
@@ -263,19 +263,20 @@ export async function createTrade(
   const token = crypto.randomUUID();
   const createTime = Math.floor(Date.now() / 1000);
   const totalContracts = riskOffContractsTaker + riskOffContractsMaker;
+  const makerOrderId =
+    makerOrderIdParam != null && makerOrderIdParam !== '' && Number(makerOrderIdParam) > 0
+      ? (typeof makerOrderIdParam === 'string' ? parseInt(makerOrderIdParam, 10) : makerOrderIdParam)
+      : null;
 
-  // Prefer explicit taker/maker columns only (migration 0057).
   if (takerUserId != null && takerSide != null) {
     try {
       const result = await dbRun(
         db,
-        `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts_taker, risk_off_contracts_maker, risk_off_price_diff_taker, risk_off_price_diff_maker, outcome, taker_user_id, maker_user_id, taker_side)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [token, priceCents, qtyContracts, createTime, riskOffContractsTaker, riskOffContractsMaker, riskOffPriceDiffTakerCents, riskOffPriceDiffMakerCents, outcomeId || null, takerUserId, makerUserId ?? null, takerSide]
+        `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts_taker, risk_off_contracts_maker, risk_off_price_diff_taker, risk_off_price_diff_maker, outcome, taker_user_id, maker_user_id, taker_side, maker_order_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [token, priceCents, qtyContracts, createTime, riskOffContractsTaker, riskOffContractsMaker, riskOffPriceDiffTakerCents, riskOffPriceDiffMakerCents, outcomeId || null, takerUserId, makerUserId ?? null, takerSide, makerOrderId]
       );
-      const tradeId = result.meta.last_row_id || 0;
-      console.log(`[createTrade] Created trade id=${tradeId}, price=${priceCents}, contracts=${qtyContracts}, outcome=${outcomeId || 'null'}, taker_side=${takerSide}`);
-      return tradeId;
+      return result.meta.last_row_id || 0;
     } catch (err: unknown) {
       if (!(err as Error)?.message?.includes('no such column')) throw err;
       try {
@@ -287,23 +288,13 @@ export async function createTrade(
         );
         return result.meta.last_row_id || 0;
       } catch {
-        try {
-          const result = await dbRun(
-            db,
-            `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, risk_off_price_diff_maker, outcome, taker_user_id, maker_user_id, taker_side)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [token, priceCents, qtyContracts, createTime, totalContracts, riskOffPriceDiffTakerCents, riskOffPriceDiffMakerCents, outcomeId || null, takerUserId, makerUserId ?? null, takerSide]
-          );
-          return result.meta.last_row_id || 0;
-        } catch {
-          const result = await dbRun(
-            db,
-            `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, outcome, taker_user_id, maker_user_id, taker_side)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [token, priceCents, qtyContracts, createTime, totalContracts, riskOffPriceDiffTakerCents, outcomeId || null, takerUserId, makerUserId ?? null, takerSide]
-          );
-          return result.meta.last_row_id || 0;
-        }
+        const result = await dbRun(
+          db,
+          `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, outcome, taker_user_id, maker_user_id, taker_side)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [token, priceCents, qtyContracts, createTime, totalContracts, riskOffPriceDiffTakerCents, outcomeId || null, takerUserId, makerUserId ?? null, takerSide]
+        );
+        return result.meta.last_row_id || 0;
       }
     }
   }
@@ -311,17 +302,18 @@ export async function createTrade(
   try {
     const result = await dbRun(
       db,
+      `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts_taker, risk_off_contracts_maker, risk_off_price_diff_taker, risk_off_price_diff_maker, outcome, maker_order_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [token, priceCents, qtyContracts, createTime, riskOffContractsTaker, riskOffContractsMaker, riskOffPriceDiffTakerCents, riskOffPriceDiffMakerCents, outcomeId || null, makerOrderId]
+    );
+    return result.meta.last_row_id || 0;
+  } catch (err: unknown) {
+    if (!(err as Error)?.message?.includes('no such column')) throw err;
+    const result = await dbRun(
+      db,
       `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts_taker, risk_off_contracts_maker, risk_off_price_diff_taker, risk_off_price_diff_maker, outcome)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [token, priceCents, qtyContracts, createTime, riskOffContractsTaker, riskOffContractsMaker, riskOffPriceDiffTakerCents, riskOffPriceDiffMakerCents, outcomeId || null]
-    );
-    return result.meta.last_row_id || 0;
-  } catch {
-    const result = await dbRun(
-      db,
-      `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, outcome)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [token, priceCents, qtyContracts, createTime, totalContracts, riskOffPriceDiffTakerCents, outcomeId || null]
     );
     return result.meta.last_row_id || 0;
   }
@@ -513,12 +505,10 @@ export async function updatePositionsForFill(
     }
   }
 
-  // Use each side's actual realized closed profit from the fill. Keep global closed profit zero-sum
-  // by applying the imbalance to the system position (user_id NULL) so sum(closed_profit) = 0 per outcome.
+  // Use each side's actual realized closed profit from the fill. Closed profit is per-user realized P&L;
+  // we no longer force sum(closed_profit) = 0 (total may be non-zero).
   const takerClosed = takerState.newClosedProfit;
   const makerClosed = makerState.newClosedProfit;
-  const totalClosedDelta = (takerClosed - takerCur.closed) + (makerClosed - makerCur.closed);
-  // (Do not add makerClosedAdjust to closed_profit so the sum remains exactly zero.)
 
   if (!takerDb) {
     await dbRun(
@@ -552,10 +542,6 @@ export async function updatePositionsForFill(
   // Put rounding residual into system row so total cost basis is preserved and unrealized P&L stays zero-sum.
   if (makerClosedAdjust !== 0) {
     await addSystemClosedProfitOffset(db, outcomeId, -makerClosedAdjust);
-  }
-  // Absorb closed-profit imbalance into system so sum(closed_profit) = 0 per outcome (maker may realize P&L without taker closing).
-  if (totalClosedDelta !== 0) {
-    await addSystemClosedProfitOffset(db, outcomeId, -totalClosedDelta);
   }
 }
 
@@ -701,10 +687,11 @@ export async function updatePosition(
 }
 
 /**
- * Apply offsetting closed_profit and (when provided) opposite net_position/price_basis to the system
- * position (user_id NULL) so both closed profit and unrealized P&L stay zero-sum when maker has no user.
- * When netPositionDelta and fillPriceCents are provided, the system row is updated so sum(net_position)=0
- * and mark-to-market unrealized P&L nets to zero.
+ * Apply an optional closed_profit offset and/or (when provided) opposite net_position/price_basis to the system
+ * position (user_id NULL). Used for: (1) cost-basis rounding residual (makerClosedAdjust) so unrealized P&L stays zero-sum;
+ * (2) when maker has no user, pass netPositionDelta and fillPriceCents so the system holds the opposite position and
+ * sum(net_position)=0. Closed profit is no longer forced to sum to zero; pass 0 for closedProfitOffsetCents when
+ * only updating the system's net position.
  */
 export async function addSystemClosedProfitOffset(
   db: D1Database,
@@ -855,7 +842,7 @@ export async function executeMatching(
     const makerUserIdNum = makerUserId != null ? (typeof makerUserId === 'string' ? parseInt(makerUserId, 10) : makerUserId) : null;
     const sameUserBothSides = makerOrderDb && makerUserIdNum != null && !Number.isNaN(takerUserId) && takerUserId === makerUserIdNum;
 
-    // Risk-off: contracts that close a position and taker's realized P&L (for trade record)
+    // Risk-off: contracts and realized P&L per side (for trade record)
     let riskOffPriceDiffCents = 0;
     let riskOffPriceDiffMakerCents = 0;
     let riskOffContractsTaker = 0;
@@ -938,7 +925,8 @@ export async function executeMatching(
         const { closedProfitDelta } = await updatePosition(db, outcomeId, takerUserId, takerOrder.side, fill.price_cents, fill.qty_contracts);
         if (makerUserId == null) {
           const netPositionDelta = takerOrder.side === 'bid' ? fill.qty_contracts : -fill.qty_contracts;
-          await addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta, netPositionDelta, fill.price_cents);
+          // Update system position only (net_position/price_basis) so unrealized P&L stays zero-sum; do not offset closed profit.
+          await addSystemClosedProfitOffset(db, outcomeId, 0, netPositionDelta, fill.price_cents);
         }
       }
       if (makerUserId != null) {

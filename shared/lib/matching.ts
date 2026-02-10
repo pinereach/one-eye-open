@@ -248,7 +248,7 @@ export async function createTrade(
   db: D1Database,
   _marketId: string, // Keep for reference but trades table doesn't have market_id
   _takerOrderId: string | number,
-  _makerOrderId: string | number,
+  makerOrderIdParam: string | number | null | undefined,
   priceCents: number,
   qtyContracts: number,
   outcomeId?: string, // Optional outcome_id to link trade to outcome
@@ -263,14 +263,18 @@ export async function createTrade(
   const token = crypto.randomUUID();
   const createTime = Math.floor(Date.now() / 1000);
   const totalContracts = riskOffContractsTaker + riskOffContractsMaker;
+  const makerOrderId =
+    makerOrderIdParam != null && makerOrderIdParam !== '' && Number(makerOrderIdParam) > 0
+      ? (typeof makerOrderIdParam === 'string' ? parseInt(makerOrderIdParam, 10) : makerOrderIdParam)
+      : null;
 
   if (takerUserId != null && takerSide != null) {
     try {
       const result = await dbRun(
         db,
-        `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts_taker, risk_off_contracts_maker, risk_off_price_diff_taker, risk_off_price_diff_maker, outcome, taker_user_id, maker_user_id, taker_side)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [token, priceCents, qtyContracts, createTime, riskOffContractsTaker, riskOffContractsMaker, riskOffPriceDiffTakerCents, riskOffPriceDiffMakerCents, outcomeId || null, takerUserId, makerUserId ?? null, takerSide]
+        `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts_taker, risk_off_contracts_maker, risk_off_price_diff_taker, risk_off_price_diff_maker, outcome, taker_user_id, maker_user_id, taker_side, maker_order_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [token, priceCents, qtyContracts, createTime, riskOffContractsTaker, riskOffContractsMaker, riskOffPriceDiffTakerCents, riskOffPriceDiffMakerCents, outcomeId || null, takerUserId, makerUserId ?? null, takerSide, makerOrderId]
       );
       return result.meta.last_row_id || 0;
     } catch (err: unknown) {
@@ -298,17 +302,18 @@ export async function createTrade(
   try {
     const result = await dbRun(
       db,
+      `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts_taker, risk_off_contracts_maker, risk_off_price_diff_taker, risk_off_price_diff_maker, outcome, maker_order_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [token, priceCents, qtyContracts, createTime, riskOffContractsTaker, riskOffContractsMaker, riskOffPriceDiffTakerCents, riskOffPriceDiffMakerCents, outcomeId || null, makerOrderId]
+    );
+    return result.meta.last_row_id || 0;
+  } catch (err: unknown) {
+    if (!(err as Error)?.message?.includes('no such column')) throw err;
+    const result = await dbRun(
+      db,
       `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts_taker, risk_off_contracts_maker, risk_off_price_diff_taker, risk_off_price_diff_maker, outcome)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [token, priceCents, qtyContracts, createTime, riskOffContractsTaker, riskOffContractsMaker, riskOffPriceDiffTakerCents, riskOffPriceDiffMakerCents, outcomeId || null]
-    );
-    return result.meta.last_row_id || 0;
-  } catch {
-    const result = await dbRun(
-      db,
-      `INSERT INTO trades (token, price, contracts, create_time, risk_off_contracts, risk_off_price_diff, outcome)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [token, priceCents, qtyContracts, createTime, totalContracts, riskOffPriceDiffTakerCents, outcomeId || null]
     );
     return result.meta.last_row_id || 0;
   }

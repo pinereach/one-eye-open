@@ -28,6 +28,16 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     return errorResponse('Market not found', 404);
   }
   const market = marketRow as Record<string, unknown>;
+  // Total market volume (cached in market_volume, same as list). Used for volume chip on detail page.
+  let volume_contracts = 0;
+  try {
+    const volRow = await dbFirst<{ volume_contracts: number }>(db, 'SELECT volume_contracts FROM market_volume WHERE market_id = ?', [marketId]);
+    if (volRow?.volume_contracts != null) volume_contracts = volRow.volume_contracts;
+  } catch {
+    // table may not exist yet
+  }
+  (market as Record<string, unknown>).volume_contracts = volume_contracts;
+
   // Total Birdies: outcomes may be stored with market_id 'market-total-birdies' or 'market_total_birdies'; include both so all show on the page
   const outcomeMarketIds = marketId === 'market-total-birdies'
     ? ['market-total-birdies', 'market_total_birdies']

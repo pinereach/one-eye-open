@@ -538,12 +538,11 @@ export function MarketDetail() {
     }
   }
 
-  // Volume = number of contracts traded × $100
+  // Volume = number of contracts traded × $100. Prefer total from API (market_volume cache); fallback to sum of returned trades (legacy).
   const marketStats = (() => {
-    const volume_contracts = (trades || []).reduce(
-      (sum, t) => sum + (t.contracts || 0),
-      0
-    );
+    const volume_contracts =
+      (market as { volume_contracts?: number } | null)?.volume_contracts ??
+      (trades || []).reduce((sum, t) => sum + (t.contracts || 0), 0);
     const volume_dollars = volume_contracts * 100;
     return {
       volume_contracts,

@@ -127,6 +127,13 @@ Migrations live in `migrations/` and are applied with `wrangler d1 execute <db> 
 | `handicaps` | Handicap index per player per year (player, year, handicap_index); used for net champion and H2H display |
 | `market_volume` | Cached volume per market (refreshed by admin/cron) |
 
+### How volume populates
+
+- **Source:** Volume is “contracts traded” per market. It is **not** computed live from `trades` on every request; that would be too heavy. Instead it uses the **`market_volume`** cache table.
+- **List page:** `GET /api/markets` does a `LEFT JOIN market_volume` and returns `COALESCE(mv.volume_contracts, 0)`. If the table is empty or missing, every market shows 0.
+- **Detail page:** `GET /api/markets/:id` now also reads `volume_contracts` from `market_volume` for that market and attaches it to the market object so the volume chip shows total market volume.
+- **Refreshing the cache:** `POST /api/admin/refresh-volume` (admin-only) sums `t.contracts` from `trades` joined to `outcomes` for the last 30 days, grouped by `market_id`, and upserts into `market_volume`. Run this periodically (e.g. cron every 4h) or manually after migrations so list and detail show non-zero volume. Migration `0049_market_volume_cache.sql` must be applied before the table exists.
+
 Indexes (examples): `idx_trades_create_time`, `idx_orders_user_id`, `idx_orders_outcome`, `idx_positions_user_outcome`, `idx_handicaps_year`. Matching and settlement logic use these for efficient queries.
 
 ---
