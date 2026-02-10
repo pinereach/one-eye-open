@@ -21,6 +21,7 @@ export function getMarketTypeLabel(marketType: string | null | undefined): strin
     individual_champion: 'Individual',
     market_total_birdies: 'Birdies',
     market_total_pars: 'Pars',
+    pars: 'Pars',
     matchups: 'Matchups',
     round_ou: 'Round O/U',
     specials: 'Specials',

@@ -37,12 +37,18 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
   try {
     const body = await request.json().catch(() => ({}));
+    const auctionType = (typeof body?.auction_type === 'string' ? body.auction_type.trim().toLowerCase() : '') || 'round_ou';
     const round = body?.round != null ? Number(body.round) : undefined;
     const participantId = typeof body?.participant_id === 'string' ? body.participant_id.trim() : '';
     const bids = Array.isArray(body?.bids) ? body.bids : [];
 
-    if (round == null || !Number.isInteger(round) || round < 1 || round > 6) {
-      return errorResponse('round must be an integer between 1 and 6', 400);
+    const isRoundOu = auctionType === 'round_ou';
+    const isPars = auctionType === 'pars';
+    if (!isRoundOu && !isPars) {
+      return errorResponse('auction_type must be "round_ou" or "pars"', 400);
+    }
+    if (isRoundOu && (round == null || !Number.isInteger(round) || round < 1 || round > 6)) {
+      return errorResponse('round must be an integer between 1 and 6 for Round O/U', 400);
     }
     if (!participantId) {
       return errorResponse('participant_id is required', 400);
@@ -86,24 +92,53 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const strikeStr = strikeNum % 1 === 0 ? String(strikeNum) : strikeNum.toFixed(1);
     const strikeSlug = slugForOutcomeId(strikeStr.replace('.', '_'));
     const participantSlug = slugForOutcomeId(participantName);
-    const outcomeId = `outcome-round-${round}-ou-${participantSlug}-${strikeSlug}`;
 
-    const newMarketId = `market-round-${round}-ou`;
-    let market = await dbFirst<{ market_id: string }>(
-      db,
-      `SELECT market_id FROM markets WHERE market_type = 'round_ou' AND short_name LIKE ?`,
-      [`Round ${round} Over/Under%`]
-    );
-    if (!market) {
-      await dbRun(
+    let outcomeId: string;
+    let resolvedMarketId: string;
+    let marketShortName: string;
+    let marketSymbol: string;
+
+    if (isPars) {
+      marketShortName = `${participantName} Pars`;
+      marketSymbol = `${participantSlug.replace(/-/g, '').toUpperCase().slice(0, 8)}PARS`;
+      const newMarketId = `market-pars-${participantSlug}`;
+      let market = await dbFirst<{ market_id: string }>(
         db,
-        `INSERT INTO markets (market_id, short_name, symbol, max_winners, min_winners, created_date, market_type)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [newMarketId, `Round ${round} Over/Under`, `R${round}OU`, 12, 1, Math.floor(Date.now() / 1000), 'round_ou']
+        `SELECT market_id FROM markets WHERE market_type = 'pars' AND (market_id = ? OR short_name = ?)`,
+        [newMarketId, marketShortName]
       );
-      market = { market_id: newMarketId };
+      if (!market) {
+        await dbRun(
+          db,
+          `INSERT INTO markets (market_id, short_name, symbol, max_winners, min_winners, created_date, market_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [newMarketId, marketShortName, marketSymbol, 12, 1, Math.floor(Date.now() / 1000), 'pars']
+        );
+        market = { market_id: newMarketId };
+      }
+      resolvedMarketId = market.market_id;
+      outcomeId = `outcome-pars-${participantSlug}-${strikeSlug}`;
+    } else {
+      outcomeId = `outcome-round-${round}-ou-${participantSlug}-${strikeSlug}`;
+      const newMarketId = `market-round-${round}-ou`;
+      marketShortName = `Round ${round} Over/Under`;
+      marketSymbol = `R${round}OU`;
+      let market = await dbFirst<{ market_id: string }>(
+        db,
+        `SELECT market_id FROM markets WHERE market_type = 'round_ou' AND short_name LIKE ?`,
+        [`Round ${round} Over/Under%`]
+      );
+      if (!market) {
+        await dbRun(
+          db,
+          `INSERT INTO markets (market_id, short_name, symbol, max_winners, min_winners, created_date, market_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [newMarketId, marketShortName, marketSymbol, 12, 1, Math.floor(Date.now() / 1000), 'round_ou']
+        );
+        market = { market_id: newMarketId };
+      }
+      resolvedMarketId = market.market_id;
     }
-    const resolvedMarketId = market.market_id;
 
     let outcome = await dbFirst<{ outcome_id: string }>(
       db,
@@ -111,8 +146,12 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       [outcomeId, resolvedMarketId]
     );
     if (!outcome) {
-      const outcomeName = `${participantName} Over ${strikeStr} - Round ${round}`;
-      const ticker = `${initials(participantName)}-OV-R${round}-${strikeStr.replace('.', '_')}`;
+      const outcomeName = isPars
+        ? `${participantName} Over ${strikeStr}`
+        : `${participantName} Over ${strikeStr} - Round ${round}`;
+      const ticker = isPars
+        ? `${initials(participantName)}-OV-${strikeStr.replace('.', '_')}`
+        : `${initials(participantName)}-OV-R${round}-${strikeStr.replace('.', '_')}`;
       await dbRun(
         db,
         `INSERT INTO outcomes (outcome_id, name, ticker, market_id, strike, created_date)
