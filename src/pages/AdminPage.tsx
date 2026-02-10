@@ -208,9 +208,27 @@ export function AdminPage() {
       showToast('Select a participant', 'error');
       return;
     }
-    if (auctionType === 'pars' && !auctionParsMarketId) {
-      showToast('Select a market', 'error');
-      return;
+    let parsMarketId = '';
+    if (auctionType === 'pars') {
+      if (auctionParsOutcomeId && auctionParsOutcomeId !== '__new__') {
+        const parsMarkets = markets.filter((m) => m.market_type === 'pars' || (m.short_name && m.short_name.toLowerCase().includes('pars')));
+        for (const m of parsMarkets) {
+          const o = (m.outcomes ?? []).find((out: { outcome_id: string }) => out.outcome_id === auctionParsOutcomeId);
+          if (o) {
+            parsMarketId = m.market_id;
+            break;
+          }
+        }
+        if (!parsMarketId) {
+          showToast('Selected line not found', 'error');
+          return;
+        }
+      } else if (auctionParsOutcomeId === '__new__' && auctionParsMarketId) {
+        parsMarketId = auctionParsMarketId;
+      } else {
+        showToast('Select a line or choose New line and a market', 'error');
+        return;
+      }
     }
     setAuctionBusy(true);
     try {
@@ -218,8 +236,8 @@ export function AdminPage() {
         auction_type: auctionType,
         ...(auctionType === 'round_ou' && { round: auctionRound }),
         ...(auctionType === 'round_ou' && { participant_id: auctionParticipantId }),
-        ...(auctionType === 'pars' && auctionParsMarketId && { market_id: auctionParsMarketId }),
-        ...(auctionType === 'pars' && auctionParsOutcomeId && { outcome_id: auctionParsOutcomeId }),
+        ...(auctionType === 'pars' && parsMarketId && { market_id: parsMarketId }),
+        ...(auctionType === 'pars' && auctionParsOutcomeId && auctionParsOutcomeId !== '__new__' && { outcome_id: auctionParsOutcomeId }),
         bids,
       });
       showToast(`Auction done. Strike: ${res.strike}. ${res.trades_created} trade(s) created.`, 'success');
@@ -490,7 +508,7 @@ export function AdminPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
             {auctionType === 'round_ou'
               ? 'Round O/U: round (1–6), participant (golfer), and N bids (user + guess). Strike = average of guesses. Lowest half short, rest long; paired at 50¢.'
-              : 'Pars (e.g. Boose Pars): participant (golfer), and N bids (user + guess = number of pars). Strike = average. Lowest half short, rest long; paired at 50¢.'}
+              : 'Pars: select a line (e.g. O8.5), then enter each person’s bid price (%). Trade price = average of bids. Lowest half short, rest long.'}
           </p>
           <form onSubmit={handleRunAuction} className="space-y-3">
             <div>
@@ -541,37 +559,53 @@ export function AdminPage() {
             {auctionType === 'pars' && (
               <>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Market</label>
+                  <label className="block text-sm font-medium mb-1">Line</label>
                   <select
-                    value={auctionParsMarketId}
+                    value={auctionParsOutcomeId || ''}
                     onChange={(e) => {
-                      setAuctionParsMarketId(e.target.value);
-                      setAuctionParsOutcomeId('');
+                      const v = e.target.value;
+                      setAuctionParsOutcomeId(v);
+                      if (!v) setAuctionParsMarketId('');
                     }}
                     className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
                   >
-                    <option value="">Select market</option>
-                    {markets.filter((m) => m.market_type === 'pars').map((m) => (
-                      <option key={m.market_id} value={m.market_id}>
-                        {m.short_name}
+                    <option value="">Select line</option>
+                    {(
+                      markets.filter(
+                        (m) => m.market_type === 'pars' || (m.short_name && m.short_name.toLowerCase().includes('pars'))
+                      ) as Array<{ market_id: string; short_name: string; outcomes?: Array<{ outcome_id: string; strike?: string; name?: string }> }>
+                    ).flatMap((m) =>
+                      (m.outcomes ?? []).map((o) => ({
+                        outcome_id: o.outcome_id,
+                        market_id: m.market_id,
+                        label: o.strike != null && o.strike !== '' ? `O${o.strike}` : o.name ?? o.outcome_id,
+                      }))
+                    ).map((opt) => (
+                      <option key={opt.outcome_id} value={opt.outcome_id}>
+                        {opt.label}
                       </option>
                     ))}
+                    <option value="__new__">— New line (strike from bid average) —</option>
                   </select>
                 </div>
-                {auctionParsMarketId && (
+                {auctionType === 'pars' && auctionParsOutcomeId === '__new__' && (
                   <div>
-                    <label className="block text-sm font-medium mb-1">Outcome (line)</label>
+                    <label className="block text-sm font-medium mb-1">Market (for new line)</label>
                     <select
-                      value={auctionParsOutcomeId}
-                      onChange={(e) => setAuctionParsOutcomeId(e.target.value)}
+                      value={auctionParsMarketId}
+                      onChange={(e) => setAuctionParsMarketId(e.target.value)}
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
                     >
-                      <option value="">New line (strike from bids)</option>
-                      {(markets.find((m) => m.market_id === auctionParsMarketId)?.outcomes ?? []).map((o) => (
-                        <option key={o.outcome_id} value={o.outcome_id}>
-                          {o.name}
-                        </option>
-                      ))}
+                      <option value="">Select market</option>
+                      {markets
+                        .filter(
+                          (m) => m.market_type === 'pars' || (m.short_name && m.short_name.toLowerCase().includes('pars'))
+                        )
+                        .map((m) => (
+                          <option key={m.market_id} value={m.market_id}>
+                            {m.short_name}
+                          </option>
+                        ))}
                     </select>
                   </div>
                 )}
@@ -606,9 +640,11 @@ export function AdminPage() {
                     <input
                       type="number"
                       step="any"
+                      min={auctionType === 'pars' ? 0 : undefined}
+                      max={auctionType === 'pars' ? 100 : undefined}
                       value={row.guess}
                       onChange={(e) => setAuctionBidAt(index, 'guess', e.target.value)}
-                      placeholder={auctionType === 'pars' ? 'Pars' : 'Guess'}
+                      placeholder={auctionType === 'pars' ? 'Bid %' : 'Guess'}
                       className="w-20 border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
                     />
                     {auctionBids.length > 2 && (
