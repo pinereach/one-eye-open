@@ -29,6 +29,7 @@ export function AdminPage() {
   const [pauseBusy, setPauseBusy] = useState<Record<string, boolean>>({});
   const [manualTradeBusy, setManualTradeBusy] = useState(false);
   const [replayPositionsBusy, setReplayPositionsBusy] = useState(false);
+  const [refreshVolumeBusy, setRefreshVolumeBusy] = useState(false);
 
   // Manual trade form (taker = user who took; maker = user whose order was hit; side = taker's side)
   const [manualTakerUserId, setManualTakerUserId] = useState<number | ''>('');
@@ -269,6 +270,18 @@ export function AdminPage() {
     }
   }
 
+  async function handleRefreshVolume() {
+    setRefreshVolumeBusy(true);
+    try {
+      const res = await api.adminRefreshVolume();
+      showToast(`Volume cache updated for ${res?.updated ?? 0} market(s)`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to refresh volume', 'error');
+    } finally {
+      setRefreshVolumeBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center gap-2 sm:gap-4">
@@ -318,6 +331,23 @@ export function AdminPage() {
               {cancelUserBusy ? 'Canceling…' : 'Cancel all for this user'}
             </button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <h2 className="text-base sm:text-lg font-bold mb-3">Volume cache</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+            Recompute 30-day volume per market so list and detail pages show correct volume. Also runs automatically every 4 hours via cron.
+          </p>
+          <button
+            type="button"
+            onClick={handleRefreshVolume}
+            disabled={refreshVolumeBusy}
+            className="px-3 py-2 text-sm font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {refreshVolumeBusy ? 'Refreshing…' : 'Refresh volume'}
+          </button>
         </CardContent>
       </Card>
 

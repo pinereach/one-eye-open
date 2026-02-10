@@ -1,0 +1,14 @@
+name = "golf-trip-refresh-volume"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Pages app base URL (e.g. https://golf-trip-exchange.pages.dev). Set in dashboard or via var.
+[vars]
+PAGES_URL = "https://golf-trip-exchange.pages.dev"
+
+# CRON_SECRET must match the secret set on the Pages project (env var CRON_SECRET).
+# Run: wrangler secret put CRON_SECRET
+# Then set the same value in Pages: Dashboard > Pages > Your project > Settings > Environment variables.
+
+[triggers]
+crons = ["0 */4 * * *"]

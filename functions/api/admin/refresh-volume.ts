@@ -4,11 +4,18 @@ import { requireAdmin, jsonResponse, errorResponse } from '../../middleware';
 
 /** Recompute 30-day volume per market and upsert into market_volume. Run via cron every 4h. */
 const VOLUME_DAYS = 30;
+const CRON_SECRET_HEADER = 'x-cron-secret';
 
 export const onRequestPost: OnRequest<Env> = async (context) => {
-  const adminResult = await requireAdmin(context.request, context.env);
-  if ('error' in adminResult) {
-    return adminResult.error;
+  const { request, env } = context;
+  const cronSecret = env.CRON_SECRET?.trim();
+  const headerSecret = request.headers.get(CRON_SECRET_HEADER)?.trim();
+  const allowedByCron = cronSecret && headerSecret && cronSecret === headerSecret;
+  if (!allowedByCron) {
+    const adminResult = await requireAdmin(request, env);
+    if ('error' in adminResult) {
+      return adminResult.error;
+    }
   }
 
   const db = getDb(context.env);

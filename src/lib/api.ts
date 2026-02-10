@@ -254,6 +254,10 @@ export const api = {
       method: 'DELETE',
     }),
 
+  /** Recompute 30-day volume per market and upsert into market_volume. Used by list/detail volume display. */
+  adminRefreshVolume: () =>
+    apiRequest<{ updated: number }>('/admin/refresh-volume', { method: 'POST' }),
+
   /** Recompute position closed_profit from trade risk_off_price_diff_taker/maker per user/outcome. Run after backfilling risk_off on trades. */
   adminClosedProfitFromRiskOff: () =>
     apiRequest<{
