@@ -788,12 +788,12 @@ export function MarketDetail() {
     <div className="space-y-4 sm:space-y-6">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
-      <nav className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400" aria-label="Breadcrumb">
-        <Link to="/markets" className="hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded">
+      <nav className="flex items-baseline gap-2 text-sm font-medium text-gray-600 dark:text-gray-400" aria-label="Breadcrumb">
+        <Link to="/markets" className="hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded text-inherit">
           Markets
         </Link>
-        <span aria-hidden="true">/</span>
-        <span className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[200px] sm:max-w-none" aria-current="page">
+        <span aria-hidden="true" className="text-gray-500 dark:text-gray-500 select-none">/</span>
+        <span className="text-gray-900 dark:text-gray-100 truncate max-w-[200px] sm:max-w-none" aria-current="page">
           {market.short_name}
         </span>
       </nav>
