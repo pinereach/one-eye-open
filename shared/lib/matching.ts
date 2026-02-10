@@ -500,12 +500,10 @@ export async function updatePositionsForFill(
     }
   }
 
-  // Use each side's actual realized closed profit from the fill. Keep global closed profit zero-sum
-  // by applying the imbalance to the system position (user_id NULL) so sum(closed_profit) = 0 per outcome.
+  // Use each side's actual realized closed profit from the fill. Closed profit is per-user realized P&L;
+  // we no longer force sum(closed_profit) = 0 (total may be non-zero).
   const takerClosed = takerState.newClosedProfit;
   const makerClosed = makerState.newClosedProfit;
-  const totalClosedDelta = (takerClosed - takerCur.closed) + (makerClosed - makerCur.closed);
-  // (Do not add makerClosedAdjust to closed_profit so the sum remains exactly zero.)
 
   if (!takerDb) {
     await dbRun(
@@ -539,10 +537,6 @@ export async function updatePositionsForFill(
   // Put rounding residual into system row so total cost basis is preserved and unrealized P&L stays zero-sum.
   if (makerClosedAdjust !== 0) {
     await addSystemClosedProfitOffset(db, outcomeId, -makerClosedAdjust);
-  }
-  // Absorb closed-profit imbalance into system so sum(closed_profit) = 0 per outcome (maker may realize P&L without taker closing).
-  if (totalClosedDelta !== 0) {
-    await addSystemClosedProfitOffset(db, outcomeId, -totalClosedDelta);
   }
 }
 
@@ -688,10 +682,11 @@ export async function updatePosition(
 }
 
 /**
- * Apply offsetting closed_profit and (when provided) opposite net_position/price_basis to the system
- * position (user_id NULL) so both closed profit and unrealized P&L stay zero-sum when maker has no user.
- * When netPositionDelta and fillPriceCents are provided, the system row is updated so sum(net_position)=0
- * and mark-to-market unrealized P&L nets to zero.
+ * Apply an optional closed_profit offset and/or (when provided) opposite net_position/price_basis to the system
+ * position (user_id NULL). Used for: (1) cost-basis rounding residual (makerClosedAdjust) so unrealized P&L stays zero-sum;
+ * (2) when maker has no user, pass netPositionDelta and fillPriceCents so the system holds the opposite position and
+ * sum(net_position)=0. Closed profit is no longer forced to sum to zero; pass 0 for closedProfitOffsetCents when
+ * only updating the system's net position.
  */
 export async function addSystemClosedProfitOffset(
   db: D1Database,
@@ -925,7 +920,8 @@ export async function executeMatching(
         const { closedProfitDelta } = await updatePosition(db, outcomeId, takerUserId, takerOrder.side, fill.price_cents, fill.qty_contracts);
         if (makerUserId == null) {
           const netPositionDelta = takerOrder.side === 'bid' ? fill.qty_contracts : -fill.qty_contracts;
-          await addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta, netPositionDelta, fill.price_cents);
+          // Update system position only (net_position/price_basis) so unrealized P&L stays zero-sum; do not offset closed profit.
+          await addSystemClosedProfitOffset(db, outcomeId, 0, netPositionDelta, fill.price_cents);
         }
       }
       if (makerUserId != null) {

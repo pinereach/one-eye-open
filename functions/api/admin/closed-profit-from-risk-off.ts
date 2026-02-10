@@ -6,7 +6,7 @@ import { requireAdmin, jsonResponse, errorResponse } from '../../middleware';
  * POST /api/admin/closed-profit-from-risk-off — admin only.
  * Recomputes position closed_profit from trade risk-off columns:
  *   closed_profit(user, outcome) = sum(risk_off_price_diff_taker) where taker_user_id=user + sum(risk_off_price_diff_maker) where maker_user_id=user.
- * Then sets system (user_id NULL) per outcome so sum(closed_profit) = 0 for that outcome.
+ * Sets system (user_id NULL) per outcome to closed_profit = 0 (closed profit is per-user realized P&L; total need not sum to zero).
  * Use after backfilling risk_off_contracts_taker, risk_off_contracts_maker, risk_off_price_diff_taker, risk_off_price_diff_maker on trades (e.g. via replay).
  */
 export const onRequestPost: OnRequest<Env> = async (context) => {
@@ -88,8 +88,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       updated++;
     }
 
-    for (const [outcome, userTotal] of outcomeUserTotalCents) {
-      const systemClosed = -userTotal;
+    for (const [outcome] of outcomeUserTotalCents) {
       const existing = await dbFirst<{ id: number }>(
         db,
         'SELECT id FROM positions WHERE outcome = ? AND user_id IS NULL',
@@ -99,22 +98,22 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       if (existing) {
         await dbRun(
           db,
-          'UPDATE positions SET closed_profit = ? WHERE outcome = ? AND user_id IS NULL',
-          [systemClosed, outcome]
+          'UPDATE positions SET closed_profit = 0 WHERE outcome = ? AND user_id IS NULL',
+          [outcome]
         );
       } else {
         await dbRun(
           db,
           `INSERT INTO positions (user_id, outcome, net_position, price_basis, closed_profit, settled_profit, is_settled, create_time)
-           VALUES (NULL, ?, 0, 0, ?, 0, 0, ?)`,
-          [outcome, systemClosed, now]
+           VALUES (NULL, ?, 0, 0, 0, 0, 0, ?)`,
+          [outcome, now]
         );
       }
     }
 
     return jsonResponse({
       applied: true,
-      message: `Set closed_profit from trade risk_off_price_diff_taker/maker for ${updated} user positions; system rows updated for ${outcomeUserTotalCents.size} outcome(s).`,
+      message: `Set closed_profit from trade risk_off_price_diff_taker/maker for ${updated} user positions; system rows set to closed_profit=0 for ${outcomeUserTotalCents.size} outcome(s).`,
       positions_updated: updated,
       outcomes_system_updated: outcomeUserTotalCents.size,
     });

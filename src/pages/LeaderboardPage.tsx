@@ -137,7 +137,7 @@ export function LeaderboardPage() {
     <PullToRefresh onRefresh={loadLeaderboard}>
       <div className="space-y-4 sm:space-y-6">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Leaderboard</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Per-user stats: trades, open orders, shares traded, closed profit, settled profit, portfolio value (P&amp;L). Zero-sum: system total should be $0.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Per-user stats: trades, open orders, shares traded, closed profit (realized P&amp;L), settled profit, portfolio value. Portfolio value is zero-sum (system total should be $0); closed profit total may be non-zero.</p>
 
         {/* Debug: system total — if non-zero, indicates a bug elsewhere in the stack */}
         {leaderboard.length > 0 && (
@@ -190,15 +190,15 @@ export function LeaderboardPage() {
               </div>
             )}
 
-            {/* Closed / settled profit (should each sum to $0 system-wide) */}
+            {/* Closed / settled profit — closed is per-user realized P&L (total may be non-zero); settled should sum to $0 */}
             <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
               <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Closed / settled profit</div>
               <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm mb-2">
                 <span><span className="text-gray-600 dark:text-gray-400">System total closed:</span>{' '}
-                  <span className={`font-semibold ${systemTotalClosedCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
                     {formatPortfolio(systemTotalClosedCents, true)}
                   </span>
-                  {systemTotalClosedCents !== 0 && <span className="ml-2 text-amber-600 dark:text-amber-400 text-xs">(should be $0)</span>}
+                  <span className="ml-2 text-gray-500 dark:text-gray-400 text-xs">(per-user realized P&amp;L; total may be non-zero)</span>
                 </span>
                 <span><span className="text-gray-600 dark:text-gray-400">System total settled:</span>{' '}
                   <span className={`font-semibold ${systemTotalSettledCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
@@ -309,7 +309,7 @@ export function LeaderboardPage() {
                 {unattributedClosedCents !== 0 && (
                   <span><span className="text-gray-600 dark:text-gray-400">Closed profit (system):</span> <span className={`font-semibold ${unattributedClosedCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedClosedCents, true)}</span></span>
                 )}
-                <span><span className="text-gray-600 dark:text-gray-400">Closed profit total:</span> <span className={`font-semibold ${leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0) + unattributedClosedCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPortfolio(leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0) + unattributedClosedCents, true)}</span></span>
+                <span><span className="text-gray-600 dark:text-gray-400">Closed profit total:</span> <span className={`font-semibold ${(leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0) + unattributedClosedCents) > 0 ? 'text-green-600 dark:text-green-400' : (leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0) + unattributedClosedCents) < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(leaderboard.reduce((s, r) => s + r.closed_profit_cents, 0) + unattributedClosedCents, true)}</span></span>
                 <span><span className="text-gray-600 dark:text-gray-400">Settled profit (users):</span> <span className={`font-semibold ${leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0) > 0 ? 'text-green-600 dark:text-green-400' : leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0) < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0), true)}</span></span>
                 {unattributedSettledCents !== 0 && (
                   <span><span className="text-gray-600 dark:text-gray-400">Settled profit (system):</span> <span className={`font-semibold ${unattributedSettledCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedSettledCents, true)}</span></span>
@@ -423,9 +423,9 @@ export function LeaderboardPage() {
                     </tr>
                   )}
                   <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 font-medium">
-                    <td className="py-2 px-4 text-gray-600 dark:text-gray-400 text-xs">Closed / settled total (should be $0)</td>
+                    <td className="py-2 px-4 text-gray-600 dark:text-gray-400 text-xs">Closed / settled total (closed may be non-zero)</td>
                     <td colSpan={3} className="py-2 px-4" />
-                    <td className={`py-2 px-4 text-right font-semibold ${totalClosedAll === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPortfolio(totalClosedAll, true)}</td>
+                    <td className={`py-2 px-4 text-right font-semibold ${totalClosedAll > 0 ? 'text-green-600 dark:text-green-400' : totalClosedAll < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalClosedAll, true)}</td>
                     <td className={`py-2 px-4 text-right font-semibold ${totalSettledAll === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPortfolio(totalSettledAll, true)}</td>
                     <td className="py-2 px-4" />
                   </tr>

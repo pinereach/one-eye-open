@@ -1,67 +1,27 @@
-# Why Closed Profit Should Sum to Zero and Where It Breaks
+# Closed Profit: No Zero-Sum Requirement
 
-## Invariant
+## Current design
 
-In a zero-sum, no-fee market, **sum(closed_profit) across all positions (including system/user_id NULL) should equal 0**. Every dollar of realized P&L for one user is matched by the opposite for another (or the system).
+**Closed profit is per-user realized P&L** from fills that reduce position size (e.g. buy to close a short, sell to close a long). We **do not** require sum(closed_profit) across all positions to equal zero.
 
-## How It’s Done in Normal Matching
+Example: User 1 sells 2 @ $40 to User 2; User 2 sells 2 @ $42 to User 3. User 2’s closed profit = $4; User 1 and User 3 = $0. Total closed profit = $4, which is correct.
 
-When an order matches via the book, **executeMatching** in `shared/lib/matching.ts`:
+## What is zero-sum
 
-- If both taker and maker have a `user_id`: it calls **updatePositionsForFill** once for the fill. That function updates both positions using each side’s **actual** realized closed profit from the fill (`takerState.newClosedProfit`, `makerState.newClosedProfit`). Global zero-sum is enforced by applying any imbalance to the **system** position (user_id NULL) for that outcome via **addSystemClosedProfitOffset(db, outcomeId, -totalClosedDelta)**. So the maker can correctly realize P&amp;L (e.g. selling into a taker buy) even when the taker has no closed profit delta.
+- **Portfolio value (unrealized P&L)** — sum across all positions (including system, user_id NULL) should be $0. The matching layer keeps this by putting rounding residuals and the opposite side’s position on the system row when needed.
+- **Settled profit** — typically zero-sum (every dollar paid on settlement is received by someone).
 
-- If maker has no `user_id`: it calls **updatePosition** for the taker only, then **addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta, netPositionDelta, fillPriceCents)** so the system position (user_id NULL) gets the opposite closed-profit delta and the opposite net position at the same fill price. That keeps both **closed profit** and **unrealized P&amp;L** (mark-to-market) zero-sum.
+## How matching behaves
 
-So all **order-book** trades keep the invariant.
+- **updatePositionsForFill** (order-book, two users): Updates taker and maker positions with each side’s actual closed profit. Only applies the **cost-basis rounding** residual to the system row via `addSystemClosedProfitOffset(db, outcomeId, -makerClosedAdjust)`. It does **not** apply the closed-profit imbalance to the system, so sum(closed_profit) is no longer forced to zero.
+- **executeMatching when maker has no user**: Calls `addSystemClosedProfitOffset(db, outcomeId, 0, netPositionDelta, fillPriceCents)` so the system gets the opposite **net position** (and unrealized P&L stays zero-sum) but does **not** get an offset to closed profit. Taker’s closed profit stands as-is.
+- **closed-profit-from-risk-off** (admin): Recomputes each user’s closed_profit from trade risk_off_price_diff_taker/maker, then sets system row closed_profit = 0 per outcome (does not set it to -userTotal).
 
-## Where the Imbalance Comes From
+## Rebalance and replay
 
-### 1. Manual trades (`functions/api/admin/trades/manual.ts`)
+- **Rebalance closed profit** (one-time): Historically used to force sum(closed_profit) = 0. With the new design it is optional/legacy; the product no longer requires that invariant.
+- **Replay positions**: Still correct for recomputing positions and closed profit from trade history; after replay, closed profit total may be non-zero.
 
-- It updates positions with **two separate** calls:
-  - `updatePosition(db, outcomeId, takerUserId, side, price, contractSize)`
-  - `updatePosition(db, outcomeId, makerUserId, makerSide, price, contractSize)` when maker is set
+## Leaderboard / debug UI
 
-- Each call computes closed profit from that user’s position only. The two deltas are **not** forced to sum to zero, so:
-  - Rounding of `price_basis` (e.g. weighted average, clamp to $1–$99) can make taker_delta + maker_delta ≠ 0.
-  - So every manual trade with a maker can add a small (or occasionally larger) error to the global sum.
-
-- When **maker is null**, only the taker position was updated and **addSystemClosedProfitOffset** was either missing or only updated closed profit (not the system’s net position). That left **sum(net_position)** non-zero for that outcome, so unrealized P&amp;L did not sum to zero. Fixed by passing **netPositionDelta** and **fillPriceCents** into **addSystemClosedProfitOffset** so the system holds the opposite position.
-
-### 2. Round O/U auction (`functions/api/admin/auction/round-ou.ts`)
-
-- It also uses two separate **updatePosition** calls (one for taker, one for maker) per trade. Same as manual: the two deltas are not tied together, so rounding (and any formula mismatch) can make the sum non-zero. Every auction trade can contribute to the imbalance.
-
-### 3. Historical behavior
-
-- Any older code that:
-  - Did not use **updatePositionsForFill** for two-sided updates, or
-  - Did not use **addSystemClosedProfitOffset** when maker had no user  
-  will have left existing positions with a non-zero total closed profit.
-
-## Fixing It Going Forward (No New Imbalance)
-
-1. **Manual trade**
-   - When **maker is set**: use **updatePositionsForFill(db, outcomeId, takerUserId, makerUserId, takerSide, priceCents, contractSize)** instead of two **updatePosition** calls.
-   - When **maker is null**: keep a single **updatePosition** for the taker, then call **addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta, netPositionDelta, price)** so the system gets the opposite closed profit and opposite net position (same as executeMatching). That keeps both closed profit and unrealized P&amp;L zero-sum.
-
-2. **Auction (round-ou)**
-   - For each auction trade that has both taker and maker, use **updatePositionsForFill** once instead of two **updatePosition** calls.
-
-After these changes, **new** manual and auction trades will preserve the zero-sum invariant the same way order-book trades do.
-
-## Fixing Existing Imbalance (DB State)
-
-- **Option A – One-time rebalance (“Rebalance closed profit” button)**  
-  Adjust the system position (user_id NULL, outcome `__closed_profit_offset`) so that sum(closed_profit) = 0. Fast and correct for display; it does not change how individual user positions were calculated.
-
-- **Option B – Replay positions (recommended for correcting data)**  
-  **POST /api/admin/replay-positions** (admin only). For each outcome that has trades:
-  1. Reset `net_position`, `price_basis`, and `closed_profit` to 0 for all positions on that outcome (leaves `settled_profit` and `is_settled` unchanged).
-  2. Replay every trade in chronological order (ORDER BY id) using the correct logic: **updatePositionsForFill** when both taker and maker are set and different, otherwise **updatePosition** for the taker plus **addSystemClosedProfitOffset** when maker is null.
-  Result: every position’s open P&amp;L and closed profit are recomputed from trade history with zero-sum guarantees. After running once, closed profit should sum to 0 and individual positions match the correct economics. There is an admin UI button “Replay positions” that calls this endpoint.
-
-- **Option C – Hybrid**  
-  Fix the code paths above so no **new** imbalance is added, then either run **Replay positions** once (Option B) for a full correction, or run **Rebalance closed profit** once (Option A) to only fix the total. Going forward, closed profit will stay zero-sum without further action.
-
-Recommendation: run **Replay positions** once after deploying the manual/auction fix so all positions and closed profit are correct. If you prefer not to replay, use **Rebalance closed profit** once to fix the total only.
+The admin leaderboard shows “System total closed” and “Closed profit total” without treating non-zero as an error. Portfolio value (system total) is still expected to be $0.

@@ -3,7 +3,7 @@
 ## Two concepts
 
 1. **Position `closed_profit`** (in `positions` table)  
-   Updated by matching logic whenever a fill **reduces** the size of a position (e.g. buy to close a short, or sell to close a long). It is the realized P&L from that reduction. So **any** fill that closes part of a position adds to `closed_profit`; it does not depend on whether the trade was “risk off” or not.
+   Updated by matching logic whenever a fill **reduces** the size of a position (e.g. buy to close a short, or sell to close a long). It is each user’s **realized P&L** from that reduction. Sum(closed_profit) across users does **not** have to equal zero (see `CLOSED_PROFIT_ZERO_SUM.md`). So **any** fill that closes part of a position adds to that user’s `closed_profit`; it does not depend on whether the trade was “risk off” or not.
 
 2. **Trade risk-off columns** (in `trades` table)  
    Record of **how much of this specific trade was “risk off”** (i.e. closed an existing position):
