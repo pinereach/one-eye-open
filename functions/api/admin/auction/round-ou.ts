@@ -40,6 +40,8 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const auctionType = (typeof body?.auction_type === 'string' ? body.auction_type.trim().toLowerCase() : '') || 'round_ou';
     const round = body?.round != null ? Number(body.round) : undefined;
     const participantId = typeof body?.participant_id === 'string' ? body.participant_id.trim() : '';
+    const existingOutcomeId = typeof body?.outcome_id === 'string' ? body.outcome_id.trim() : '';
+    const existingMarketId = typeof body?.market_id === 'string' ? body.market_id.trim() : '';
     const bids = Array.isArray(body?.bids) ? body.bids : [];
 
     const isRoundOu = auctionType === 'round_ou';
@@ -50,7 +52,10 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     if (isRoundOu && (round == null || !Number.isInteger(round) || round < 1 || round > 6)) {
       return errorResponse('round must be an integer between 1 and 6 for Round O/U', 400);
     }
-    if (!participantId) {
+    if (isPars && !existingOutcomeId && !participantId && !existingMarketId) {
+      return errorResponse('For Pars, provide outcome_id (existing outcome), market_id (new line in existing market), or participant_id (new market)', 400);
+    }
+    if (!isPars && !participantId) {
       return errorResponse('participant_id is required', 400);
     }
     if (bids.length < 2) {
@@ -69,16 +74,6 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       }
     }
 
-    const participant = await dbFirst<{ id: string; name: string }>(
-      db,
-      'SELECT id, name FROM participants WHERE id = ?',
-      [participantId]
-    );
-    if (!participant) {
-      return errorResponse('Participant not found', 404);
-    }
-    const participantName = participant.name;
-
     const userIds = new Set(bids.map((b: any) => Number(b.user_id)));
     for (const uid of userIds) {
       const user = await dbFirst<{ id: number }>(db, 'SELECT id FROM users WHERE id = ?', [uid]);
@@ -88,15 +83,69 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     }
 
     const N = bids.length;
-    const strikeNum = bids.reduce((s: number, b: any) => s + Number(b.guess), 0) / N;
-    const strikeStr = strikeNum % 1 === 0 ? String(strikeNum) : strikeNum.toFixed(1);
-    const strikeSlug = slugForOutcomeId(strikeStr.replace('.', '_'));
-    const participantSlug = slugForOutcomeId(participantName);
-
     let outcomeId: string;
     let resolvedMarketId: string;
-    let marketShortName: string;
-    let marketSymbol: string;
+    let strikeStr: string;
+    let participantName = '';
+
+    // Pars with existing outcome: use that outcome and market; no participant or creation
+    if (isPars && existingOutcomeId) {
+      const outcomeRow = await dbFirst<{ outcome_id: string; market_id: string; strike: string | null }>(
+        db,
+        'SELECT outcome_id, market_id, strike FROM outcomes WHERE outcome_id = ?',
+        [existingOutcomeId]
+      );
+      if (!outcomeRow) {
+        return errorResponse('Outcome not found', 404);
+      }
+      const marketRow = await dbFirst<{ market_id: string; market_type: string | null }>(
+        db,
+        'SELECT market_id, market_type FROM markets WHERE market_id = ?',
+        [outcomeRow.market_id]
+      );
+      if (!marketRow || marketRow.market_type !== 'pars') {
+        return errorResponse('Outcome must belong to a Pars market', 400);
+      }
+      outcomeId = outcomeRow.outcome_id;
+      resolvedMarketId = outcomeRow.market_id;
+      strikeStr = outcomeRow.strike != null && outcomeRow.strike !== '' ? String(outcomeRow.strike) : '0';
+    } else if (isPars && existingMarketId) {
+      // Pars with existing market (new line): create outcome under that market; strike from bids
+      const marketRow = await dbFirst<{ market_id: string; short_name: string; market_type: string | null }>(
+        db,
+        'SELECT market_id, short_name, market_type FROM markets WHERE market_id = ?',
+        [existingMarketId]
+      );
+      if (!marketRow || marketRow.market_type !== 'pars') {
+        return errorResponse('Market not found or not a Pars market', 400);
+      }
+      resolvedMarketId = marketRow.market_id;
+      const strikeNum = bids.reduce((s: number, b: any) => s + Number(b.guess), 0) / N;
+      strikeStr = strikeNum % 1 === 0 ? String(strikeNum) : strikeNum.toFixed(1);
+      const strikeSlug = slugForOutcomeId(strikeStr.replace('.', '_'));
+      const participantFromMarket = (marketRow.short_name || '').replace(/\s+Pars$/i, '').trim() || 'X';
+      participantName = participantFromMarket;
+      const participantSlug = slugForOutcomeId(participantFromMarket);
+      outcomeId = `outcome-pars-${participantSlug}-${strikeSlug}`;
+    } else {
+      // Round O/U or Pars with participant_id (create/find market and outcome)
+      const participant = await dbFirst<{ id: string; name: string }>(
+        db,
+        'SELECT id, name FROM participants WHERE id = ?',
+        [participantId]
+      );
+      if (!participant) {
+        return errorResponse('Participant not found', 404);
+      }
+      participantName = participant.name;
+
+      const strikeNum = bids.reduce((s: number, b: any) => s + Number(b.guess), 0) / N;
+      strikeStr = strikeNum % 1 === 0 ? String(strikeNum) : strikeNum.toFixed(1);
+      const strikeSlug = slugForOutcomeId(strikeStr.replace('.', '_'));
+      const participantSlug = slugForOutcomeId(participantName);
+
+      let marketShortName: string;
+      let marketSymbol: string;
 
     if (isPars) {
       marketShortName = `${participantName} Pars`;
@@ -139,6 +188,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       }
       resolvedMarketId = market.market_id;
     }
+    }
 
     let outcome = await dbFirst<{ outcome_id: string }>(
       db,
@@ -170,6 +220,12 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const shortUserIds = sortedBids.slice(0, half).map((b: any) => Number(b.user_id));
     const longUserIds = sortedBids.slice(half).map((b: any) => Number(b.user_id));
 
+    // Pars: trade price = average of all bids (e.g. 60, 52, 55, 54 → 55.25% → 5525 cents). Round O/U stays 50¢.
+    const avgBid = bids.reduce((s: number, b: any) => s + Number(b.guess), 0) / N;
+    const auctionPriceCents = isPars
+      ? Math.max(100, Math.min(9900, Math.round(avgBid * 100)))
+      : AUCTION_PRICE_CENTS;
+
     const createTime = Math.floor(Date.now() / 1000);
     let tradesCreated = 0;
 
@@ -182,7 +238,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
         resolvedMarketId,
         'auction',
         0,
-        AUCTION_PRICE_CENTS,
+        auctionPriceCents,
         CONTRACTS_PER_TRADE,
         outcomeId,
         takerUserId,
@@ -190,20 +246,20 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
         0
       );
 
-      await updatePositionsForFill(db, outcomeId, takerUserId, makerUserId, 'bid', AUCTION_PRICE_CENTS, CONTRACTS_PER_TRADE);
+      await updatePositionsForFill(db, outcomeId, takerUserId, makerUserId, 'bid', auctionPriceCents, CONTRACTS_PER_TRADE);
 
       const manualToken = `auction-${tradeId}`;
       await dbRun(
         db,
         `INSERT INTO orders (create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size, original_contract_size)
          VALUES (?, ?, ?, ?, ?, ?, 'filled', 'GTC', 0, 0, ?)`,
-        [createTime, takerUserId, `${manualToken}-t`, -tradeId, outcomeId, AUCTION_PRICE_CENTS, CONTRACTS_PER_TRADE]
+        [createTime, takerUserId, `${manualToken}-t`, -tradeId, outcomeId, auctionPriceCents, CONTRACTS_PER_TRADE]
       );
       await dbRun(
         db,
         `INSERT INTO orders (create_time, user_id, token, order_id, outcome, price, status, tif, side, contract_size, original_contract_size)
          VALUES (?, ?, ?, ?, ?, ?, 'filled', 'GTC', 1, 0, ?)`,
-        [createTime, makerUserId, `${manualToken}-m`, -tradeId, outcomeId, AUCTION_PRICE_CENTS, CONTRACTS_PER_TRADE]
+        [createTime, makerUserId, `${manualToken}-m`, -tradeId, outcomeId, auctionPriceCents, CONTRACTS_PER_TRADE]
       );
       tradesCreated++;
     }

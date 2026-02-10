@@ -298,7 +298,9 @@ export const api = {
   adminRunRoundOuAuction: (data: {
     auction_type?: 'round_ou' | 'pars';
     round?: number;
-    participant_id: string;
+    participant_id?: string;
+    outcome_id?: string;
+    market_id?: string;
     bids: Array<{ user_id: number; guess: number }>;
   }) =>
     apiRequest<{
