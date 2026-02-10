@@ -272,8 +272,6 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       tradesCreated++;
     }
 
-    await dbRun(db, 'UPDATE markets SET trading_paused = 0 WHERE market_id = ?', [resolvedMarketId]);
-
     return jsonResponse({
       market_id: resolvedMarketId,
       outcome_id: outcomeId,
