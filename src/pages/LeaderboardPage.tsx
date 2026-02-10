@@ -49,6 +49,7 @@ export function LeaderboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>(DEFAULT_SORT);
   const [sortDir, setSortDir] = useState<SortDir>(DEFAULT_SORT_DIR);
+  const [debugExpanded, setDebugExpanded] = useState(false);
 
   const sortedLeaderboard = useMemo(() => {
     if (leaderboard.length === 0) return [];
@@ -141,8 +142,20 @@ export function LeaderboardPage() {
 
         {/* Debug: system total — if non-zero, indicates a bug elsewhere in the stack */}
         {leaderboard.length > 0 && (
-          <div className={`rounded-lg border p-4 ${systemTotalCents === 0 ? 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80' : 'border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/20'}`}>
-            <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Debug checks</div>
+          <div className={`rounded-lg border ${systemTotalCents === 0 ? 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80' : 'border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/20'}`}>
+            <button
+              type="button"
+              onClick={() => setDebugExpanded((e) => !e)}
+              className="w-full flex items-center justify-between gap-2 p-4 text-left hover:bg-gray-100/80 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
+              aria-expanded={debugExpanded}
+            >
+              <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Debug checks</span>
+              <svg className={`w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0 transition-transform ${debugExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {debugExpanded && (
+            <div className="px-4 pb-4 pt-0">
             <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
               <span><span className="text-gray-600 dark:text-gray-400">System total (sum of all position P&amp;L):</span>{' '}
                 <span className={`font-semibold ${systemTotalCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
@@ -262,6 +275,8 @@ export function LeaderboardPage() {
                 </div>
               )}
             </div>
+            </div>
+            )}
           </div>
         )}
 
