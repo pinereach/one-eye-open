@@ -50,8 +50,10 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
          trades.price,
          trades.contracts,
          trades.create_time,
-         trades.risk_off_contracts,
-         trades.risk_off_price_diff,
+         trades.risk_off_contracts_taker,
+         trades.risk_off_contracts_maker,
+         trades.risk_off_price_diff_taker,
+         trades.risk_off_price_diff_maker,
          trades.outcome,
          trades.taker_user_id,
          trades.maker_user_id,
@@ -73,8 +75,12 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
         price: number;
         contracts: number;
         create_time?: number;
-        risk_off_contracts: number;
-        risk_off_price_diff: number;
+        risk_off_contracts_taker?: number;
+        risk_off_contracts_maker?: number;
+        risk_off_price_diff_taker?: number;
+        risk_off_price_diff_maker?: number;
+        risk_off_contracts?: number;
+        risk_off_price_diff?: number;
         outcome: string | null;
         outcome_name: string | null;
         outcome_ticker: string | null;
@@ -124,8 +130,10 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       price: t.price,
       contracts: t.contracts,
       create_time: createTime,
-      risk_off_contracts: t.risk_off_contracts ?? 0,
-      risk_off_price_diff: t.risk_off_price_diff ?? 0,
+      risk_off_contracts_taker: t.risk_off_contracts_taker ?? 0,
+      risk_off_contracts_maker: t.risk_off_contracts_maker ?? 0,
+      risk_off_price_diff_taker: t.risk_off_price_diff_taker ?? t.risk_off_price_diff ?? 0,
+      risk_off_price_diff_maker: t.risk_off_price_diff_maker ?? 0,
       outcome_name: t.outcome_name,
       outcome_ticker: t.outcome_ticker,
       side, // 0 = buy/bid, 1 = sell/ask (current user's side when authenticated)

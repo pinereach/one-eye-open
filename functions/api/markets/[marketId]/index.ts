@@ -114,7 +114,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       db,
       `SELECT 
          trades.id, trades.token, trades.price, trades.contracts, trades.create_time,
-         trades.risk_off_contracts, trades.risk_off_price_diff, trades.outcome,
+         trades.risk_off_contracts_taker, trades.risk_off_contracts_maker, trades.risk_off_price_diff_taker, trades.risk_off_price_diff_maker, trades.outcome,
          trades.taker_user_id, trades.maker_user_id, trades.taker_side,
          outcomes.name as outcome_name, outcomes.ticker as outcome_ticker
        FROM trades
@@ -129,7 +129,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       tradesDb = await dbQuery(
         db,
         `SELECT trades.id, trades.token, trades.price, trades.contracts, trades.create_time,
-                trades.risk_off_contracts, trades.risk_off_price_diff, trades.outcome,
+                trades.risk_off_contracts_taker, trades.risk_off_contracts_maker, trades.risk_off_price_diff_taker, trades.risk_off_price_diff_maker, trades.outcome,
                 outcomes.name as outcome_name, outcomes.ticker as outcome_ticker
          FROM trades LEFT JOIN outcomes ON trades.outcome = outcomes.outcome_id
          WHERE outcomes.market_id IN (${tradesMarketPh}) ORDER BY trades.id DESC LIMIT ?`,
@@ -161,8 +161,10 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       price: t.price,
       contracts: t.contracts,
       create_time: createTime,
-      risk_off_contracts: t.risk_off_contracts ?? 0,
-      risk_off_price_diff: t.risk_off_price_diff ?? 0,
+      risk_off_contracts_taker: t.risk_off_contracts_taker ?? 0,
+      risk_off_contracts_maker: t.risk_off_contracts_maker ?? 0,
+      risk_off_price_diff_taker: t.risk_off_price_diff_taker ?? t.risk_off_price_diff ?? 0,
+      risk_off_price_diff_maker: t.risk_off_price_diff_maker ?? 0,
       outcome: t.outcome ?? null,
       outcome_name: t.outcome_name,
       outcome_ticker: t.outcome_ticker,

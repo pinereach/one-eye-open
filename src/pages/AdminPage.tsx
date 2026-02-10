@@ -279,7 +279,7 @@ export function AdminPage() {
         <CardContent>
           <h2 className="text-base sm:text-lg font-bold mb-3">Fix closed profit sum</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-            <strong>Replay positions</strong> recomputes positions from trade history and backfills <code className="text-xs">risk_off_contracts</code> / <code className="text-xs">risk_off_price_diff</code> on each trade. <strong>Replay with full reset</strong> zeros all positions first, then replays (use for a clean slate). <strong>Rebalance</strong> only adjusts a system offset. <strong>Set from risk-off</strong> sets position closed profit from trade risk_off (run after replay to sync).
+            <strong>Replay positions</strong> recomputes positions from trade history and backfills <code className="text-xs">risk_off_contracts_taker/maker</code> and <code className="text-xs">risk_off_price_diff_taker/maker</code> on each trade. <strong>Replay with full reset</strong> zeros all positions first, then replays (use for a clean slate). <strong>Rebalance</strong> only adjusts a system offset. <strong>Set from risk-off</strong> sets position closed profit from trade risk_off (run after replay to sync).
           </p>
           <div className="flex flex-wrap gap-2">
             <button

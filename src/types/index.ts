@@ -66,8 +66,10 @@ export interface Trade {
   price: number;
   contracts: number;
   create_time: number;
-  risk_off_contracts: number;
-  risk_off_price_diff: number;
+  risk_off_contracts_taker: number;
+  risk_off_contracts_maker: number;
+  risk_off_price_diff_taker: number;
+  risk_off_price_diff_maker: number;
   outcome?: string | null;
   outcome_name?: string | null;
   outcome_ticker?: string | null;

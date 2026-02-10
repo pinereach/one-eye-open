@@ -43,7 +43,11 @@
     "dedupe-positions-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0054_dedupe_positions_unique.sql",
     "dedupe-positions-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0054_dedupe_positions_unique.sql",
     "risk-off-maker-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0055_add_risk_off_price_diff_maker.sql",
-    "risk-off-maker-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0055_add_risk_off_price_diff_maker.sql"
+    "risk-off-maker-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0055_add_risk_off_price_diff_maker.sql",
+    "risk-off-contracts-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0056_add_risk_off_contracts_taker_maker.sql",
+    "risk-off-contracts-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0056_add_risk_off_contracts_taker_maker.sql",
+    "rename-risk-off-local": "wrangler d1 execute golf-trip-db --local --file=./migrations/0057_rename_risk_off_to_taker_maker.sql",
+    "rename-risk-off-remote": "wrangler d1 execute golf-trip-db --remote --file=./migrations/0057_rename_risk_off_to_taker_maker.sql"
 },
   "dependencies": {
     "date-fns": "^2.30.0",

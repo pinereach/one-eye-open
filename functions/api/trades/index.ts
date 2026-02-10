@@ -36,14 +36,12 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   );
 
   // Now get trades with outcome and market information (only trades where user is taker or maker)
-  const tradesRows = await dbQuery<{
+  type TradeRow = {
     id: number;
     token: string;
     price: number;
     contracts: number;
     create_time: number;
-    risk_off_contracts: number;
-    risk_off_price_diff: number;
     outcome: string | null;
     outcome_name: string | null;
     outcome_ticker: string | null;
@@ -53,36 +51,36 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     taker_side: number | null;
     taker_user_id: number | null;
     maker_user_id: number | null;
-  }>(
-    db,
-    `SELECT 
-       t.id,
-       t.token,
-       t.price,
-       t.contracts,
-       t.create_time,
-       t.risk_off_contracts,
-       t.risk_off_price_diff,
-       t.outcome,
-       t.taker_side,
-       t.taker_user_id,
-       t.maker_user_id,
-       o.name as outcome_name,
-       o.ticker as outcome_ticker,
-       o.market_id,
-       m.short_name as market_short_name,
-       m.market_type
+    risk_off_contracts_taker?: number;
+    risk_off_contracts_maker?: number;
+    risk_off_price_diff_taker?: number;
+    risk_off_price_diff_maker?: number;
+    risk_off_contracts?: number;
+    risk_off_price_diff?: number;
+  };
+  const joinWhere = `
      FROM trades t
      LEFT JOIN outcomes o ON t.outcome = o.outcome_id
      LEFT JOIN markets m ON (m.market_id = o.market_id OR (o.market_id = 'market_total_birdies' AND m.market_id = 'market-total-birdies'))
      WHERE t.taker_user_id = ? OR t.maker_user_id = ?
      ORDER BY t.create_time DESC
-     LIMIT ?`,
-    [userId, userId, limit]
-  );
+     LIMIT ?`;
+  let tradesRows: TradeRow[];
+  try {
+    tradesRows = await dbQuery<TradeRow>(
+      db,
+      `SELECT t.id, t.token, t.price, t.contracts, t.create_time, t.risk_off_contracts_taker, t.risk_off_contracts_maker, t.risk_off_price_diff_taker, t.risk_off_price_diff_maker, t.outcome, t.taker_side, t.taker_user_id, t.maker_user_id, o.name as outcome_name, o.ticker as outcome_ticker, o.market_id, m.short_name as market_short_name, m.market_type ${joinWhere}`,
+      [userId, userId, limit]
+    );
+  } catch {
+    tradesRows = await dbQuery<TradeRow>(
+      db,
+      `SELECT t.id, t.token, t.price, t.contracts, t.create_time, t.risk_off_contracts, t.risk_off_price_diff, t.outcome, t.taker_side, t.taker_user_id, t.maker_user_id, o.name as outcome_name, o.ticker as outcome_ticker, o.market_id, m.short_name as market_short_name, m.market_type ${joinWhere}`,
+      [userId, userId, limit]
+    );
+  }
 
   const trades = tradesRows.map((t) => {
-    // "My side": when user is taker use taker_side; when user is maker use opposite
     const mySide =
       t.taker_side != null
         ? t.taker_user_id === userId
@@ -91,16 +89,21 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
             ? 1
             : 0
         : null;
-    // Normalize Total Birdies: use canonical market_id for links; short_name comes from JOIN above
     const market_id = t.market_id === 'market_total_birdies' ? 'market-total-birdies' : t.market_id;
+    const risk_off_contracts_taker = t.risk_off_contracts_taker ?? 0;
+    const risk_off_contracts_maker = t.risk_off_contracts_maker ?? 0;
+    const risk_off_price_diff_taker = t.risk_off_price_diff_taker ?? t.risk_off_price_diff ?? 0;
+    const risk_off_price_diff_maker = t.risk_off_price_diff_maker ?? 0;
     return {
       id: t.id,
       token: t.token,
       price: t.price,
       contracts: t.contracts,
       create_time: t.create_time,
-      risk_off_contracts: t.risk_off_contracts ?? 0,
-      risk_off_price_diff: t.risk_off_price_diff ?? 0,
+      risk_off_contracts_taker,
+      risk_off_contracts_maker,
+      risk_off_price_diff_taker,
+      risk_off_price_diff_maker,
       outcome: t.outcome,
       outcome_name: t.outcome_name,
       outcome_ticker: t.outcome_ticker,

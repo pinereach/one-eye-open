@@ -5,9 +5,9 @@ import { requireAdmin, jsonResponse, errorResponse } from '../../middleware';
 /**
  * POST /api/admin/closed-profit-from-risk-off — admin only.
  * Recomputes position closed_profit from trade risk-off columns:
- *   closed_profit(user, outcome) = sum(risk_off_price_diff) where taker_user_id=user + sum(risk_off_price_diff_maker) where maker_user_id=user.
+ *   closed_profit(user, outcome) = sum(risk_off_price_diff_taker) where taker_user_id=user + sum(risk_off_price_diff_maker) where maker_user_id=user.
  * Then sets system (user_id NULL) per outcome so sum(closed_profit) = 0 for that outcome.
- * Use after backfilling risk_off_contracts/risk_off_price_diff/risk_off_price_diff_maker on trades (e.g. via replay).
+ * Use after backfilling risk_off_contracts_taker, risk_off_contracts_maker, risk_off_price_diff_taker, risk_off_price_diff_maker on trades (e.g. via replay).
  */
 export const onRequestPost: OnRequest<Env> = async (context) => {
   const { request, env } = context;
@@ -26,13 +26,24 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       []
     );
 
-    const tradesByTaker = await dbQuery<{ outcome: string; user_id: number; sum_cents: number }>(
-      db,
-      `SELECT outcome, taker_user_id AS user_id, COALESCE(SUM(risk_off_price_diff), 0) AS sum_cents
-       FROM trades WHERE outcome IS NOT NULL AND outcome != '' AND taker_user_id IS NOT NULL
-       GROUP BY outcome, taker_user_id`,
-      []
-    );
+    let tradesByTaker: { outcome: string; user_id: number; sum_cents: number }[];
+    try {
+      tradesByTaker = await dbQuery<{ outcome: string; user_id: number; sum_cents: number }>(
+        db,
+        `SELECT outcome, taker_user_id AS user_id, COALESCE(SUM(risk_off_price_diff_taker), 0) AS sum_cents
+         FROM trades WHERE outcome IS NOT NULL AND outcome != '' AND taker_user_id IS NOT NULL
+         GROUP BY outcome, taker_user_id`,
+        []
+      );
+    } catch {
+      tradesByTaker = await dbQuery<{ outcome: string; user_id: number; sum_cents: number }>(
+        db,
+        `SELECT outcome, taker_user_id AS user_id, COALESCE(SUM(risk_off_price_diff), 0) AS sum_cents
+         FROM trades WHERE outcome IS NOT NULL AND outcome != '' AND taker_user_id IS NOT NULL
+         GROUP BY outcome, taker_user_id`,
+        []
+      );
+    }
     let tradesByMaker: { outcome: string; user_id: number; sum_cents: number }[];
     let useMakerColumn = true;
     try {
@@ -103,7 +114,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
     return jsonResponse({
       applied: true,
-      message: `Set closed_profit from trade risk_off_price_diff for ${updated} user positions; system rows updated for ${outcomeUserTotalCents.size} outcome(s).`,
+      message: `Set closed_profit from trade risk_off_price_diff_taker/maker for ${updated} user positions; system rows updated for ${outcomeUserTotalCents.size} outcome(s).`,
       positions_updated: updated,
       outcomes_system_updated: outcomeUserTotalCents.size,
     });

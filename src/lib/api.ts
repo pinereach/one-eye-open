@@ -243,8 +243,8 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  adminPatchTradeRiskOff: (tradeId: number, data: { risk_off_contracts?: number; risk_off_price_diff?: number }) =>
-    apiRequest<{ trade: { id: number; outcome: string; risk_off_contracts: number; risk_off_price_diff: number; taker_user_id?: number; maker_user_id?: number | null }; success: boolean }>(`/admin/trades/${tradeId}`, {
+  adminPatchTradeRiskOff: (tradeId: number, data: { risk_off_contracts_taker?: number; risk_off_contracts_maker?: number; risk_off_price_diff_taker?: number; risk_off_price_diff_maker?: number }) =>
+    apiRequest<{ trade: { id: number; outcome: string; risk_off_contracts_taker: number; risk_off_contracts_maker: number; risk_off_price_diff_taker: number; risk_off_price_diff_maker: number; taker_user_id?: number; maker_user_id?: number | null }; success: boolean }>(`/admin/trades/${tradeId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
@@ -254,7 +254,7 @@ export const api = {
       method: 'DELETE',
     }),
 
-  /** Recompute position closed_profit from trade risk_off_price_diff (taker sum − maker sum per user/outcome). Run after backfilling risk_off on trades. */
+  /** Recompute position closed_profit from trade risk_off_price_diff_taker/maker per user/outcome. Run after backfilling risk_off on trades. */
   adminClosedProfitFromRiskOff: () =>
     apiRequest<{
       applied: boolean;

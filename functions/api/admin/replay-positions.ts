@@ -99,7 +99,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
     let totalTradesReplayed = 0;
     let lastTradeIdProcessed: number | null = null;
-    const tradeUpdates: { id: number; riskOffContracts: number; riskOffPriceDiffCents: number; riskOffPriceDiffMakerCents: number }[] = [];
+    const tradeUpdates: { id: number; riskOffContractsTaker: number; riskOffContractsMaker: number; riskOffPriceDiffCents: number; riskOffPriceDiffMakerCents: number }[] = [];
 
     for (const t of tradesToProcess) {
       const outcomeId = t.outcome;
@@ -127,7 +127,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
         makerNet = makerPos?.net_position ?? 0;
         makerBasis = makerPos?.price_basis ?? 0;
       }
-      const { riskOffContracts, riskOffPriceDiffCents, riskOffPriceDiffMakerCents } = computeRiskOffForFill(
+      const { riskOffContractsTaker, riskOffContractsMaker, riskOffPriceDiffCents, riskOffPriceDiffMakerCents } = computeRiskOffForFill(
         takerNet,
         takerBasis,
         makerNet,
@@ -151,7 +151,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
         await addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta, netPositionDelta, price);
       }
 
-      tradeUpdates.push({ id: t.id, riskOffContracts, riskOffPriceDiffCents, riskOffPriceDiffMakerCents });
+      tradeUpdates.push({ id: t.id, riskOffContractsTaker, riskOffContractsMaker, riskOffPriceDiffCents, riskOffPriceDiffMakerCents });
       lastTradeIdProcessed = t.id;
       totalTradesReplayed++;
     }
@@ -161,16 +161,16 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
         await dbBatch(
           db,
           tradeUpdates.map((u) => ({
-            sql: 'UPDATE trades SET risk_off_contracts = ?, risk_off_price_diff = ?, risk_off_price_diff_maker = ? WHERE id = ?',
-            params: [u.riskOffContracts, u.riskOffPriceDiffCents, u.riskOffPriceDiffMakerCents, u.id],
+            sql: 'UPDATE trades SET risk_off_contracts_taker = ?, risk_off_contracts_maker = ?, risk_off_price_diff_taker = ?, risk_off_price_diff_maker = ? WHERE id = ?',
+            params: [u.riskOffContractsTaker, u.riskOffContractsMaker, u.riskOffPriceDiffCents, u.riskOffPriceDiffMakerCents, u.id],
           }))
         );
       } catch {
         await dbBatch(
           db,
           tradeUpdates.map((u) => ({
-            sql: 'UPDATE trades SET risk_off_contracts = ?, risk_off_price_diff = ? WHERE id = ?',
-            params: [u.riskOffContracts, u.riskOffPriceDiffCents, u.id],
+            sql: 'UPDATE trades SET risk_off_contracts = ?, risk_off_contracts_taker = ?, risk_off_contracts_maker = ?, risk_off_price_diff = ?, risk_off_price_diff_maker = ? WHERE id = ?',
+            params: [u.riskOffContractsTaker + u.riskOffContractsMaker, u.riskOffContractsTaker, u.riskOffContractsMaker, u.riskOffPriceDiffCents, u.riskOffPriceDiffMakerCents, u.id],
           }))
         );
       }

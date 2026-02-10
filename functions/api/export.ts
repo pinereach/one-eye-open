@@ -39,15 +39,23 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     try {
       trades = await dbQuery(
         db,
-        `SELECT t.id, t.token, t.price, t.contracts, t.create_time, t.risk_off_contracts, t.risk_off_price_diff, t.risk_off_price_diff_maker, t.outcome, t.taker_user_id, t.maker_user_id, t.taker_side FROM trades t ORDER BY t.create_time DESC`,
+        `SELECT t.id, t.token, t.price, t.contracts, t.create_time, t.risk_off_contracts_taker, t.risk_off_contracts_maker, t.risk_off_price_diff_taker, t.risk_off_price_diff_maker, t.outcome, t.taker_user_id, t.maker_user_id, t.taker_side FROM trades t ORDER BY t.create_time DESC`,
         []
       );
     } catch {
-      trades = await dbQuery(
-        db,
-        `SELECT t.id, t.token, t.price, t.contracts, t.create_time, t.risk_off_contracts, t.risk_off_price_diff, t.outcome, t.taker_user_id, t.maker_user_id, t.taker_side FROM trades t ORDER BY t.create_time DESC`,
-        []
-      );
+      try {
+        trades = await dbQuery(
+          db,
+          `SELECT t.id, t.token, t.price, t.contracts, t.create_time, t.risk_off_contracts, t.risk_off_contracts_taker, t.risk_off_contracts_maker, t.risk_off_price_diff, t.risk_off_price_diff_maker, t.outcome, t.taker_user_id, t.maker_user_id, t.taker_side FROM trades t ORDER BY t.create_time DESC`,
+          []
+        );
+      } catch {
+        trades = await dbQuery(
+          db,
+          `SELECT t.id, t.token, t.price, t.contracts, t.create_time, t.risk_off_contracts, t.risk_off_price_diff, t.outcome, t.taker_user_id, t.maker_user_id, t.taker_side FROM trades t ORDER BY t.create_time DESC`,
+          []
+        );
+      }
     }
     const csv = arrayToCSV(trades);
 
