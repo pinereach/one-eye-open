@@ -25,6 +25,14 @@ function initials(name: string): string {
 const AUCTION_PRICE_CENTS = 5000;
 const CONTRACTS_PER_TRADE = 1;
 
+/** Treat as Pars market if market_type is pars/market_total_pars or short_name contains "Pars". */
+function isParsMarket(market: { market_type: string | null; short_name?: string | null }): boolean {
+  const type = (market.market_type || '').toLowerCase();
+  if (type === 'pars' || type === 'market_total_pars') return true;
+  const name = (market.short_name || '').toLowerCase();
+  return name.includes('pars');
+}
+
 export const onRequestPost: OnRequest<Env> = async (context) => {
   const { request, env } = context;
 
@@ -98,12 +106,12 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       if (!outcomeRow) {
         return errorResponse('Outcome not found', 404);
       }
-      const marketRow = await dbFirst<{ market_id: string; market_type: string | null }>(
+      const marketRow = await dbFirst<{ market_id: string; market_type: string | null; short_name: string | null }>(
         db,
-        'SELECT market_id, market_type FROM markets WHERE market_id = ?',
+        'SELECT market_id, market_type, short_name FROM markets WHERE market_id = ?',
         [outcomeRow.market_id]
       );
-      if (!marketRow || marketRow.market_type !== 'pars') {
+      if (!marketRow || !isParsMarket(marketRow)) {
         return errorResponse('Outcome must belong to a Pars market', 400);
       }
       outcomeId = outcomeRow.outcome_id;
@@ -116,7 +124,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
         'SELECT market_id, short_name, market_type FROM markets WHERE market_id = ?',
         [existingMarketId]
       );
-      if (!marketRow || marketRow.market_type !== 'pars') {
+      if (!marketRow || !isParsMarket(marketRow)) {
         return errorResponse('Market not found or not a Pars market', 400);
       }
       resolvedMarketId = marketRow.market_id;
