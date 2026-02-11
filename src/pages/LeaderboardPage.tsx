@@ -267,6 +267,55 @@ export function LeaderboardPage() {
               </div>
             )}
 
+            {/* By outcome: one row per outcome with Unrealized / Closed / Settled for reconciliation */}
+            {(Object.keys(pnlByOutcome).length > 0 || Object.keys(closedProfitByOutcome).length > 0 || Object.keys(settledProfitByOutcome).length > 0) && (
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Debug by outcome</div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Unrealized should be $0 per outcome (zero-sum). Closed/settled can be non-zero.</p>
+                <div className="overflow-x-auto max-h-64 overflow-y-auto rounded border border-gray-200 dark:border-gray-600">
+                  <table className="w-full min-w-[400px] border-collapse text-sm">
+                    <thead className="sticky top-0 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600">
+                      <tr>
+                        <th className="py-1.5 px-2 text-left text-xs font-bold text-gray-600 dark:text-gray-400">Outcome</th>
+                        <th className="py-1.5 px-2 text-right text-xs font-bold text-gray-600 dark:text-gray-400">Unrealized</th>
+                        <th className="py-1.5 px-2 text-right text-xs font-bold text-gray-600 dark:text-gray-400">Closed</th>
+                        <th className="py-1.5 px-2 text-right text-xs font-bold text-gray-600 dark:text-gray-400">Settled</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const allOutcomes = new Set([
+                          ...Object.keys(pnlByOutcome),
+                          ...Object.keys(closedProfitByOutcome),
+                          ...Object.keys(settledProfitByOutcome),
+                        ]);
+                        return Array.from(allOutcomes)
+                          .sort((a, b) => {
+                            const uA = pnlByOutcome[a] ?? 0;
+                            const uB = pnlByOutcome[b] ?? 0;
+                            return Math.abs(uB) - Math.abs(uA);
+                          })
+                          .map((outcome) => {
+                            const unrealized = pnlByOutcome[outcome] ?? 0;
+                            const closed = closedProfitByOutcome[outcome] ?? 0;
+                            const settled = settledProfitByOutcome[outcome] ?? 0;
+                            const hasImbalance = unrealized !== 0;
+                            return (
+                              <tr key={outcome} className={`border-b border-gray-100 dark:border-gray-700 ${hasImbalance ? 'bg-amber-50/50 dark:bg-amber-900/10' : ''}`}>
+                                <td className="py-1 px-2 font-mono text-xs text-gray-800 dark:text-gray-200 truncate max-w-[200px]" title={outcome}>{outcome}</td>
+                                <td className={`py-1 px-2 text-right font-mono ${unrealized > 0 ? 'text-green-600 dark:text-green-400' : unrealized < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>{formatPortfolio(unrealized, true)}</td>
+                                <td className={`py-1 px-2 text-right font-mono ${closed > 0 ? 'text-green-600 dark:text-green-400' : closed < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>{formatPortfolio(closed, true)}</td>
+                                <td className={`py-1 px-2 text-right font-mono ${settled > 0 ? 'text-green-600 dark:text-green-400' : settled < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>{formatPortfolio(settled, true)}</td>
+                              </tr>
+                            );
+                          });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* Closed / settled profit — closed is per-user realized P&L (total may be non-zero); settled should sum to $0 */}
             <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
               <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Closed / settled profit</div>
