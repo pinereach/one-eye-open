@@ -39,19 +39,16 @@ export function PositionsPage() {
     }
   }
 
+  // Portfolio value = unrealized P&L only. Closed and settled profit are separate totals below.
   const totalPositionValueCents = positionsToShow.reduce((sum, position) => {
-    let contribution = 0;
-    if (position.net_position !== 0) {
-      const currentPrice = position.current_price !== null && position.current_price !== undefined ? position.current_price : null;
-      if (currentPrice !== null) {
-        const costCents = position.net_position * position.price_basis;
-        contribution =
-          position.net_position < 0
-            ? (position.price_basis - currentPrice) * Math.abs(position.net_position)
-            : position.net_position * currentPrice - costCents;
-      }
-    }
-    contribution += (position.closed_profit ?? 0) + (position.settled_profit ?? 0);
+    if (position.net_position === 0) return sum;
+    const currentPrice = position.current_price !== null && position.current_price !== undefined ? position.current_price : null;
+    if (currentPrice === null) return sum;
+    const costCents = position.net_position * position.price_basis;
+    const contribution =
+      position.net_position < 0
+        ? (position.price_basis - currentPrice) * Math.abs(position.net_position)
+        : position.net_position * currentPrice - costCents;
     return sum + contribution;
   }, 0);
 
@@ -179,7 +176,7 @@ export function PositionsPage() {
       {positionsToShow.length > 0 && (
         <div className="flex flex-wrap items-stretch gap-x-6 gap-y-3">
           <div className="flex flex-1 min-w-[120px] flex-col gap-0.5">
-            <span className="text-sm text-gray-600 dark:text-gray-400">Portfolio value</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">Portfolio value (unrealized)</span>
             <span className={`text-lg sm:text-xl font-bold ${totalPositionValueCents > 0 ? 'text-green-600 dark:text-green-400' : totalPositionValueCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
               {totalPositionValueCents > 0 ? '+' : ''}{formatPriceRound10(totalPositionValueCents)}
             </span>

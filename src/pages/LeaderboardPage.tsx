@@ -138,7 +138,7 @@ export function LeaderboardPage() {
     <PullToRefresh onRefresh={loadLeaderboard}>
       <div className="space-y-4 sm:space-y-6">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Leaderboard</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Per-user stats: trades, open orders, shares traded, closed profit (realized P&amp;L), settled profit, portfolio value. Portfolio value is zero-sum (system total should be $0); closed profit total may be non-zero.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Per-user stats: trades, open orders, shares traded, closed profit (realized P&amp;L), settled profit, portfolio value (unrealized P&amp;L only). Portfolio value is zero-sum (system total should be $0). Closed and settled profit are separate.</p>
 
         {/* Debug: system total — if non-zero, indicates a bug elsewhere in the stack */}
         {leaderboard.length > 0 && (
@@ -300,7 +300,7 @@ export function LeaderboardPage() {
                     <span className={`text-right font-medium ${row.closed_profit_cents > 0 ? 'text-green-600 dark:text-green-400' : row.closed_profit_cents < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{formatPortfolio(row.closed_profit_cents, true)}</span>
                     <span className="text-gray-500 dark:text-gray-400">Settled profit</span>
                     <span className={`text-right font-medium ${row.settled_profit_cents > 0 ? 'text-green-600 dark:text-green-400' : row.settled_profit_cents < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{formatPortfolio(row.settled_profit_cents, true)}</span>
-                    <span className="text-gray-500 dark:text-gray-400">Portfolio value</span>
+                    <span className="text-gray-500 dark:text-gray-400">Portfolio value (unrealized)</span>
                     <span className={`text-right font-medium ${row.portfolio_value_cents > 0 ? 'text-green-600 dark:text-green-400' : row.portfolio_value_cents < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{formatPortfolio(row.portfolio_value_cents, true)}</span>
                   </div>
                 </CardContent>
@@ -379,7 +379,7 @@ export function LeaderboardPage() {
                 </th>
                 <th className="py-3 px-4 text-right text-xs font-bold text-gray-600 dark:text-gray-400">
                   <button type="button" onClick={() => handleSort('portfolio_value_cents')} className="inline-flex items-center gap-1 ml-auto hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded" aria-sort={sortBy === 'portfolio_value_cents' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}>
-                    Portfolio value {sortBy === 'portfolio_value_cents' && (sortDir === 'asc' ? '↑' : '↓')}
+                    Portfolio value (unrealized) {sortBy === 'portfolio_value_cents' && (sortDir === 'asc' ? '↑' : '↓')}
                   </button>
                 </th>
               </tr>

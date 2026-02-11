@@ -69,7 +69,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     const sharesByUser = new Map<number, number>();
     sharesRows.forEach((r) => sharesByUser.set(r.user_id, r.total ?? 0));
 
-    // Portfolio value = total P&L (unrealized + closed + settled), matching Positions page.
+    // Portfolio value = unrealized P&L only (mark-to-market vs cost basis). Closed and settled profit are separate.
     // Include ALL positions so we can compute unattributed P&L (user_id IS NULL). We sum raw P&L then round
     // once per aggregate (system total, per-user, unattributed) to avoid rounding error from (bid+ask)/2.
     const positionsRows = await dbQuery<{ user_id: number | null; outcome: string; net_position: number; price_basis: number; closed_profit: number; settled_profit: number }>(
@@ -95,7 +95,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       bidsRows.forEach((r) => { if (bestBidByOutcome[r.outcome] == null) bestBidByOutcome[r.outcome] = r.price; });
       asksRows.forEach((r) => { if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price; });
     }
-    // Use integer cents for current price so unrealized P&L is integer; sum of position P&L then nets to 0 exactly in zero-sum.
+    // Use integer cents for current price so unrealized P&L is integer; sum of unrealized P&L nets to 0 in zero-sum.
     const currentPriceByOutcome: Record<string, number> = {};
     outcomeIds.forEach((outcome) => {
       const bid = bestBidByOutcome[outcome] ?? null;
@@ -103,18 +103,14 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       const mid = (bid != null && ask != null) ? (bid + ask) / 2 : (bid ?? ask ?? null);
       if (mid != null) currentPriceByOutcome[outcome] = Math.round(mid);
     });
-    // Raw P&L (no rounding) so we can sum then round once — avoids rounding error on system total.
-    function pnlRaw(p: { net_position: number; price_basis: number; closed_profit: number; settled_profit: number }, currentPrice: number | null): number {
-      let contribution = p.closed_profit + p.settled_profit;
-      if (p.net_position !== 0 && currentPrice != null) {
-        const costCents = p.net_position * p.price_basis;
-        if (p.net_position < 0) {
-          contribution += (p.price_basis - currentPrice) * Math.abs(p.net_position);
-        } else {
-          contribution += p.net_position * currentPrice - costCents;
-        }
+    // Unrealized P&L only (no closed/settled). Used for portfolio_value_cents so closed profit stays a separate column.
+    function unrealizedPnlRaw(p: { net_position: number; price_basis: number }, currentPrice: number | null): number {
+      if (p.net_position === 0 || currentPrice == null) return 0;
+      const costCents = p.net_position * p.price_basis;
+      if (p.net_position < 0) {
+        return (p.price_basis - currentPrice) * Math.abs(p.net_position);
       }
-      return contribution;
+      return p.net_position * currentPrice - costCents;
     }
 
     const userIds = new Set(users.map((u) => u.id));
@@ -135,16 +131,16 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     let systemTotalSettledProfitCents = 0;
     for (const p of positionsRows) {
       const currentPrice = currentPriceByOutcome[p.outcome] ?? null;
-      const contributionRaw = pnlRaw(p, currentPrice);
-      const contributionRounded = Math.round(contributionRaw);
-      systemTotalCentsRaw += contributionRaw;
+      const unrealizedRaw = unrealizedPnlRaw(p, currentPrice);
+      const unrealizedRounded = Math.round(unrealizedRaw);
+      systemTotalCentsRaw += unrealizedRaw;
       systemTotalClosedProfitCents += p.closed_profit;
       systemTotalSettledProfitCents += p.settled_profit;
-      pnlByOutcome[p.outcome] = (pnlByOutcome[p.outcome] ?? 0) + contributionRaw;
+      pnlByOutcome[p.outcome] = (pnlByOutcome[p.outcome] ?? 0) + unrealizedRaw;
       closedProfitByOutcome[p.outcome] = (closedProfitByOutcome[p.outcome] ?? 0) + p.closed_profit;
       settledProfitByOutcome[p.outcome] = (settledProfitByOutcome[p.outcome] ?? 0) + p.settled_profit;
-      if (contributionRounded !== 0) {
-        positionContributions.push({ outcome: p.outcome, user_id: p.user_id, contribution_cents: contributionRounded });
+      if (unrealizedRounded !== 0) {
+        positionContributions.push({ outcome: p.outcome, user_id: p.user_id, contribution_cents: unrealizedRounded });
       }
       if (p.closed_profit !== 0) {
         closedProfitContributions.push({ outcome: p.outcome, user_id: p.user_id, closed_profit_cents: p.closed_profit });
@@ -154,11 +150,11 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       }
       // Unattributed: no user_id, or user_id not in current users table (e.g. deleted user)
       if (p.user_id == null || !userIds.has(p.user_id)) {
-        unattributedCentsRaw += contributionRaw;
+        unattributedCentsRaw += unrealizedRaw;
         unattributedClosedProfitCents += p.closed_profit;
         unattributedSettledProfitCents += p.settled_profit;
       } else {
-        portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + contributionRaw);
+        portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + unrealizedRaw);
         closedProfitByUser.set(p.user_id, (closedProfitByUser.get(p.user_id) ?? 0) + p.closed_profit);
         settledProfitByUser.set(p.user_id, (settledProfitByUser.get(p.user_id) ?? 0) + p.settled_profit);
       }
