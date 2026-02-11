@@ -1,12 +1,13 @@
 import type { OnRequest } from '@cloudflare/pages';
 import { getDb, dbQuery, dbRun, dbFirst, type Env } from '../../lib/db';
 import { requireAdmin, jsonResponse, errorResponse } from '../../middleware';
+import { SYSTEM_USER_ID } from '../../lib/matching';
 
 /**
  * POST /api/admin/closed-profit-from-risk-off — admin only.
  * Recomputes position closed_profit from trade risk-off columns:
  *   closed_profit(user, outcome) = sum(risk_off_price_diff_taker) where taker_user_id=user + sum(risk_off_price_diff_maker) where maker_user_id=user.
- * Sets system (user_id NULL) per outcome to closed_profit = 0 (closed profit is per-user realized P&L; total need not sum to zero).
+ * Sets system (user_id = SYSTEM_USER_ID) per outcome to closed_profit = 0 (closed profit is per-user realized P&L; total need not sum to zero).
  * Use after backfilling risk_off_contracts_taker, risk_off_contracts_maker, risk_off_price_diff_taker, risk_off_price_diff_maker on trades (e.g. via replay).
  */
 export const onRequestPost: OnRequest<Env> = async (context) => {
@@ -91,22 +92,22 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     for (const [outcome] of outcomeUserTotalCents) {
       const existing = await dbFirst<{ id: number }>(
         db,
-        'SELECT id FROM positions WHERE outcome = ? AND user_id IS NULL',
-        [outcome]
+        'SELECT id FROM positions WHERE outcome = ? AND user_id = ?',
+        [outcome, SYSTEM_USER_ID]
       );
       const now = Math.floor(Date.now() / 1000);
       if (existing) {
         await dbRun(
           db,
-          'UPDATE positions SET closed_profit = 0 WHERE outcome = ? AND user_id IS NULL',
-          [outcome]
+          'UPDATE positions SET closed_profit = 0 WHERE outcome = ? AND user_id = ?',
+          [outcome, SYSTEM_USER_ID]
         );
       } else {
         await dbRun(
           db,
           `INSERT INTO positions (user_id, outcome, net_position, price_basis, closed_profit, settled_profit, is_settled, create_time)
-           VALUES (NULL, ?, 0, 0, 0, 0, 0, ?)`,
-          [outcome, now]
+           VALUES (?, ?, 0, 0, 0, 0, 0, ?)`,
+          [SYSTEM_USER_ID, outcome, now]
         );
       }
     }

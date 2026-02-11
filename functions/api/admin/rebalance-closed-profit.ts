@@ -1,13 +1,14 @@
 import type { OnRequest } from '@cloudflare/pages';
 import { getDb, dbFirst, dbRun, dbQuery, type Env } from '../../lib/db';
 import { requireAdmin, jsonResponse, errorResponse } from '../../middleware';
+import { SYSTEM_USER_ID } from '../../lib/matching';
 
 const OFFSET_OUTCOME = '__closed_profit_offset';
 
 /**
  * POST /api/admin/rebalance-closed-profit — admin only.
  * One-time fix: ensures sum(closed_profit) across all positions = 0 by inserting or
- * updating a system row (user_id NULL, outcome __closed_profit_offset). Call once to
+ * updating a system row (user_id = SYSTEM_USER_ID, outcome __closed_profit_offset). Call once to
  * fix historical imbalance; new fills are already zero-sum from matching logic.
  */
 export const onRequestPost: OnRequest<Env> = async (context) => {
@@ -38,8 +39,8 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
     const existing = await dbFirst<{ id: number; closed_profit: number }>(
       db,
-      'SELECT id, closed_profit FROM positions WHERE outcome = ? AND user_id IS NULL',
-      [OFFSET_OUTCOME]
+      'SELECT id, closed_profit FROM positions WHERE outcome = ? AND user_id = ?',
+      [OFFSET_OUTCOME, SYSTEM_USER_ID]
     );
 
     const now = Math.floor(Date.now() / 1000);
@@ -48,8 +49,8 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       const newOffsetCents = existing.closed_profit - totalCents;
       await dbRun(
         db,
-        'UPDATE positions SET closed_profit = ? WHERE outcome = ? AND user_id IS NULL',
-        [newOffsetCents, OFFSET_OUTCOME]
+        'UPDATE positions SET closed_profit = ? WHERE outcome = ? AND user_id = ?',
+        [newOffsetCents, OFFSET_OUTCOME, SYSTEM_USER_ID]
       );
       return jsonResponse({
         applied: true,
@@ -63,8 +64,8 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     await dbRun(
       db,
       `INSERT INTO positions (user_id, outcome, net_position, price_basis, closed_profit, settled_profit, is_settled, create_time)
-       VALUES (NULL, ?, 0, 0, ?, 0, 0, ?)`,
-      [OFFSET_OUTCOME, -totalCents, now]
+       VALUES (?, ?, 0, 0, ?, 0, 0, ?)`,
+      [SYSTEM_USER_ID, OFFSET_OUTCOME, -totalCents, now]
     );
     return jsonResponse({
       applied: true,

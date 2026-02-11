@@ -5,6 +5,9 @@ import { dbQuery, dbFirst, dbRun } from './db';
 const PRICE_BASIS_MIN_CENTS = 100;
 const PRICE_BASIS_MAX_CENTS = 9900;
 
+/** Reserved user_id for the "system" position (counterparty when maker has no user, rounding residuals). Every position has a non-null user_id. */
+export const SYSTEM_USER_ID = 0;
+
 export interface Order {
   id: string;
   market_id: string;
@@ -688,10 +691,9 @@ export async function updatePosition(
 
 /**
  * Apply an optional closed_profit offset and/or (when provided) opposite net_position/price_basis to the system
- * position (user_id NULL). Used for: (1) cost-basis rounding residual (makerClosedAdjust) so unrealized P&L stays zero-sum;
+ * position (user_id = SYSTEM_USER_ID). Used for: (1) cost-basis rounding residual (makerClosedAdjust) so unrealized P&L stays zero-sum;
  * (2) when maker has no user, pass netPositionDelta and fillPriceCents so the system holds the opposite position and
- * sum(net_position)=0. Closed profit is no longer forced to sum to zero; pass 0 for closedProfitOffsetCents when
- * only updating the system's net position.
+ * sum(net_position)=0. Every position has a non-null user_id; system uses reserved SYSTEM_USER_ID.
  */
 export async function addSystemClosedProfitOffset(
   db: D1Database,
@@ -703,8 +705,8 @@ export async function addSystemClosedProfitOffset(
   const now = Math.floor(Date.now() / 1000);
   const existing = await dbFirst<{ id: number; closed_profit: number; net_position: number; price_basis: number }>(
     db,
-    'SELECT id, closed_profit, net_position, price_basis FROM positions WHERE outcome = ? AND user_id IS NULL',
-    [outcomeId]
+    'SELECT id, closed_profit, net_position, price_basis FROM positions WHERE outcome = ? AND user_id = ?',
+    [outcomeId, SYSTEM_USER_ID]
   );
 
   const updateNetAndBasis = netPositionDelta != null && netPositionDelta !== 0 && fillPriceCents != null;
@@ -730,8 +732,8 @@ export async function addSystemClosedProfitOffset(
     }
     await dbRun(
       db,
-      'UPDATE positions SET closed_profit = ?, net_position = ?, price_basis = ? WHERE outcome = ? AND user_id IS NULL',
-      [newClosed, newNet, newBasis, outcomeId]
+      'UPDATE positions SET closed_profit = ?, net_position = ?, price_basis = ? WHERE outcome = ? AND user_id = ?',
+      [newClosed, newNet, newBasis, outcomeId, SYSTEM_USER_ID]
     );
   } else {
     const initialNet = updateNetAndBasis ? systemNetDelta : 0;
@@ -743,8 +745,8 @@ export async function addSystemClosedProfitOffset(
     await dbRun(
       db,
       `INSERT INTO positions (user_id, outcome, net_position, price_basis, closed_profit, settled_profit, is_settled, create_time)
-       VALUES (NULL, ?, ?, ?, ?, 0, 0, ?)`,
-      [outcomeId, initialNet, basisClamped, closedProfitOffsetCents, now]
+       VALUES (?, ?, ?, ?, ?, 0, 0, ?)`,
+      [SYSTEM_USER_ID, outcomeId, initialNet, basisClamped, closedProfitOffsetCents, now]
     );
   }
 }

@@ -18,9 +18,9 @@ type TradeRow = {
 
 /**
  * POST /api/admin/replay-positions — admin only.
- * Resets net_position, price_basis, closed_profit for all positions then replays every trade
- * in order using the correct zero-sum logic (updatePositionsForFill or updatePosition +
- * addSystemClosedProfitOffset). Use this to fix positions after the manual/auction closed-profit bug.
+ * Replays every trade in order to recompute positions. With full_reset: deletes all position rows
+ * first so positions are re-created only from the trade log (no leftover rows, no null user_id).
+ * Without full_reset: zeros net_position, price_basis, closed_profit per outcome then replays.
  * Does not change settled_profit or is_settled.
  */
 export const onRequestPost: OnRequest<Env> = async (context) => {
@@ -55,15 +55,8 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     );
     const outcomes = outcomeRows.map((r) => r.outcome);
 
-    if (fullReset && outcomes.length > 0 && afterTradeId == null) {
-      const allOutcomes = await dbQuery<{ outcome: string }>(db, 'SELECT DISTINCT outcome FROM positions', []);
-      for (const row of allOutcomes) {
-        await dbRun(
-          db,
-          `UPDATE positions SET net_position = 0, price_basis = 0, closed_profit = 0 WHERE outcome = ?`,
-          [row.outcome]
-        );
-      }
+    if (fullReset && afterTradeId == null) {
+      await dbRun(db, 'DELETE FROM positions', []);
     }
 
     const skippedRows =

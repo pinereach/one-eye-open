@@ -70,7 +70,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     sharesRows.forEach((r) => sharesByUser.set(r.user_id, r.total ?? 0));
 
     // Portfolio value = unrealized P&L only (mark-to-market vs cost basis). Closed and settled profit are separate.
-    // Include ALL positions so we can compute unattributed P&L (user_id IS NULL). We sum raw P&L then round
+    // Include ALL positions so we can compute unattributed P&L (user_id = 0/system or user not in users table). We sum raw P&L then round
     // once per aggregate (system total, per-user, unattributed) to avoid rounding error from (bid+ask)/2.
     const positionsRows = await dbQuery<{ user_id: number | null; outcome: string; net_position: number; price_basis: number; closed_profit: number; settled_profit: number }>(
       db,

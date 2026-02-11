@@ -355,7 +355,7 @@ export function AdminPage() {
         <CardContent>
           <h2 className="text-base sm:text-lg font-bold mb-3">Ensure portfolio values are zero-sum</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-            Portfolio value (unrealized P&amp;L) should sum to zero. <strong>Replay positions</strong> recomputes <code className="text-xs">net_position</code> and <code className="text-xs">price_basis</code> from trade history. <strong>Replay with full reset</strong> zeros all positions first, then replays (clean slate).
+            Portfolio value (unrealized P&amp;L) should sum to zero. <strong>Replay positions</strong> recomputes <code className="text-xs">net_position</code> and <code className="text-xs">price_basis</code> from trade history. <strong>Replay with full reset</strong> deletes all position rows, then replays so positions are re-created only from the trade log (clean slate).
           </p>
           <div className="flex flex-wrap gap-2">
             <button

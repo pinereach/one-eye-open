@@ -289,7 +289,9 @@ export function LeaderboardPage() {
                           ...Object.keys(closedProfitByOutcome),
                           ...Object.keys(settledProfitByOutcome),
                         ]);
-                        return Array.from(allOutcomes)
+                        // Exclude internal/sentinel outcome used by rebalance-closed-profit
+                        const filtered = Array.from(allOutcomes).filter((o) => o !== '__closed_profit_offset');
+                        return filtered
                           .sort((a, b) => {
                             const uA = pnlByOutcome[a] ?? 0;
                             const uB = pnlByOutcome[b] ?? 0;
