@@ -68,6 +68,38 @@ export function LeaderboardPage() {
     });
   }, [leaderboard, sortBy, sortDir]);
 
+  /** Minimal list of "who pays whom" to settle everyone's settled P&L. Greedy: match largest creditor with largest debtor. */
+  const settleUpPayments = useMemo(() => {
+    const owed = leaderboard
+      .filter((r) => r.settled_profit_cents > 0)
+      .map((r) => ({ username: r.username, user_id: r.user_id, cents: r.settled_profit_cents }))
+      .sort((a, b) => b.cents - a.cents);
+    const owe = leaderboard
+      .filter((r) => r.settled_profit_cents < 0)
+      .map((r) => ({ username: r.username, user_id: r.user_id, cents: -r.settled_profit_cents }))
+      .sort((a, b) => b.cents - a.cents);
+    const payments: Array<{ from: string; fromId: number; to: string; toId: number; cents: number }> = [];
+    let i = 0;
+    let j = 0;
+    while (i < owed.length && j < owe.length) {
+      const amount = Math.min(owed[i].cents, owe[j].cents);
+      if (amount > 0) {
+        payments.push({
+          from: owe[j].username,
+          fromId: owe[j].user_id,
+          to: owed[i].username,
+          toId: owed[i].user_id,
+          cents: amount,
+        });
+      }
+      owed[i].cents -= amount;
+      owe[j].cents -= amount;
+      if (owed[i].cents === 0) i += 1;
+      if (owe[j].cents === 0) j += 1;
+    }
+    return payments;
+  }, [leaderboard]);
+
   function handleSort(key: SortKey) {
     if (sortBy === key) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -140,6 +172,37 @@ export function LeaderboardPage() {
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Leaderboard</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">Per-user stats: trades, open orders, shares traded, closed profit (realized P&amp;L), settled profit, portfolio value (unrealized P&amp;L only). Portfolio value is zero-sum (system total should be $0). Closed and settled profit are separate.</p>
 
+        {/* Settle up: minimal payments so everyone is square on settled P&L */}
+        {leaderboard.length > 0 && (
+          <Card>
+            <CardContent className="p-4">
+              <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-1">Settle up (settled P&amp;L)</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                Fewest payments so everyone is paid. Based on each person&apos;s settled profit (positive = owed, negative = owes).
+              </p>
+              {settleUpPayments.length === 0 ? (
+                <p className="text-sm text-gray-600 dark:text-gray-300">Everyone is square — no payments needed.</p>
+              ) : (
+                <ul className="space-y-2" aria-label="Settle-up payments">
+                  {settleUpPayments.map((p, idx) => (
+                    <li key={`${p.fromId}-${p.toId}-${idx}`} className="flex items-center gap-2 text-sm">
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{p.from}</span>
+                      <span className="text-gray-500 dark:text-gray-400">pays</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{p.to}</span>
+                      <span className="font-semibold text-green-600 dark:text-green-400 ml-1">{formatPortfolio(p.cents, false)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {unattributedSettledCents !== 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-3">
+                  Note: Unattributed settled profit is {formatPortfolio(unattributedSettledCents, true)} — not included in the list above.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Debug: system total — if non-zero, indicates a bug elsewhere in the stack */}
         {leaderboard.length > 0 && (
           <div className={`rounded-lg border ${systemTotalCents === 0 ? 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80' : 'border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/20'}`}>
@@ -156,14 +219,15 @@ export function LeaderboardPage() {
             </button>
             {debugExpanded && (
             <div className="px-4 pb-4 pt-0">
+            <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Unrealized P&amp;L (portfolio value)</div>
             <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-              <span><span className="text-gray-600 dark:text-gray-400">System total (sum of all position P&amp;L):</span>{' '}
+              <span><span className="text-gray-600 dark:text-gray-400">System total (sum of all position unrealized P&amp;L):</span>{' '}
                 <span className={`font-semibold ${systemTotalCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
                   {formatPortfolio(systemTotalCents, true)}
                 </span>
                 {systemTotalCents !== 0 && <span className="ml-2 text-amber-600 dark:text-amber-400 text-xs">(should be $0 — check trade/position logic)</span>}
               </span>
-              <span><span className="text-gray-600 dark:text-gray-400">Users + Unattributed:</span>{' '}
+              <span><span className="text-gray-600 dark:text-gray-400">Users + Unattributed (unrealized):</span>{' '}
                 <span className={`font-semibold ${leaderboard.reduce((s, r) => s + r.portfolio_value_cents, 0) + unattributedCents === systemTotalCents ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
                   {formatPortfolio(leaderboard.reduce((s, r) => s + r.portfolio_value_cents, 0) + unattributedCents, true)}
                 </span>
@@ -172,10 +236,10 @@ export function LeaderboardPage() {
             </div>
             {systemTotalCents !== 0 && (Object.keys(pnlByOutcome).length > 0 || positionContributions.length > 0) && (
               <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-                <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Where the imbalance comes from</div>
+                <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Where the unrealized imbalance comes from</div>
                 {Object.keys(pnlByOutcome).length > 0 && (
                   <div className="mb-2">
-                    <span className="text-xs text-gray-600 dark:text-gray-400">P&amp;L by outcome (should be $0 per outcome in zero-sum):</span>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Unrealized P&amp;L by outcome (should be $0 per outcome in zero-sum):</span>
                     <ul className="mt-1 space-y-0.5 text-sm font-mono">
                       {Object.entries(pnlByOutcome)
                         .filter(([, cents]) => cents !== 0)
@@ -190,7 +254,7 @@ export function LeaderboardPage() {
                 )}
                 {positionContributions.length > 0 && (
                   <div>
-                    <span className="text-xs text-gray-600 dark:text-gray-400">Top position contributions (user_id, outcome, P&amp;L):</span>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Top position contributions (user_id, outcome, unrealized P&amp;L):</span>
                     <ul className="mt-1 space-y-0.5 text-sm font-mono max-h-40 overflow-y-auto">
                       {positionContributions.slice(0, 20).map((pc, i) => (
                         <li key={i} className={pc.contribution_cents > 0 ? 'text-green-600 dark:text-green-400' : pc.contribution_cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}>
@@ -330,12 +394,12 @@ export function LeaderboardPage() {
                   <span><span className="text-gray-600 dark:text-gray-400">Settled profit (system):</span> <span className={`font-semibold ${unattributedSettledCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedSettledCents, true)}</span></span>
                 )}
                 <span><span className="text-gray-600 dark:text-gray-400">Settled profit total:</span> <span className={`font-semibold ${leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0) + unattributedSettledCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPortfolio(leaderboard.reduce((s, r) => s + r.settled_profit_cents, 0) + unattributedSettledCents, true)}</span></span>
-                <span><span className="text-gray-600 dark:text-gray-400">Portfolio (users):</span> <span className={`font-semibold ${totalUsers > 0 ? 'text-green-600 dark:text-green-400' : totalUsers < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalUsers, true)}</span></span>
+                <span><span className="text-gray-600 dark:text-gray-400">Portfolio (users, unrealized):</span> <span className={`font-semibold ${totalUsers > 0 ? 'text-green-600 dark:text-green-400' : totalUsers < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>{formatPortfolio(totalUsers, true)}</span></span>
                 {unattributedCents !== 0 && (
-                  <span><span className="text-gray-600 dark:text-gray-400">Unattributed:</span> <span className={`font-semibold ${unattributedCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedCents, true)}</span></span>
+                  <span><span className="text-gray-600 dark:text-gray-400">Unattributed (unrealized):</span> <span className={`font-semibold ${unattributedCents > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(unattributedCents, true)}</span></span>
                 )}
-                <span><span className="text-gray-600 dark:text-gray-400">Total (users + unattributed):</span> <span className={`font-semibold ${totalAll === 0 ? 'text-gray-700 dark:text-gray-300' : totalAll > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(totalAll, true)}</span></span>
-                <span><span className="text-gray-600 dark:text-gray-400">System total:</span> <span className={`font-semibold ${systemTotalCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPortfolio(systemTotalCents, true)}</span></span>
+                <span><span className="text-gray-600 dark:text-gray-400">Total (users + unattributed, unrealized):</span> <span className={`font-semibold ${totalAll === 0 ? 'text-gray-700 dark:text-gray-300' : totalAll > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(totalAll, true)}</span></span>
+                <span><span className="text-gray-600 dark:text-gray-400">System total (unrealized; should be $0):</span> <span className={`font-semibold ${systemTotalCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPortfolio(systemTotalCents, true)}</span></span>
               </div>
             </div>
           );
@@ -445,12 +509,12 @@ export function LeaderboardPage() {
                     <td className="py-2 px-4" />
                   </tr>
                   <tr className="border-t border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-800 font-semibold">
-                    <td className="py-3 px-4 text-gray-900 dark:text-gray-100">Total (users + unattributed)</td>
+                    <td className="py-3 px-4 text-gray-900 dark:text-gray-100">Total (users + unattributed, unrealized)</td>
                     <td colSpan={5} className="py-3 px-4" />
                     <td className={`py-3 px-4 text-right ${totalAll === 0 ? 'text-gray-700 dark:text-gray-300' : totalAll > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPortfolio(totalAll, true)}</td>
                   </tr>
                   <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 font-medium">
-                    <td className="py-2 px-4 text-gray-600 dark:text-gray-400 text-xs">System total (all positions; should be $0)</td>
+                    <td className="py-2 px-4 text-gray-600 dark:text-gray-400 text-xs">System total (unrealized; all positions; should be $0)</td>
                     <td colSpan={5} className="py-2 px-4" />
                     <td className={`py-2 px-4 text-right font-semibold ${systemTotalCents === 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{formatPortfolio(systemTotalCents, true)}</td>
                   </tr>
