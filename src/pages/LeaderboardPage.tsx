@@ -4,10 +4,20 @@ import { useAuth } from '../hooks/useAuth';
 import { api } from '../lib/api';
 import { Card, CardContent } from '../components/ui/Card';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
+import { MARKET_TYPE_ORDER, getMarketTypeLabel } from '../lib/marketTypes';
 
 type LeaderboardRow = {
   user_id: number;
   username: string;
+  trade_count: number;
+  open_orders_count: number;
+  shares_traded: number;
+  portfolio_value_cents: number;
+  closed_profit_cents: number;
+  settled_profit_cents: number;
+};
+
+type StatsByMarketType = {
   trade_count: number;
   open_orders_count: number;
   shares_traded: number;
@@ -50,6 +60,8 @@ export function LeaderboardPage() {
   const [sortBy, setSortBy] = useState<SortKey>(DEFAULT_SORT);
   const [sortDir, setSortDir] = useState<SortDir>(DEFAULT_SORT_DIR);
   const [debugExpanded, setDebugExpanded] = useState(false);
+  const [statsByMarketType, setStatsByMarketType] = useState<Record<string, Record<string, StatsByMarketType>>>({});
+  const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
 
   const sortedLeaderboard = useMemo(() => {
     if (leaderboard.length === 0) return [];
@@ -109,13 +121,66 @@ export function LeaderboardPage() {
     }
   }
 
+  /** Ordered market types for a user that have at least one non-zero stat. */
+  function getOrderedMarketTypesForUser(userId: number): string[] {
+    const byType = statsByMarketType[String(userId)];
+    if (!byType) return [];
+    const keys = Object.keys(byType);
+    const ordered = [...MARKET_TYPE_ORDER.filter((k) => keys.includes(k)), ...keys.filter((k) => !MARKET_TYPE_ORDER.includes(k))];
+    return ordered.filter((mt) => {
+      const s = byType[mt];
+      return s && (s.trade_count !== 0 || s.open_orders_count !== 0 || s.shares_traded !== 0 || s.portfolio_value_cents !== 0 || s.closed_profit_cents !== 0 || s.settled_profit_cents !== 0);
+    });
+  }
+
+  function renderStatsByMarketType(userId: number) {
+    const types = getOrderedMarketTypesForUser(userId);
+    if (types.length === 0) return <p className="text-xs text-gray-500 dark:text-gray-400">No activity by market type.</p>;
+    const byType = statsByMarketType[String(userId)]!;
+    return (
+      <div className="overflow-x-auto -mx-2">
+        <table className="w-full min-w-[360px] border-collapse text-xs">
+          <thead>
+            <tr className="border-b border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400">
+              <th className="py-1.5 px-2 text-left font-medium">Market type</th>
+              <th className="py-1.5 px-2 text-right font-medium">Trades</th>
+              <th className="py-1.5 px-2 text-right font-medium">Open</th>
+              <th className="py-1.5 px-2 text-right font-medium">Shares</th>
+              <th className="py-1.5 px-2 text-right font-medium">Closed</th>
+              <th className="py-1.5 px-2 text-right font-medium">Settled</th>
+              <th className="py-1.5 px-2 text-right font-medium">Portfolio</th>
+            </tr>
+          </thead>
+          <tbody>
+            {types.map((mt) => {
+              const s = byType[mt];
+              if (!s) return null;
+              return (
+                <tr key={mt} className="border-b border-gray-100 dark:border-gray-700">
+                  <td className="py-1 px-2 text-gray-700 dark:text-gray-300">{getMarketTypeLabel(mt)}</td>
+                  <td className="py-1 px-2 text-right">{s.trade_count}</td>
+                  <td className="py-1 px-2 text-right">{s.open_orders_count}</td>
+                  <td className="py-1 px-2 text-right">{s.shares_traded}</td>
+                  <td className={`py-1 px-2 text-right ${s.closed_profit_cents > 0 ? 'text-green-600 dark:text-green-400' : s.closed_profit_cents < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{formatPortfolio(s.closed_profit_cents, true)}</td>
+                  <td className={`py-1 px-2 text-right ${s.settled_profit_cents > 0 ? 'text-green-600 dark:text-green-400' : s.settled_profit_cents < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{formatPortfolio(s.settled_profit_cents, true)}</td>
+                  <td className={`py-1 px-2 text-right ${s.portfolio_value_cents > 0 ? 'text-green-600 dark:text-green-400' : s.portfolio_value_cents < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{formatPortfolio(s.portfolio_value_cents, true)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
   async function loadLeaderboard() {
     setLoading(true);
     setError(null);
     try {
       const res = await api.adminGetLeaderboard();
-      const { leaderboard: data, unattributed_portfolio_value_cents: unattributed, unattributed_closed_profit_cents: unattributedClosed, unattributed_settled_profit_cents: unattributedSettled, system_total_portfolio_value_cents: systemTotal, pnl_by_outcome: byOutcome, position_contributions: contributions, system_total_closed_profit_cents: sysClosed, system_total_settled_profit_cents: sysSettled, closed_profit_by_outcome: closedByOutcome, settled_profit_by_outcome: settledByOutcome, closed_profit_contributions: closedContrib, settled_profit_contributions: settledContrib } = res;
+      const { leaderboard: data, stats_by_market_type: byMarketType, unattributed_portfolio_value_cents: unattributed, unattributed_closed_profit_cents: unattributedClosed, unattributed_settled_profit_cents: unattributedSettled, system_total_portfolio_value_cents: systemTotal, pnl_by_outcome: byOutcome, position_contributions: contributions, system_total_closed_profit_cents: sysClosed, system_total_settled_profit_cents: sysSettled, closed_profit_by_outcome: closedByOutcome, settled_profit_by_outcome: settledByOutcome, closed_profit_contributions: closedContrib, settled_profit_contributions: settledContrib } = res;
       setLeaderboard(data ?? []);
+      setStatsByMarketType(byMarketType ?? {});
       setUnattributedCents(unattributed ?? 0);
       setUnattributedClosedCents(unattributedClosed ?? 0);
       setUnattributedSettledCents(unattributedSettled ?? 0);
@@ -403,7 +468,17 @@ export function LeaderboardPage() {
             sortedLeaderboard.map((row) => (
               <Card key={row.user_id}>
                 <CardContent className="p-4">
-                  <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">{row.username}</div>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="font-semibold text-gray-900 dark:text-gray-100">{row.username}</div>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedUserId((id) => (id === row.user_id ? null : row.user_id))}
+                      className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                      aria-expanded={expandedUserId === row.user_id}
+                    >
+                      {expandedUserId === row.user_id ? 'Hide by market type' : 'By market type'}
+                    </button>
+                  </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <span className="text-gray-500 dark:text-gray-400">Trades</span>
                     <span className="text-right font-medium">{row.trade_count}</span>
@@ -418,6 +493,12 @@ export function LeaderboardPage() {
                     <span className="text-gray-500 dark:text-gray-400">Portfolio value (unrealized)</span>
                     <span className={`text-right font-medium ${row.portfolio_value_cents > 0 ? 'text-green-600 dark:text-green-400' : row.portfolio_value_cents < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>{formatPortfolio(row.portfolio_value_cents, true)}</span>
                   </div>
+                  {expandedUserId === row.user_id && (
+                    <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                      <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Stats by market type</div>
+                      {renderStatsByMarketType(row.user_id)}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))
@@ -507,17 +588,39 @@ export function LeaderboardPage() {
                   </td>
                 </tr>
               ) : (
-                sortedLeaderboard.map((row) => (
+                sortedLeaderboard.flatMap((row) => [
                   <tr key={row.user_id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="py-3 px-4 font-medium text-gray-900 dark:text-gray-100">{row.username}</td>
+                    <td className="py-3 px-4 font-medium text-gray-900 dark:text-gray-100">
+                      <div className="flex items-center gap-2">
+                        <span>{row.username}</span>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedUserId((id) => (id === row.user_id ? null : row.user_id))}
+                          className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                          aria-expanded={expandedUserId === row.user_id}
+                        >
+                          {expandedUserId === row.user_id ? '− by market type' : '+ by market type'}
+                        </button>
+                      </div>
+                    </td>
                     <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{row.trade_count}</td>
                     <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{row.open_orders_count}</td>
                     <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{row.shares_traded}</td>
                     <td className={`py-3 px-4 text-right font-medium ${row.closed_profit_cents > 0 ? 'text-green-600 dark:text-green-400' : row.closed_profit_cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>{formatPortfolio(row.closed_profit_cents, true)}</td>
                     <td className={`py-3 px-4 text-right font-medium ${row.settled_profit_cents > 0 ? 'text-green-600 dark:text-green-400' : row.settled_profit_cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>{formatPortfolio(row.settled_profit_cents, true)}</td>
                     <td className={`py-3 px-4 text-right font-medium ${row.portfolio_value_cents > 0 ? 'text-green-600 dark:text-green-400' : row.portfolio_value_cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>{formatPortfolio(row.portfolio_value_cents, true)}</td>
-                  </tr>
-                ))
+                  </tr>,
+                  ...(expandedUserId === row.user_id
+                    ? [
+                        <tr key={`${row.user_id}-by-type`} className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/50">
+                          <td colSpan={7} className="py-3 px-4">
+                            <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Stats by market type</div>
+                            {renderStatsByMarketType(row.user_id)}
+                          </td>
+                        </tr>,
+                      ]
+                    : []),
+                ])
               )}
             </tbody>
             {leaderboard.length > 0 && (() => {

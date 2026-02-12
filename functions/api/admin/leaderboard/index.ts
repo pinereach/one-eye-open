@@ -13,9 +13,19 @@ type LeaderboardRow = {
   settled_profit_cents: number;
 };
 
+export type StatsByMarketType = {
+  trade_count: number;
+  open_orders_count: number;
+  shares_traded: number;
+  portfolio_value_cents: number;
+  closed_profit_cents: number;
+  settled_profit_cents: number;
+};
+
 /**
  * GET /api/admin/leaderboard — admin only. Returns per-user stats:
  * trade_count, open_orders_count, shares_traded, portfolio_value_cents.
+ * Also returns stats_by_market_type: per-user, per-market-type same stats for dropdown breakdown.
  */
 export const onRequestGet: OnRequest<Env> = async (context) => {
   const { request, env } = context;
@@ -33,6 +43,18 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       'SELECT id, username FROM users ORDER BY username ASC',
       []
     );
+
+    // outcome_id -> market_type for grouping by market type (handle market_total_birdies / market-total-birdies)
+    const outcomeMarketTypeRows = await dbQuery<{ outcome_id: string; market_type: string | null }>(
+      db,
+      `SELECT o.outcome_id, m.market_type FROM outcomes o
+       LEFT JOIN markets m ON (o.market_id = m.market_id OR (o.market_id = 'market_total_birdies' AND m.market_id = 'market-total-birdies'))`,
+      []
+    );
+    const outcomeToMarketType: Record<string, string> = {};
+    outcomeMarketTypeRows.forEach((r) => {
+      outcomeToMarketType[r.outcome_id] = r.market_type ?? 'other';
+    });
 
     // Trade count per user (count each trade for both taker and maker)
     const tradeCountRows = await dbQuery<{ user_id: number; cnt: number }>(
@@ -68,6 +90,54 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     );
     const sharesByUser = new Map<number, number>();
     sharesRows.forEach((r) => sharesByUser.set(r.user_id, r.total ?? 0));
+
+    // Per-user, per-market_type stats (same metrics as leaderboard row)
+    const statsByUserMarketType = new Map<number, Map<string, StatsByMarketType>>();
+    function getOrCreate(userId: number, marketType: string): StatsByMarketType {
+      let byType = statsByUserMarketType.get(userId);
+      if (!byType) {
+        byType = new Map<string, StatsByMarketType>();
+        statsByUserMarketType.set(userId, byType);
+      }
+      let s = byType.get(marketType);
+      if (!s) {
+        s = { trade_count: 0, open_orders_count: 0, shares_traded: 0, portfolio_value_cents: 0, closed_profit_cents: 0, settled_profit_cents: 0 };
+        byType.set(marketType, s);
+      }
+      return s;
+    }
+
+    // Trades by outcome for market-type breakdown
+    const tradesWithOutcome = await dbQuery<{ outcome: string; taker_user_id: number | null; maker_user_id: number | null; contracts: number }>(
+      db,
+      `SELECT outcome, taker_user_id, maker_user_id, contracts FROM trades WHERE outcome IS NOT NULL AND outcome != '' AND (taker_user_id IS NOT NULL OR maker_user_id IS NOT NULL)`,
+      []
+    );
+    for (const t of tradesWithOutcome) {
+      const mt = outcomeToMarketType[t.outcome] ?? 'other';
+      if (t.taker_user_id != null) {
+        const s = getOrCreate(t.taker_user_id, mt);
+        s.trade_count += 1;
+        s.shares_traded += Number(t.contracts) || 0;
+      }
+      if (t.maker_user_id != null && t.maker_user_id !== t.taker_user_id) {
+        const s = getOrCreate(t.maker_user_id, mt);
+        s.trade_count += 1;
+        s.shares_traded += Number(t.contracts) || 0;
+      }
+    }
+
+    // Open orders by outcome for market-type breakdown
+    const ordersWithOutcome = await dbQuery<{ user_id: number; outcome: string }>(
+      db,
+      `SELECT user_id, outcome FROM orders WHERE status IN ('open','partial') AND user_id IS NOT NULL`,
+      []
+    );
+    for (const o of ordersWithOutcome) {
+      const mt = outcomeToMarketType[o.outcome] ?? 'other';
+      const s = getOrCreate(o.user_id, mt);
+      s.open_orders_count += 1;
+    }
 
     // Portfolio value = unrealized P&L only (mark-to-market vs cost basis). Closed and settled profit are separate.
     // Include ALL positions so we can compute unattributed P&L (user_id = 0/system or user not in users table). We sum raw P&L then round
@@ -157,8 +227,19 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
         portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + unrealizedRaw);
         closedProfitByUser.set(p.user_id, (closedProfitByUser.get(p.user_id) ?? 0) + p.closed_profit);
         settledProfitByUser.set(p.user_id, (settledProfitByUser.get(p.user_id) ?? 0) + p.settled_profit);
+        const mt = outcomeToMarketType[p.outcome] ?? 'other';
+        const s = getOrCreate(p.user_id, mt);
+        s.portfolio_value_cents += unrealizedRaw;
+        s.closed_profit_cents += p.closed_profit;
+        s.settled_profit_cents += p.settled_profit;
       }
     }
+    // Round portfolio_value_cents per (user, market_type) after accumulation
+    statsByUserMarketType.forEach((byType) => {
+      byType.forEach((s) => {
+        s.portfolio_value_cents = Math.round(s.portfolio_value_cents);
+      });
+    });
     // Sort by contribution descending so largest imbalances show first
     positionContributions.sort((a, b) => Math.abs(b.contribution_cents) - Math.abs(a.contribution_cents));
     closedProfitContributions.sort((a, b) => Math.abs(b.closed_profit_cents) - Math.abs(a.closed_profit_cents));
@@ -180,8 +261,16 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     const systemTotalReported =
       Math.abs(systemTotalCentsRaw) <= SYSTEM_TOTAL_TOLERANCE_CENTS ? 0 : Math.round(systemTotalCentsRaw);
 
+    const statsByMarketTypePayload: Record<string, Record<string, StatsByMarketType>> = {};
+    statsByUserMarketType.forEach((byType, userId) => {
+      const obj: Record<string, StatsByMarketType> = {};
+      byType.forEach((s, marketType) => { obj[marketType] = { ...s }; });
+      statsByMarketTypePayload[String(userId)] = obj;
+    });
+
     return jsonResponse({
       leaderboard,
+      stats_by_market_type: statsByMarketTypePayload,
       unattributed_portfolio_value_cents: Math.round(unattributedCentsRaw),
       unattributed_closed_profit_cents: unattributedClosedProfitCents,
       unattributed_settled_profit_cents: unattributedSettledProfitCents,
