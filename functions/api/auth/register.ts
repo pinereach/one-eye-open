@@ -18,11 +18,12 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
     const db = getDb(env);
 
-    // Check if username already exists
+    // Check if username already exists (case-insensitive, so "John" and "john" count as same)
+    const usernameTrimmed = validated.username.trim();
     const existing = await dbFirst(
       db,
-      'SELECT id FROM users WHERE username = ?',
-      [validated.username]
+      'SELECT id FROM users WHERE LOWER(username) = LOWER(?)',
+      [usernameTrimmed]
     );
 
     if (existing) {
@@ -37,13 +38,13 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       db,
       `INSERT INTO users (username, password, view_scores, view_market_maker, view_market_creation, admin)
        VALUES (?, ?, 0, 0, 0, 0)`,
-      [validated.username, passwordHash]
+      [usernameTrimmed, passwordHash]
     );
 
     console.log('Registration result:', {
       success: result.success,
       meta: result.meta,
-      username: validated.username,
+      username: usernameTrimmed,
     });
 
     if (!result.success || !result.meta.last_row_id) {

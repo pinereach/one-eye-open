@@ -18,7 +18,9 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
     const db = getDb(env);
 
-    // Find user by username in database
+    const usernameTrimmed = validated.username.trim();
+
+    // Find user by username (case-insensitive, so "John" and "john" both work)
     const user = await dbFirst<{
       id: number;
       username: string;
@@ -29,8 +31,8 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       admin: number;
     }>(
       db,
-      'SELECT id, username, password, view_scores, view_market_maker, view_market_creation, admin FROM users WHERE username = ?',
-      [validated.username]
+      'SELECT id, username, password, view_scores, view_market_maker, view_market_creation, admin FROM users WHERE LOWER(username) = LOWER(?)',
+      [usernameTrimmed]
     );
 
     // Validate user exists
