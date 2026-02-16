@@ -3,6 +3,17 @@ import { getDb, dbFirst, dbQuery, type Env } from '../../../lib/db';
 import { jsonResponse, errorResponse } from '../../../middleware';
 import { getCookieValue, getUserFromToken } from '../../../lib/auth';
 
+/** When outcome has settled_price, compute settled_profit from position (matches settlement.ts). */
+function computedSettledProfitCents(netPosition: number, priceBasis: number, settledPrice: number): number {
+  if (netPosition > 0 && priceBasis > 0) {
+    return netPosition * (settledPrice - priceBasis);
+  }
+  if (netPosition < 0 && priceBasis > 0) {
+    return Math.abs(netPosition) * (priceBasis - settledPrice);
+  }
+  return 0;
+}
+
 export const onRequestGet: OnRequest<Env> = async (context) => {
   const { request, env, params } = context;
   const marketId = params.marketId as string;
@@ -225,20 +236,23 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       asksRows.forEach((r: { outcome: string; price: number }) => { if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price; });
       positions = positionsDb.map((p: any) => {
         const outcomeSettled = p.outcome_settled_price != null;
+        const price_basis = p.net_position !== 0 && p.price_basis > 0
+          ? Math.max(100, Math.min(9900, p.price_basis))
+          : p.price_basis;
+        const settledProfit = outcomeSettled && p.outcome_settled_price != null
+          ? computedSettledProfitCents(p.net_position, price_basis, p.outcome_settled_price)
+          : p.settled_profit;
         const bidPrice = bestBidByOutcome[p.outcome] ?? null;
         const askPrice = bestAskByOutcome[p.outcome] ?? null;
         const midPrice = (bidPrice != null && askPrice != null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
         const current_price = outcomeSettled ? p.outcome_settled_price : midPrice;
-        const price_basis = p.net_position !== 0 && p.price_basis > 0
-          ? Math.max(100, Math.min(9900, p.price_basis))
-          : p.price_basis;
         return {
           id: p.id,
           user_id: p.user_id,
           outcome: p.outcome,
           create_time: p.create_time,
           closed_profit: p.closed_profit,
-          settled_profit: p.settled_profit,
+          settled_profit: settledProfit,
           net_position: p.net_position,
           price_basis,
           is_settled: p.is_settled,

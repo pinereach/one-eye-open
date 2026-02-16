@@ -3,6 +3,17 @@ import { getDb, dbQuery, type Env } from '../../../lib/db';
 import { requireAuth, jsonResponse } from '../../../middleware';
 import type { Position } from '../../../lib/matching';
 
+/** When outcome has settled_price, compute settled_profit from position (matches settlement.ts logic). Use when DB settled_profit was never written (e.g. outcome settled manually). */
+function computedSettledProfitCents(netPosition: number, priceBasis: number, settledPrice: number): number {
+  if (netPosition > 0 && priceBasis > 0) {
+    return netPosition * (settledPrice - priceBasis);
+  }
+  if (netPosition < 0 && priceBasis > 0) {
+    return Math.abs(netPosition) * (priceBasis - settledPrice);
+  }
+  return 0;
+}
+
 export const onRequestGet: OnRequest<Env> = async (context) => {
   const { request, env, params } = context;
   const marketId = params.marketId as string;
@@ -50,15 +61,19 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
 
   let positionsWithPrice = positionsDb.map(p => {
     const outcomeSettled = p.outcome_settled_price != null;
+    const priceBasis = clampPriceBasis(p.price_basis, p.net_position);
+    const settledProfit = outcomeSettled && p.outcome_settled_price != null
+      ? computedSettledProfitCents(p.net_position, priceBasis, p.outcome_settled_price)
+      : p.settled_profit;
     return {
       id: p.id,
       user_id: p.user_id,
       outcome: p.outcome,
       create_time: p.create_time,
       closed_profit: p.closed_profit,
-      settled_profit: p.settled_profit,
+      settled_profit: settledProfit,
       net_position: p.net_position,
-      price_basis: clampPriceBasis(p.price_basis, p.net_position),
+      price_basis: priceBasis,
       is_settled: p.is_settled,
       market_name: p.market_name,
       outcome_name: p.outcome_name,
@@ -89,6 +104,10 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     asksRows.forEach(r => { if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price; });
     positionsWithPrice = positionsDb.map(p => {
       const outcomeSettled = p.outcome_settled_price != null;
+      const priceBasis = clampPriceBasis(p.price_basis, p.net_position);
+      const settledProfit = outcomeSettled && p.outcome_settled_price != null
+        ? computedSettledProfitCents(p.net_position, priceBasis, p.outcome_settled_price)
+        : p.settled_profit;
       const bidPrice = bestBidByOutcome[p.outcome] ?? null;
       const askPrice = bestAskByOutcome[p.outcome] ?? null;
       const midPrice = (bidPrice !== null && askPrice !== null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
@@ -99,9 +118,9 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
         outcome: p.outcome,
         create_time: p.create_time,
         closed_profit: p.closed_profit,
-        settled_profit: p.settled_profit,
+        settled_profit: settledProfit,
         net_position: p.net_position,
-        price_basis: clampPriceBasis(p.price_basis, p.net_position),
+        price_basis: priceBasis,
         is_settled: p.is_settled,
         market_name: p.market_name,
         outcome_name: p.outcome_name,

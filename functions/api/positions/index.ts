@@ -12,6 +12,17 @@ function clampPriceBasis(cents: number): number {
   return Math.max(PRICE_BASIS_MIN_CENTS, Math.min(PRICE_BASIS_MAX_CENTS, cents));
 }
 
+/** When outcome has settled_price, compute settled_profit from position (matches settlement.ts). Use when DB settled_profit was never written. */
+function computedSettledProfitCents(netPosition: number, priceBasis: number, settledPrice: number): number {
+  if (netPosition > 0 && priceBasis > 0) {
+    return netPosition * (settledPrice - priceBasis);
+  }
+  if (netPosition < 0 && priceBasis > 0) {
+    return Math.abs(netPosition) * (priceBasis - settledPrice);
+  }
+  return 0;
+}
+
 // Recalculate price_basis from trades (source of truth for fills)
 async function recalculatePriceBasisFromTrades(
   db: D1Database,
@@ -268,9 +279,13 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   const clampBasis = (p: typeof positionsDb[0]) => p.net_position !== 0 && p.price_basis > 0 ? clampPriceBasis(p.price_basis) : p.price_basis;
   let positionsWithOrderbook: any[] = positionsDb.map(p => {
     const outcomeSettled = p.outcome_settled_price != null;
+    const priceBasis = clampBasis(p);
+    const settledProfit = outcomeSettled && p.outcome_settled_price != null
+      ? computedSettledProfitCents(p.net_position, priceBasis, p.outcome_settled_price)
+      : p.settled_profit;
     const current_price = outcomeSettled ? p.outcome_settled_price : null;
     const { outcome_settled_price, ...rest } = p;
-    return { ...rest, market_id: normalizeMarketId(p), price_basis: clampBasis(p), current_price, settled_price: outcome_settled_price ?? null, best_bid: null, best_ask: null };
+    return { ...rest, market_id: normalizeMarketId(p), price_basis: priceBasis, settled_profit: settledProfit, current_price, settled_price: outcome_settled_price ?? null, best_bid: null, best_ask: null };
   });
 
   if (positionsDb.length > 0) {
@@ -292,6 +307,10 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     asksRows.forEach(r => { if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price; });
     positionsWithOrderbook = positionsDb.map(p => {
       const outcomeSettled = p.outcome_settled_price != null;
+      const priceBasis = clampBasis(p);
+      const settledProfit = outcomeSettled && p.outcome_settled_price != null
+        ? computedSettledProfitCents(p.net_position, priceBasis, p.outcome_settled_price)
+        : p.settled_profit;
       const bidPrice = bestBidByOutcome[p.outcome] ?? null;
       const askPrice = bestAskByOutcome[p.outcome] ?? null;
       const midPrice = (bidPrice !== null && askPrice !== null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
@@ -299,7 +318,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       const best_bid = outcomeSettled ? null : bidPrice;
       const best_ask = outcomeSettled ? null : askPrice;
       const { outcome_settled_price, ...rest } = p;
-      return { ...rest, market_id: normalizeMarketId(p), price_basis: clampBasis(p), current_price, settled_price: outcome_settled_price ?? null, best_bid, best_ask };
+      return { ...rest, market_id: normalizeMarketId(p), price_basis: priceBasis, settled_profit: settledProfit, current_price, settled_price: outcome_settled_price ?? null, best_bid, best_ask };
     });
   }
 
