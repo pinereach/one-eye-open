@@ -635,13 +635,13 @@ export function MarketDetail() {
 
   const showPotentialOutcomes = market?.market_type === 'team_champion' || market?.market_type === 'individual_champion';
 
-  // Potential outcomes dialog: one row per outcome — Current Score, Position, Price Basis, Position Value, Closed Profit, Market Risk
+  // Potential outcomes dialog: Outcome, Position, Price Basis, If 0, If 100, Closed Profit, Market Risk (market risk = if100 for row + sum of other rows' if0)
   type PotentialOutcomeRow = {
     outcomeLabel: string;
-    currentScore: string;
     position: number;
     priceBasisCents: number | null;
-    positionValueCents: number;
+    if0Cents: number;
+    if100Cents: number;
     closedProfitCents: number;
     marketRiskCents: number;
   };
@@ -666,21 +666,12 @@ export function MarketDetail() {
             : isVolatilityMarket && volatilityByPlayer[o.name]
               ? `${o.name} (${volatilityByPlayer[o.name].year} - ${volatilityByPlayer[o.name].volatility} strokes)`
               : (o.name ?? o.ticker);
-      const scoreInfo = currentScores[o.name];
-      const scoreToPar = (s: number) => (s === 0 ? 'E' : s > 0 ? `+${s}` : String(s));
-      const currentScore =
-        scoreInfo?.score_net != null
-          ? scoreToPar(scoreInfo.score_net)
-          : scoreInfo?.score_gross != null
-            ? scoreToPar(scoreInfo.score_gross)
-            : '—';
-      const positionValueCents = net * vwap; // cost basis (signed)
       rows.push({
         outcomeLabel,
-        currentScore,
         position: net,
         priceBasisCents: net !== 0 ? vwap : null,
-        positionValueCents,
+        if0Cents: if0,
+        if100Cents: if100,
         closedProfitCents: pos?.closed_profit ?? 0,
         marketRiskCents: 0, // fill below
       });
@@ -691,7 +682,7 @@ export function MarketDetail() {
       rows[i].marketRiskCents = (if100ByOutcomeId[oid] ?? 0) + (totalIf0 - (if0ByOutcomeId[oid] ?? 0));
     }
     return rows;
-  }, [outcomes, positionByOutcome, currentScores, market?.market_id, handicaps, isVolatilityMarket, volatilityByPlayer]);
+  }, [outcomes, positionByOutcome, market?.market_id, handicaps, isVolatilityMarket, volatilityByPlayer]);
 
   const formatPositionChip = (netPosition: number, priceBasisCents: number) => {
     const sign = netPosition >= 0 ? '+' : '';
@@ -2380,38 +2371,41 @@ export function MarketDetail() {
                 {potentialOutcomesRows.length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400">No outcomes in this market.</p>
                 ) : (
-                  <table className="w-full min-w-[520px] border-collapse text-sm">
+                  <table className="w-full min-w-[480px] border-collapse text-sm">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-600">
-                        <th className="py-2 px-2 text-left font-semibold text-gray-700 dark:text-gray-300">Outcome</th>
-                        <th className="py-2 px-2 text-right font-semibold text-gray-700 dark:text-gray-300">Current Score</th>
-                        <th className="py-2 px-2 text-right font-semibold text-gray-700 dark:text-gray-300">Position</th>
-                        <th className="py-2 px-2 text-right font-semibold text-gray-700 dark:text-gray-300">Price Basis</th>
-                        <th className="py-2 px-2 text-right font-semibold text-gray-700 dark:text-gray-300">Position Value</th>
-                        <th className="py-2 px-2 text-right font-semibold text-gray-700 dark:text-gray-300">Closed Profit</th>
-                        <th className="py-2 px-2 text-right font-semibold text-gray-700 dark:text-gray-300">Market Risk</th>
+                        <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Outcome</th>
+                        <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Position</th>
+                        <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Price Basis</th>
+                        <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">If 0</th>
+                        <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">If 100</th>
+                        <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Closed Profit</th>
+                        <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Market Risk</th>
                       </tr>
                     </thead>
                     <tbody>
                       {potentialOutcomesRows.map((row, i) => {
                         const signed = (cents: number) =>
                           cents >= 0 ? `+${formatPriceTwoDecimals(cents)}` : `-${formatPriceTwoDecimals(-cents)}`;
+                        const signedOrDash = (cents: number) => (cents === 0 ? '—' : signed(cents));
                         return (
                           <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
-                            <td className="py-2 px-2 text-gray-900 dark:text-gray-100">{row.outcomeLabel}</td>
-                            <td className="py-2 px-2 text-right text-gray-700 dark:text-gray-300">{row.currentScore}</td>
-                            <td className="py-2 px-2 text-right text-gray-700 dark:text-gray-300">{row.position}</td>
-                            <td className="py-2 px-2 text-right text-gray-700 dark:text-gray-300">
-                              {row.priceBasisCents != null ? formatPriceBasis(row.priceBasisCents) : '—'}
+                            <td className="py-2 px-2 text-center text-gray-900 dark:text-gray-100">{row.outcomeLabel}</td>
+                            <td className="py-2 px-2 text-center text-gray-700 dark:text-gray-300">{row.position === 0 ? '—' : row.position}</td>
+                            <td className="py-2 px-2 text-center text-gray-700 dark:text-gray-300">
+                              {row.priceBasisCents == null || row.priceBasisCents === 0 ? '—' : formatPriceBasis(row.priceBasisCents)}
                             </td>
-                            <td className={`py-2 px-2 text-right font-medium ${row.positionValueCents > 0 ? 'text-green-600 dark:text-green-400' : row.positionValueCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                              {signed(row.positionValueCents)}
+                            <td className={`py-2 px-2 text-center font-medium ${row.if0Cents > 0 ? 'text-green-600 dark:text-green-400' : row.if0Cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                              {signedOrDash(row.if0Cents)}
                             </td>
-                            <td className={`py-2 px-2 text-right font-medium ${row.closedProfitCents > 0 ? 'text-green-600 dark:text-green-400' : row.closedProfitCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                              {signed(row.closedProfitCents)}
+                            <td className={`py-2 px-2 text-center font-medium ${row.if100Cents > 0 ? 'text-green-600 dark:text-green-400' : row.if100Cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                              {signedOrDash(row.if100Cents)}
                             </td>
-                            <td className={`py-2 px-2 text-right font-medium ${row.marketRiskCents > 0 ? 'text-green-600 dark:text-green-400' : row.marketRiskCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                              {signed(row.marketRiskCents)}
+                            <td className={`py-2 px-2 text-center font-medium ${row.closedProfitCents > 0 ? 'text-green-600 dark:text-green-400' : row.closedProfitCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                              {signedOrDash(row.closedProfitCents)}
+                            </td>
+                            <td className={`py-2 px-2 text-center font-medium ${row.marketRiskCents > 0 ? 'text-green-600 dark:text-green-400' : row.marketRiskCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                              {signedOrDash(row.marketRiskCents)}
                             </td>
                           </tr>
                         );
