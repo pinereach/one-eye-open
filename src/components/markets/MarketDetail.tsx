@@ -655,7 +655,7 @@ export function MarketDetail() {
       const net = pos?.net_position ?? 0;
       const vwap = pos?.price_basis ?? 0;
       const if0 = -net * vwap;
-      const if100 = net * (100 - vwap);
+      const if100 = net * (10000 - vwap); // $100 per contract payout = 10000 cents
       if0ByOutcomeId[o.outcome_id] = if0;
       if100ByOutcomeId[o.outcome_id] = if100;
       const outcomeLabel =
