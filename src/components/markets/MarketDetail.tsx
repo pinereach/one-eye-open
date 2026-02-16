@@ -635,6 +635,22 @@ export function MarketDetail() {
 
   const showPotentialOutcomes = market?.market_type === 'team_champion' || market?.market_type === 'individual_champion';
 
+  /** Admin-only: sum of best bid (No/Sell) and best ask (Yes/Buy) prices in dollars, for potential-outcomes markets. */
+  const adminOrderbookSums = useMemo(() => {
+    if (!outcomes?.length) return { sumNoSell: 0, sumYesBuy: 0 };
+    let sumNoSellCents = 0;
+    let sumYesBuyCents = 0;
+    for (const o of outcomes) {
+      const ob = orderbookByOutcome[o.outcome_id];
+      if (ob?.bids?.[0]) sumNoSellCents += ob.bids[0].price;
+      if (ob?.asks?.[0]) sumYesBuyCents += ob.asks[0].price;
+    }
+    return {
+      sumNoSell: Math.round(sumNoSellCents / 100),
+      sumYesBuy: Math.round(sumYesBuyCents / 100),
+    };
+  }, [outcomes, orderbookByOutcome]);
+
   // Potential outcomes dialog: Outcome, Position, Price Basis, If 0, If 100, Closed Profit, Market Risk (market risk = if100 for row + sum of other rows' if0)
   type PotentialOutcomeRow = {
     outcomeLabel: string;
@@ -1057,6 +1073,21 @@ export function MarketDetail() {
                         );
                       })}
                   </tbody>
+                  {user?.admin && showPotentialOutcomes && (
+                    <tfoot>
+                      <tr className="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50">
+                        <td colSpan={showCurrentColumn ? 3 : 2} className="py-1.5 px-2 sm:py-2 sm:px-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                          Sum
+                        </td>
+                        <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-purple-600 dark:text-purple-400">
+                          {adminOrderbookSums.sumNoSell}
+                        </td>
+                        <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-blue-600 dark:text-blue-400">
+                          {adminOrderbookSums.sumYesBuy}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             </div>
@@ -1495,6 +1526,21 @@ export function MarketDetail() {
                         );
                       })}
                   </tbody>
+                  {user?.admin && showPotentialOutcomes && (
+                    <tfoot>
+                      <tr className="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50">
+                        <td colSpan={showCurrentColumn ? 3 : 2} className="py-1.5 px-2 sm:py-2 sm:px-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                          Sum
+                        </td>
+                        <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-purple-600 dark:text-purple-400">
+                          {adminOrderbookSums.sumNoSell}
+                        </td>
+                        <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-blue-600 dark:text-blue-400">
+                          {adminOrderbookSums.sumYesBuy}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             </div>
