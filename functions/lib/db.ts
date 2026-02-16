@@ -9,8 +9,6 @@ export interface Env {
   SESSION_DURATION_DAYS?: string;
   /** Set to 'production' in production; dev bypass only when not production and request is local. */
   ENVIRONMENT?: string;
-  /** Secret for cron-triggered refresh-volume; if request has X-Cron-Secret matching this, treat as authorized. */
-  CRON_SECRET?: string;
 }
 
 export function getDb(env: Env): D1Database {
