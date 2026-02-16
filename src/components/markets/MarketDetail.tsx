@@ -631,6 +631,10 @@ export function MarketDetail() {
     [positions]
   );
 
+  const isVolatilityMarket = market?.market_id?.includes('volatility') || (market?.short_name && market.short_name.toLowerCase().includes('volatility'));
+
+  const showPotentialOutcomes = market?.market_type === 'team_champion' || market?.market_type === 'individual_champion';
+
   // Potential outcomes dialog: one row per outcome — Current Score, Position, Price Basis, Position Value, Closed Profit, Market Risk
   type PotentialOutcomeRow = {
     outcomeLabel: string;
@@ -701,7 +705,6 @@ export function MarketDetail() {
   };
 
   const showCurrentColumn = market?.market_id === 'market-individual-gross-champion' || market?.market_id === 'market-individual-net-champion';
-  const isVolatilityMarket = market?.market_id?.includes('volatility') || (market?.short_name && market.short_name.toLowerCase().includes('volatility'));
 
   // Total Strokes market: expected strokes = sum(midpoint * probability) per outcome (probability from orderbook mid or last trade)
   const TOTAL_STROKES_MIDPOINTS: Record<string, number> = {
@@ -878,14 +881,16 @@ export function MarketDetail() {
           <span className="hidden sm:inline">Back to Markets</span>
           <span className="sm:hidden">Back</span>
         </button>
-        <button
-          type="button"
-          onClick={() => setPotentialOutcomesOpen(true)}
-          disabled={!outcomes?.length}
-          className="px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:pointer-events-none"
-        >
-          Potential outcomes
-        </button>
+        {showPotentialOutcomes && (
+          <button
+            type="button"
+            onClick={() => setPotentialOutcomesOpen(true)}
+            disabled={!outcomes?.length}
+            className="px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:pointer-events-none"
+          >
+            Potential outcomes
+          </button>
+        )}
       </div>
 
       <div>
@@ -2350,8 +2355,8 @@ export function MarketDetail() {
         variant="danger"
       />
 
-      {/* Potential outcomes dialog */}
-      {potentialOutcomesOpen && (
+      {/* Potential outcomes dialog (team_champion / individual_champion only) */}
+      {showPotentialOutcomes && potentialOutcomesOpen && (
         <>
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-50"
