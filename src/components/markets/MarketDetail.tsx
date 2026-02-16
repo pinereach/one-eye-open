@@ -681,6 +681,7 @@ export function MarketDetail() {
       const oid = outcomes[i].outcome_id;
       rows[i].marketRiskCents = (if100ByOutcomeId[oid] ?? 0) + (totalIf0 - (if0ByOutcomeId[oid] ?? 0));
     }
+    rows.sort((a, b) => b.marketRiskCents - a.marketRiskCents);
     return rows;
   }, [outcomes, positionByOutcome, market?.market_id, handicaps, isVolatilityMarket, volatilityByPlayer]);
 
@@ -2361,64 +2362,112 @@ export function MarketDetail() {
             aria-labelledby="potential-outcomes-title"
           >
             <div
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col p-3 sm:p-4"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 id="potential-outcomes-title" className="text-lg font-bold text-gray-900 dark:text-gray-100 p-4 pb-2">
+              <h2 id="potential-outcomes-title" className="text-lg font-bold text-gray-900 dark:text-gray-100 pb-2">
                 Potential outcomes
               </h2>
-              <div className="overflow-x-auto overflow-y-auto flex-1 px-4 pb-4">
+              <div className="overflow-y-auto flex-1 pb-3 sm:pb-4 min-h-0">
                 {potentialOutcomesRows.length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400">No outcomes in this market.</p>
-                ) : (
-                  <table className="w-full min-w-[480px] border-collapse text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-200 dark:border-gray-600">
-                        <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Outcome</th>
-                        <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Position</th>
-                        <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Price Basis</th>
-                        <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">If 0</th>
-                        <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">If 100</th>
-                        <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Closed Profit</th>
-                        <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Market Risk</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                ) : (() => {
+                  const maxRisk = Math.max(...potentialOutcomesRows.map((r) => r.marketRiskCents));
+                  const minRisk = Math.min(...potentialOutcomesRows.map((r) => r.marketRiskCents));
+                  const isBest = (r: PotentialOutcomeRow) => r.marketRiskCents === maxRisk && maxRisk > minRisk;
+                  const isWorst = (r: PotentialOutcomeRow) => r.marketRiskCents === minRisk && minRisk < maxRisk;
+                  return (
+                  <>
+                    {/* Mobile: card per outcome — no horizontal scroll */}
+                    <div className="md:hidden space-y-3">
                       {potentialOutcomesRows.map((row, i) => {
-                        const signed = (cents: number) =>
-                          cents >= 0 ? `+${formatPriceTwoDecimals(cents)}` : `-${formatPriceTwoDecimals(-cents)}`;
-                        const signedOrDash = (cents: number) => (cents === 0 ? '—' : signed(cents));
+                        const signedWhole = (cents: number) => {
+                          const dollars = Math.round(cents / 100);
+                          if (dollars === 0) return '—';
+                          return dollars > 0 ? `+$${dollars}` : `-$${Math.abs(dollars)}`;
+                        };
+                        const priceBasisStr = row.priceBasisCents == null || row.priceBasisCents === 0 ? '—' : `$${Math.round(row.priceBasisCents / 100)}`;
+                        const posStr = row.position === 0 ? '—' : String(row.position);
+                        const marketRiskBest = isBest(row);
+                        const marketRiskWorst = isWorst(row);
                         return (
-                          <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
-                            <td className="py-2 px-2 text-center text-gray-900 dark:text-gray-100">{row.outcomeLabel}</td>
-                            <td className="py-2 px-2 text-center text-gray-700 dark:text-gray-300">{row.position === 0 ? '—' : row.position}</td>
-                            <td className="py-2 px-2 text-center text-gray-700 dark:text-gray-300">
-                              {row.priceBasisCents == null || row.priceBasisCents === 0 ? '—' : formatPriceBasis(row.priceBasisCents)}
-                            </td>
-                            <td className={`py-2 px-2 text-center font-medium ${row.if0Cents > 0 ? 'text-green-600 dark:text-green-400' : row.if0Cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                              {signedOrDash(row.if0Cents)}
-                            </td>
-                            <td className={`py-2 px-2 text-center font-medium ${row.if100Cents > 0 ? 'text-green-600 dark:text-green-400' : row.if100Cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                              {signedOrDash(row.if100Cents)}
-                            </td>
-                            <td className={`py-2 px-2 text-center font-medium ${row.closedProfitCents > 0 ? 'text-green-600 dark:text-green-400' : row.closedProfitCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                              {signedOrDash(row.closedProfitCents)}
-                            </td>
-                            <td className={`py-2 px-2 text-center font-medium ${row.marketRiskCents > 0 ? 'text-green-600 dark:text-green-400' : row.marketRiskCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                              {signedOrDash(row.marketRiskCents)}
-                            </td>
-                          </tr>
+                          <div key={i} className="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 p-3">
+                            <div className="font-semibold text-gray-900 dark:text-gray-100 text-center mb-2">{row.outcomeLabel}</div>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                              <span className="text-gray-500 dark:text-gray-400">Position</span>
+                              <span className="text-right text-gray-900 dark:text-gray-100">{posStr}</span>
+                              <span className="text-gray-500 dark:text-gray-400">Price Basis</span>
+                              <span className="text-right text-gray-900 dark:text-gray-100">{priceBasisStr}</span>
+                              <span className="text-gray-500 dark:text-gray-400">If 0</span>
+                              <span className={`text-right font-medium ${row.if0Cents > 0 ? 'text-green-600 dark:text-green-400' : row.if0Cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>{signedWhole(row.if0Cents)}</span>
+                              <span className="text-gray-500 dark:text-gray-400">If 100</span>
+                              <span className={`text-right font-medium ${row.if100Cents > 0 ? 'text-green-600 dark:text-green-400' : row.if100Cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>{signedWhole(row.if100Cents)}</span>
+                              <span className="text-gray-500 dark:text-gray-400">Closed Profit</span>
+                              <span className={`text-right font-medium ${row.closedProfitCents > 0 ? 'text-green-600 dark:text-green-400' : row.closedProfitCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>{signedWhole(row.closedProfitCents)}</span>
+                              <span className="text-gray-500 dark:text-gray-400">Market Risk</span>
+                              <span className={`text-right font-medium ${row.marketRiskCents > 0 ? 'text-green-600 dark:text-green-400' : row.marketRiskCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'} ${marketRiskBest ? 'rounded bg-green-100 dark:bg-green-900/30 px-1' : ''} ${marketRiskWorst ? 'rounded bg-red-100 dark:bg-red-900/30 px-1' : ''}`}>{signedWhole(row.marketRiskCents)}</span>
+                            </div>
+                          </div>
                         );
                       })}
-                    </tbody>
-                  </table>
-                )}
+                    </div>
+                    {/* Desktop: table */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full min-w-[480px] border-collapse text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-200 dark:border-gray-600">
+                            <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Outcome</th>
+                            <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Position</th>
+                            <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Price Basis</th>
+                            <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">If 0</th>
+                            <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">If 100</th>
+                            <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Closed Profit</th>
+                            <th className="py-2 px-2 text-center font-semibold text-gray-700 dark:text-gray-300">Market Risk</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {potentialOutcomesRows.map((row, i) => {
+                            const signedWhole = (cents: number) => {
+                              const dollars = Math.round(cents / 100);
+                              if (dollars === 0) return '—';
+                              return dollars > 0 ? `+$${dollars}` : `-$${Math.abs(dollars)}`;
+                            };
+                            const priceBasisStr = row.priceBasisCents == null || row.priceBasisCents === 0 ? '—' : `$${Math.round(row.priceBasisCents / 100)}`;
+                            const posStr = row.position === 0 ? '—' : row.position;
+                            const marketRiskBest = isBest(row);
+                            const marketRiskWorst = isWorst(row);
+                            return (
+                              <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
+                                <td className="py-2 px-2 text-center text-gray-900 dark:text-gray-100">{row.outcomeLabel}</td>
+                                <td className="py-2 px-2 text-center text-gray-700 dark:text-gray-300">{posStr}</td>
+                                <td className="py-2 px-2 text-center text-gray-700 dark:text-gray-300">{priceBasisStr}</td>
+                                <td className={`py-2 px-2 text-center font-medium ${row.if0Cents > 0 ? 'text-green-600 dark:text-green-400' : row.if0Cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                  {signedWhole(row.if0Cents)}
+                                </td>
+                                <td className={`py-2 px-2 text-center font-medium ${row.if100Cents > 0 ? 'text-green-600 dark:text-green-400' : row.if100Cents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                  {signedWhole(row.if100Cents)}
+                                </td>
+                                <td className={`py-2 px-2 text-center font-medium ${row.closedProfitCents > 0 ? 'text-green-600 dark:text-green-400' : row.closedProfitCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                  {signedWhole(row.closedProfitCents)}
+                                </td>
+                                <td className={`py-2 px-2 text-center font-medium ${row.marketRiskCents > 0 ? 'text-green-600 dark:text-green-400' : row.marketRiskCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'} ${marketRiskBest ? 'bg-green-100 dark:bg-green-900/30' : ''} ${marketRiskWorst ? 'bg-red-100 dark:bg-red-900/30' : ''}`}>
+                                  {signedWhole(row.marketRiskCents)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                  );
+                })() )}
               </div>
-              <div className="p-4 pt-0 flex justify-end">
+              <div className="p-3 pt-0 sm:p-4 sm:pt-0 flex justify-end flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setPotentialOutcomesOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary-500 min-h-[44px]"
                 >
                   Close
                 </button>
