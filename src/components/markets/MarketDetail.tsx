@@ -685,6 +685,16 @@ export function MarketDetail() {
     return rows;
   }, [outcomes, positionByOutcome, market?.market_id, handicaps, isVolatilityMarket, volatilityByPlayer]);
 
+  const potentialOutcomesMeta = useMemo(() => {
+    if (potentialOutcomesRows.length === 0) return { isBest: (_r: PotentialOutcomeRow) => false, isWorst: (_r: PotentialOutcomeRow) => false };
+    const maxRisk = Math.max(...potentialOutcomesRows.map((r) => r.marketRiskCents));
+    const minRisk = Math.min(...potentialOutcomesRows.map((r) => r.marketRiskCents));
+    return {
+      isBest: (r: PotentialOutcomeRow) => r.marketRiskCents === maxRisk && maxRisk > minRisk,
+      isWorst: (r: PotentialOutcomeRow) => r.marketRiskCents === minRisk && minRisk < maxRisk,
+    };
+  }, [potentialOutcomesRows]);
+
   const formatPositionChip = (netPosition: number, priceBasisCents: number) => {
     const sign = netPosition >= 0 ? '+' : '';
     return `${sign}${netPosition} @ ${formatPriceBasis(priceBasisCents)}`;
@@ -2371,12 +2381,7 @@ export function MarketDetail() {
               <div className="overflow-y-auto flex-1 pb-3 sm:pb-4 min-h-0">
                 {potentialOutcomesRows.length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400">No outcomes in this market.</p>
-                ) : (() => {
-                  const maxRisk = Math.max(...potentialOutcomesRows.map((r) => r.marketRiskCents));
-                  const minRisk = Math.min(...potentialOutcomesRows.map((r) => r.marketRiskCents));
-                  const isBest = (r: PotentialOutcomeRow) => r.marketRiskCents === maxRisk && maxRisk > minRisk;
-                  const isWorst = (r: PotentialOutcomeRow) => r.marketRiskCents === minRisk && minRisk < maxRisk;
-                  return (
+                ) : (
                   <>
                     {/* Mobile: card per outcome — no horizontal scroll */}
                     <div className="md:hidden space-y-3">
@@ -2388,8 +2393,8 @@ export function MarketDetail() {
                         };
                         const priceBasisStr = row.priceBasisCents == null || row.priceBasisCents === 0 ? '—' : `$${Math.round(row.priceBasisCents / 100)}`;
                         const posStr = row.position === 0 ? '—' : String(row.position);
-                        const marketRiskBest = isBest(row);
-                        const marketRiskWorst = isWorst(row);
+                        const marketRiskBest = potentialOutcomesMeta.isBest(row);
+                        const marketRiskWorst = potentialOutcomesMeta.isWorst(row);
                         return (
                           <div key={i} className="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 p-3">
                             <div className="font-semibold text-gray-900 dark:text-gray-100 text-center mb-2">{row.outcomeLabel}</div>
@@ -2434,8 +2439,8 @@ export function MarketDetail() {
                             };
                             const priceBasisStr = row.priceBasisCents == null || row.priceBasisCents === 0 ? '—' : `$${Math.round(row.priceBasisCents / 100)}`;
                             const posStr = row.position === 0 ? '—' : row.position;
-                            const marketRiskBest = isBest(row);
-                            const marketRiskWorst = isWorst(row);
+                            const marketRiskBest = potentialOutcomesMeta.isBest(row);
+                            const marketRiskWorst = potentialOutcomesMeta.isWorst(row);
                             return (
                               <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
                                 <td className="py-2 px-2 text-center text-gray-900 dark:text-gray-100">{row.outcomeLabel}</td>
@@ -2460,8 +2465,7 @@ export function MarketDetail() {
                       </table>
                     </div>
                   </>
-                  );
-                })() )}
+                )}
               </div>
               <div className="p-3 pt-0 sm:p-4 sm:pt-0 flex justify-end flex-shrink-0">
                 <button
