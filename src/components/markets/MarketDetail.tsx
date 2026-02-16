@@ -47,6 +47,7 @@ export function MarketDetail() {
   const [currentScores, setCurrentScores] = useState<Record<string, { score_gross: number | null; score_net: number | null; number_birdies: number | null }>>({});
   const [lastTradePriceByOutcomeFromApi, setLastTradePriceByOutcomeFromApi] = useState<Record<string, number>>({});
   const [volatilityByPlayer, setVolatilityByPlayer] = useState<Record<string, { year: number; volatility: number }>>({});
+  const [potentialOutcomesOpen, setPotentialOutcomesOpen] = useState(false);
   const isDesktop = useIsDesktop();
   const quantityInputRef = useRef<HTMLInputElement>(null);
   const lastLoadTsRef = useRef<number>(0);
@@ -156,6 +157,16 @@ export function MarketDetail() {
     document.addEventListener('visibilitychange', handler);
     return () => document.removeEventListener('visibilitychange', handler);
   }, [id]);
+
+  // Close Potential outcomes dialog on Escape
+  useEffect(() => {
+    if (!potentialOutcomesOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPotentialOutcomesOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [potentialOutcomesOpen]);
 
   async function loadMarket(forceRefresh = false) {
     if (!id) return;
@@ -620,6 +631,64 @@ export function MarketDetail() {
     [positions]
   );
 
+  // Potential outcomes dialog: one row per outcome — Current Score, Position, Price Basis, Position Value, Closed Profit, Market Risk
+  type PotentialOutcomeRow = {
+    outcomeLabel: string;
+    currentScore: string;
+    position: number;
+    priceBasisCents: number | null;
+    positionValueCents: number;
+    closedProfitCents: number;
+    marketRiskCents: number;
+  };
+  const potentialOutcomesRows = useMemo((): PotentialOutcomeRow[] => {
+    if (!outcomes?.length) return [];
+    const rows: PotentialOutcomeRow[] = [];
+    const if0ByOutcomeId: Record<string, number> = {};
+    const if100ByOutcomeId: Record<string, number> = {};
+    for (const o of outcomes) {
+      const pos = positionByOutcome[o.outcome_id];
+      const net = pos?.net_position ?? 0;
+      const vwap = pos?.price_basis ?? 0;
+      const if0 = -net * vwap;
+      const if100 = net * (100 - vwap);
+      if0ByOutcomeId[o.outcome_id] = if0;
+      if100ByOutcomeId[o.outcome_id] = if100;
+      const outcomeLabel =
+        market?.market_id === 'market-h2h-matchups'
+          ? formatH2HOutcomeWithIndexes(o.name, true)
+          : market?.market_id === 'market-individual-net-champion' && handicaps[o.name] != null
+            ? `${o.name} (${handicaps[o.name]})`
+            : isVolatilityMarket && volatilityByPlayer[o.name]
+              ? `${o.name} (${volatilityByPlayer[o.name].year} - ${volatilityByPlayer[o.name].volatility} strokes)`
+              : (o.name ?? o.ticker);
+      const scoreInfo = currentScores[o.name];
+      const scoreToPar = (s: number) => (s === 0 ? 'E' : s > 0 ? `+${s}` : String(s));
+      const currentScore =
+        scoreInfo?.score_net != null
+          ? scoreToPar(scoreInfo.score_net)
+          : scoreInfo?.score_gross != null
+            ? scoreToPar(scoreInfo.score_gross)
+            : '—';
+      const positionValueCents = net * vwap; // cost basis (signed)
+      rows.push({
+        outcomeLabel,
+        currentScore,
+        position: net,
+        priceBasisCents: net !== 0 ? vwap : null,
+        positionValueCents,
+        closedProfitCents: pos?.closed_profit ?? 0,
+        marketRiskCents: 0, // fill below
+      });
+    }
+    const totalIf0 = Object.values(if0ByOutcomeId).reduce((a, b) => a + b, 0);
+    for (let i = 0; i < outcomes.length; i++) {
+      const oid = outcomes[i].outcome_id;
+      rows[i].marketRiskCents = (if100ByOutcomeId[oid] ?? 0) + (totalIf0 - (if0ByOutcomeId[oid] ?? 0));
+    }
+    return rows;
+  }, [outcomes, positionByOutcome, currentScores, market?.market_id, handicaps, isVolatilityMarket, volatilityByPlayer]);
+
   const formatPositionChip = (netPosition: number, priceBasisCents: number) => {
     const sign = netPosition >= 0 ? '+' : '';
     return `${sign}${netPosition} @ ${formatPriceBasis(priceBasisCents)}`;
@@ -798,7 +867,7 @@ export function MarketDetail() {
         </span>
       </nav>
 
-      <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
         <button
           onClick={() => navigate('/markets')}
           className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -808,6 +877,14 @@ export function MarketDetail() {
           </svg>
           <span className="hidden sm:inline">Back to Markets</span>
           <span className="sm:hidden">Back</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setPotentialOutcomesOpen(true)}
+          disabled={!outcomes?.length}
+          className="px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:pointer-events-none"
+        >
+          Potential outcomes
         </button>
       </div>
 
@@ -2272,6 +2349,85 @@ export function MarketDetail() {
         cancelLabel="Keep"
         variant="danger"
       />
+
+      {/* Potential outcomes dialog */}
+      {potentialOutcomesOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-50"
+            onClick={() => setPotentialOutcomesOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="potential-outcomes-title"
+          >
+            <div
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 id="potential-outcomes-title" className="text-lg font-bold text-gray-900 dark:text-gray-100 p-4 pb-2">
+                Potential outcomes
+              </h2>
+              <div className="overflow-x-auto overflow-y-auto flex-1 px-4 pb-4">
+                {potentialOutcomesRows.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No outcomes in this market.</p>
+                ) : (
+                  <table className="w-full min-w-[520px] border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-600">
+                        <th className="py-2 px-2 text-left font-semibold text-gray-700 dark:text-gray-300">Outcome</th>
+                        <th className="py-2 px-2 text-right font-semibold text-gray-700 dark:text-gray-300">Current Score</th>
+                        <th className="py-2 px-2 text-right font-semibold text-gray-700 dark:text-gray-300">Position</th>
+                        <th className="py-2 px-2 text-right font-semibold text-gray-700 dark:text-gray-300">Price Basis</th>
+                        <th className="py-2 px-2 text-right font-semibold text-gray-700 dark:text-gray-300">Position Value</th>
+                        <th className="py-2 px-2 text-right font-semibold text-gray-700 dark:text-gray-300">Closed Profit</th>
+                        <th className="py-2 px-2 text-right font-semibold text-gray-700 dark:text-gray-300">Market Risk</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {potentialOutcomesRows.map((row, i) => {
+                        const signed = (cents: number) =>
+                          cents >= 0 ? `+${formatPriceTwoDecimals(cents)}` : `-${formatPriceTwoDecimals(-cents)}`;
+                        return (
+                          <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
+                            <td className="py-2 px-2 text-gray-900 dark:text-gray-100">{row.outcomeLabel}</td>
+                            <td className="py-2 px-2 text-right text-gray-700 dark:text-gray-300">{row.currentScore}</td>
+                            <td className="py-2 px-2 text-right text-gray-700 dark:text-gray-300">{row.position}</td>
+                            <td className="py-2 px-2 text-right text-gray-700 dark:text-gray-300">
+                              {row.priceBasisCents != null ? formatPriceBasis(row.priceBasisCents) : '—'}
+                            </td>
+                            <td className={`py-2 px-2 text-right font-medium ${row.positionValueCents > 0 ? 'text-green-600 dark:text-green-400' : row.positionValueCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                              {signed(row.positionValueCents)}
+                            </td>
+                            <td className={`py-2 px-2 text-right font-medium ${row.closedProfitCents > 0 ? 'text-green-600 dark:text-green-400' : row.closedProfitCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                              {signed(row.closedProfitCents)}
+                            </td>
+                            <td className={`py-2 px-2 text-right font-medium ${row.marketRiskCents > 0 ? 'text-green-600 dark:text-green-400' : row.marketRiskCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                              {signed(row.marketRiskCents)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              <div className="p-4 pt-0 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setPotentialOutcomesOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Trading volume chip at bottom */}
       <div className="flex justify-center pt-4 pb-2 md:pt-6 md:pb-4">
