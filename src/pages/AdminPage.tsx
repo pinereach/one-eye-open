@@ -40,12 +40,14 @@ export function AdminPage() {
   const [manualPrice, setManualPrice] = useState<string>('');
   const [manualContracts, setManualContracts] = useState<string>('');
 
-  // Auction (Round O/U or Pars e.g. Boose Pars)
-  const [auctionType, setAuctionType] = useState<'round_ou' | 'pars'>('round_ou');
+  // Auction (Round O/U, Pars, or any outcome)
+  const [auctionType, setAuctionType] = useState<'round_ou' | 'pars' | 'outcome'>('round_ou');
   const [auctionRound, setAuctionRound] = useState<number>(1);
   const [auctionParticipantId, setAuctionParticipantId] = useState<string>('');
   const [auctionParsMarketId, setAuctionParsMarketId] = useState<string>('');
   const [auctionParsOutcomeId, setAuctionParsOutcomeId] = useState<string>('');
+  const [auctionOutcomeMarketId, setAuctionOutcomeMarketId] = useState<string>('');
+  const [auctionOutcomeId, setAuctionOutcomeId] = useState<string>('');
   const [auctionBids, setAuctionBids] = useState<Array<{ user_id: number; guess: string }>>([
     { user_id: 0, guess: '' },
     { user_id: 0, guess: '' },
@@ -209,6 +211,10 @@ export function AdminPage() {
       showToast('Select a participant', 'error');
       return;
     }
+    if (auctionType === 'outcome' && !auctionOutcomeId) {
+      showToast('Select an outcome', 'error');
+      return;
+    }
     let parsMarketId = '';
     if (auctionType === 'pars') {
       if (auctionParsOutcomeId && auctionParsOutcomeId !== '__new__') {
@@ -239,6 +245,7 @@ export function AdminPage() {
         ...(auctionType === 'round_ou' && { participant_id: auctionParticipantId }),
         ...(auctionType === 'pars' && parsMarketId && { market_id: parsMarketId }),
         ...(auctionType === 'pars' && auctionParsOutcomeId && auctionParsOutcomeId !== '__new__' && { outcome_id: auctionParsOutcomeId }),
+        ...(auctionType === 'outcome' && { outcome_id: auctionOutcomeId }),
         bids,
       });
       showToast(`Auction done. Strike: ${res.strike}. ${res.trades_created} trade(s) created.`, 'success');
@@ -538,18 +545,25 @@ export function AdminPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
             {auctionType === 'round_ou'
               ? 'Round O/U: round (1–6), participant (golfer), and N bids (user + guess). Strike = average of guesses. Lowest half short, rest long; paired at 50¢.'
-              : 'Pars: select a line (e.g. O8.5), then enter each person’s bid price (%). Trade price = average of bids. Lowest half short, rest long.'}
+              : auctionType === 'pars'
+              ? 'Pars: select a line (e.g. O8.5), then enter each person’s bid price (%). Trade price = average of bids. Lowest half short, rest long.'
+              : 'Any outcome: select a market and outcome. Enter each bid as %. Trade price = average of bids; lowest half short, rest long.'}
           </p>
           <form onSubmit={handleRunAuction} className="space-y-3">
             <div>
               <label className="block text-sm font-medium mb-1">Market type</label>
               <select
                 value={auctionType}
-                onChange={(e) => setAuctionType(e.target.value as 'round_ou' | 'pars')}
+                onChange={(e) => {
+                  const v = e.target.value as 'round_ou' | 'pars' | 'outcome';
+                  setAuctionType(v);
+                  if (v !== 'outcome') setAuctionOutcomeId('');
+                }}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
               >
                 <option value="round_ou">Round O/U</option>
                 <option value="pars">Pars (e.g. Boose Pars)</option>
+                <option value="outcome">Any outcome</option>
               </select>
             </div>
             {auctionType === 'round_ou' && (
@@ -585,6 +599,43 @@ export function AdminPage() {
                   ))}
                 </select>
               </div>
+            )}
+            {auctionType === 'outcome' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Market</label>
+                  <select
+                    value={auctionOutcomeMarketId}
+                    onChange={(e) => {
+                      setAuctionOutcomeMarketId(e.target.value);
+                      setAuctionOutcomeId('');
+                    }}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
+                  >
+                    <option value="">Select market</option>
+                    {markets.map((m) => (
+                      <option key={m.market_id} value={m.market_id}>
+                        {m.short_name ?? m.market_id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Outcome</label>
+                  <select
+                    value={auctionOutcomeId}
+                    onChange={(e) => setAuctionOutcomeId(e.target.value)}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
+                  >
+                    <option value="">Select outcome</option>
+                    {(markets.find((m) => m.market_id === auctionOutcomeMarketId)?.outcomes ?? []).map((o: { outcome_id: string; name?: string }) => (
+                      <option key={o.outcome_id} value={o.outcome_id}>
+                        {o.name ?? o.outcome_id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
             )}
             {auctionType === 'pars' && (
               <>
@@ -670,11 +721,11 @@ export function AdminPage() {
                     <input
                       type="number"
                       step="any"
-                      min={auctionType === 'pars' ? 0 : undefined}
-                      max={auctionType === 'pars' ? 100 : undefined}
+                      min={auctionType === 'pars' || auctionType === 'outcome' ? 0 : undefined}
+                      max={auctionType === 'pars' || auctionType === 'outcome' ? 100 : undefined}
                       value={row.guess}
                       onChange={(e) => setAuctionBidAt(index, 'guess', e.target.value)}
-                      placeholder={auctionType === 'pars' ? 'Bid %' : 'Guess'}
+                      placeholder={auctionType === 'pars' || auctionType === 'outcome' ? 'Bid %' : 'Guess'}
                       className="w-20 border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
                     />
                     {auctionBids.length > 2 && (

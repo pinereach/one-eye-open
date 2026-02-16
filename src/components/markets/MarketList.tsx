@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { MARKET_TYPE_ORDER, getMarketTypeLabel } from '../../lib/marketTypes';
@@ -142,8 +142,17 @@ export function MarketList({ tripId }: { tripId?: string }) {
     setPreferFresh();
   }
 
+  // Hide settled markets from the list (outcomes have non-null settled_price). Positions/trades/orders for those markets remain viewable.
+  const unsettledMarkets = useMemo(() => {
+    return markets.filter((market) => {
+      const outcomes = market.outcomes ?? [];
+      const isSettled = outcomes.some((o: { settled_price?: number | null }) => o.settled_price != null);
+      return !isSettled;
+    });
+  }, [markets]);
+
   // Group markets by type (use market_id for Total Birdies/Pars when market_type is missing)
-  const marketsByType = markets.reduce((acc, market) => {
+  const marketsByType = unsettledMarkets.reduce((acc, market) => {
     let type = market.market_type || 'other';
     if (type === 'other' && (market.market_id === 'market-total-birdies' || market.market_id === 'market_total_birdies')) {
       type = 'market_total_birdies';
@@ -258,7 +267,7 @@ export function MarketList({ tripId }: { tripId?: string }) {
         );
       })}
 
-      {markets.length === 0 && (
+      {unsettledMarkets.length === 0 && (
         <EmptyState
           icon={<svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
           title="No markets found"

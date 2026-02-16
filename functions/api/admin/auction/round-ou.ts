@@ -54,8 +54,12 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
     const isRoundOu = auctionType === 'round_ou';
     const isPars = auctionType === 'pars';
-    if (!isRoundOu && !isPars) {
-      return errorResponse('auction_type must be "round_ou" or "pars"', 400);
+    const isOutcome = auctionType === 'outcome';
+    if (!isRoundOu && !isPars && !isOutcome) {
+      return errorResponse('auction_type must be "round_ou", "pars", or "outcome"', 400);
+    }
+    if (isOutcome && !existingOutcomeId) {
+      return errorResponse('For outcome auction, outcome_id is required', 400);
     }
     if (isRoundOu && (round == null || !Number.isInteger(round) || round < 1 || round > 6)) {
       return errorResponse('round must be an integer between 1 and 6 for Round O/U', 400);
@@ -63,7 +67,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     if (isPars && !existingOutcomeId && !participantId && !existingMarketId) {
       return errorResponse('For Pars, provide outcome_id (existing outcome), market_id (new line in existing market), or participant_id (new market)', 400);
     }
-    if (!isPars && !participantId) {
+    if (!isPars && !isOutcome && !participantId) {
       return errorResponse('participant_id is required', 400);
     }
     if (bids.length < 2) {
@@ -96,8 +100,21 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     let strikeStr: string;
     let participantName = '';
 
+    // Any outcome: use provided outcome_id and its market
+    if (isOutcome) {
+      const outcomeRow = await dbFirst<{ outcome_id: string; market_id: string; strike: string | null }>(
+        db,
+        'SELECT outcome_id, market_id, strike FROM outcomes WHERE outcome_id = ?',
+        [existingOutcomeId]
+      );
+      if (!outcomeRow) {
+        return errorResponse('Outcome not found', 404);
+      }
+      outcomeId = outcomeRow.outcome_id;
+      resolvedMarketId = outcomeRow.market_id;
+      strikeStr = outcomeRow.strike != null && outcomeRow.strike !== '' ? String(outcomeRow.strike) : '—';
+    } else if (isPars && existingOutcomeId) {
     // Pars with existing outcome: use that outcome and market; no participant or creation
-    if (isPars && existingOutcomeId) {
       const outcomeRow = await dbFirst<{ outcome_id: string; market_id: string; strike: string | null }>(
         db,
         'SELECT outcome_id, market_id, strike FROM outcomes WHERE outcome_id = ?',
@@ -228,11 +245,11 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const shortUserIds = sortedBids.slice(0, half).map((b: any) => Number(b.user_id));
     const longUserIds = sortedBids.slice(half).map((b: any) => Number(b.user_id));
 
-    // Pars: trade price = average of all bids (e.g. 60, 52, 55, 54 → 55.25% → 5525 cents). Round O/U stays 50¢.
+    // Round O/U only: 50¢. Pars and any outcome (e.g. matchups): trade price = average of bids (%).
     const avgBid = bids.reduce((s: number, b: any) => s + Number(b.guess), 0) / N;
-    const auctionPriceCents = isPars
-      ? Math.max(100, Math.min(9900, Math.round(avgBid * 100)))
-      : AUCTION_PRICE_CENTS;
+    const auctionPriceCents = isRoundOu
+      ? AUCTION_PRICE_CENTS
+      : Math.max(100, Math.min(9900, Math.round(avgBid * 100)));
 
     const createTime = Math.floor(Date.now() / 1000);
     let tradesCreated = 0;

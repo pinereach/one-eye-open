@@ -39,9 +39,10 @@ export function PositionsPage() {
     }
   }
 
-  // Portfolio value = unrealized P&L only. Closed and settled profit are separate totals below.
+  // Unrealized P&L only; exclude settled positions (they don't count toward unrealized gain).
   const totalPositionValueCents = positionsToShow.reduce((sum, position) => {
     if (position.net_position === 0) return sum;
+    if (position.settled_price != null || position.is_settled) return sum;
     const currentPrice = position.current_price !== null && position.current_price !== undefined ? position.current_price : null;
     if (currentPrice === null) return sum;
     const costCents = position.net_position * position.price_basis;
@@ -121,8 +122,15 @@ export function PositionsPage() {
               <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-1">{position.outcome_name || position.outcome_ticker || position.outcome}</h3>
               {hasOpenPosition ? (
                 <>
-                  <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${isLong ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
-                    {positionChipText}
+                  <span className="inline-flex items-center gap-2 flex-wrap">
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${isLong ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
+                      {positionChipText}
+                    </span>
+                    {(closedProfitCents !== 0 || settledProfitCents !== 0) && (
+                      <span className={`text-xs font-medium ${closedProfitCents + settledProfitCents >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {closedProfitCents + settledProfitCents >= 0 ? '+' : ''}{formatPriceTwoDecimals(closedProfitCents + settledProfitCents)}
+                      </span>
+                    )}
                   </span>
                   <p className="mt-1.5 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                     Risk: <span className="font-medium text-red-600 dark:text-red-400">{formatPriceBasis(riskCents)}</span>
@@ -151,7 +159,9 @@ export function PositionsPage() {
               <span>Settled profit: <span className={`font-medium ${settledProfitCents >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatPriceTwoDecimals(settledProfitCents)}</span></span>
             </div>
             <div className="text-right shrink-0">
-              Bid: {position.best_bid != null ? formatPriceBasis(position.best_bid) : '—'} | Ask: {position.best_ask != null ? formatPriceBasis(position.best_ask) : '—'}
+              {position.settled_price != null
+                ? `Settled @ ${formatPriceBasis(position.settled_price)}`
+                : `Bid: ${position.best_bid != null ? formatPriceBasis(position.best_bid) : '—'} | Ask: ${position.best_ask != null ? formatPriceBasis(position.best_ask) : '—'}`}
             </div>
           </div>
         </CardContent>
@@ -176,7 +186,7 @@ export function PositionsPage() {
       {positionsToShow.length > 0 && (
         <div className="flex flex-wrap items-stretch gap-x-6 gap-y-3">
           <div className="flex flex-1 min-w-[120px] flex-col gap-0.5">
-            <span className="text-sm text-gray-600 dark:text-gray-400">Portfolio value (unrealized)</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">Unrealized Gain</span>
             <span className={`text-lg sm:text-xl font-bold ${totalPositionValueCents > 0 ? 'text-green-600 dark:text-green-400' : totalPositionValueCents < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'}`}>
               {totalPositionValueCents > 0 ? '+' : ''}{formatPriceRound10(totalPositionValueCents)}
             </span>

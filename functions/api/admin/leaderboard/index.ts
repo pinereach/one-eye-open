@@ -142,9 +142,11 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     // Portfolio value = unrealized P&L only (mark-to-market vs cost basis). Closed and settled profit are separate.
     // Include ALL positions so we can compute unattributed P&L (user_id = 0/system or user not in users table). We sum raw P&L then round
     // once per aggregate (system total, per-user, unattributed) to avoid rounding error from (bid+ask)/2.
-    const positionsRows = await dbQuery<{ user_id: number | null; outcome: string; net_position: number; price_basis: number; closed_profit: number; settled_profit: number }>(
+    const positionsRows = await dbQuery<{ user_id: number | null; outcome: string; net_position: number; price_basis: number; closed_profit: number; settled_profit: number; outcome_settled_price: number | null }>(
       db,
-      `SELECT user_id, outcome, net_position, COALESCE(NULLIF(price_basis, 0), 0) AS price_basis, COALESCE(closed_profit, 0) AS closed_profit, COALESCE(settled_profit, 0) AS settled_profit FROM positions`,
+      `SELECT p.user_id, p.outcome, p.net_position, COALESCE(NULLIF(p.price_basis, 0), 0) AS price_basis, COALESCE(p.closed_profit, 0) AS closed_profit, COALESCE(p.settled_profit, 0) AS settled_profit, o.settled_price AS outcome_settled_price
+       FROM positions p
+       JOIN outcomes o ON p.outcome = o.outcome_id`,
       []
     );
     const outcomeIds = [...new Set(positionsRows.map((p) => p.outcome))];
@@ -165,9 +167,11 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       bidsRows.forEach((r) => { if (bestBidByOutcome[r.outcome] == null) bestBidByOutcome[r.outcome] = r.price; });
       asksRows.forEach((r) => { if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price; });
     }
-    // Use integer cents for current price so unrealized P&L is integer; sum of unrealized P&L nets to 0 in zero-sum.
+    // Use integer cents for current price so unrealized P&L is integer. Settled outcomes (outcome_settled_price != null) are excluded from unrealized.
+    const settledOutcomeIds = new Set(positionsRows.filter((p) => p.outcome_settled_price != null).map((p) => p.outcome));
     const currentPriceByOutcome: Record<string, number> = {};
     outcomeIds.forEach((outcome) => {
+      if (settledOutcomeIds.has(outcome)) return;
       const bid = bestBidByOutcome[outcome] ?? null;
       const ask = bestAskByOutcome[outcome] ?? null;
       const mid = (bid != null && ask != null) ? (bid + ask) / 2 : (bid ?? ask ?? null);
@@ -200,8 +204,9 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     let systemTotalClosedProfitCents = 0;
     let systemTotalSettledProfitCents = 0;
     for (const p of positionsRows) {
-      const currentPrice = currentPriceByOutcome[p.outcome] ?? null;
-      const unrealizedRaw = unrealizedPnlRaw(p, currentPrice);
+      const isSettled = p.outcome_settled_price != null;
+      const currentPrice = isSettled ? null : (currentPriceByOutcome[p.outcome] ?? null);
+      const unrealizedRaw = isSettled ? 0 : unrealizedPnlRaw(p, currentPrice);
       const unrealizedRounded = Math.round(unrealizedRaw);
       systemTotalCentsRaw += unrealizedRaw;
       systemTotalClosedProfitCents += p.closed_profit;

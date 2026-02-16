@@ -92,9 +92,10 @@ export interface Position {
   net_position: number;
   price_basis: number;
   is_settled: number; // 0 = false, 1 = true
-  current_price?: number | null; // Current midpoint price from orderbook
-  best_bid?: number | null; // Best bid from orderbook (cents)
-  best_ask?: number | null; // Best ask from orderbook (cents)
+  current_price?: number | null; // Current midpoint from orderbook, or outcome settled_price when settled
+  settled_price?: number | null; // Outcome settlement price (non-null = settled); use for value/diff when set
+  best_bid?: number | null; // Best bid from orderbook (cents); not used when settled
+  best_ask?: number | null; // Best ask from orderbook (cents); not used when settled
   market_id?: string; // Market ID for navigation
   market_name?: string; // For display
   market_type?: string | null; // For filtering by market type on Positions page

@@ -198,7 +198,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     // For Total Birdies, outcomes may have market_id = market_total_birdies; join to canonical market for market_name
     const positionsDb = await dbQuery(
       db,
-      `SELECT p.*, o.name as outcome_name, o.ticker as outcome_ticker, m.short_name as market_name
+      `SELECT p.*, o.name as outcome_name, o.ticker as outcome_ticker, o.settled_price as outcome_settled_price, m.short_name as market_name
        FROM positions p
        JOIN outcomes o ON p.outcome = o.outcome_id
        LEFT JOIN markets m ON (m.market_id = o.market_id OR (o.market_id = 'market_total_birdies' AND m.market_id = 'market-total-birdies'))
@@ -224,9 +224,11 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       const bestAskByOutcome: Record<string, number> = {};
       asksRows.forEach((r: { outcome: string; price: number }) => { if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price; });
       positions = positionsDb.map((p: any) => {
+        const outcomeSettled = p.outcome_settled_price != null;
         const bidPrice = bestBidByOutcome[p.outcome] ?? null;
         const askPrice = bestAskByOutcome[p.outcome] ?? null;
-        const current_price = (bidPrice != null && askPrice != null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
+        const midPrice = (bidPrice != null && askPrice != null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
+        const current_price = outcomeSettled ? p.outcome_settled_price : midPrice;
         const price_basis = p.net_position !== 0 && p.price_basis > 0
           ? Math.max(100, Math.min(9900, p.price_basis))
           : p.price_basis;
@@ -244,8 +246,9 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
           outcome_name: p.outcome_name,
           outcome_ticker: p.outcome_ticker,
           current_price,
-          best_bid: bidPrice,
-          best_ask: askPrice,
+          settled_price: p.outcome_settled_price ?? null,
+          best_bid: outcomeSettled ? null : bidPrice,
+          best_ask: outcomeSettled ? null : askPrice,
         };
       });
     }

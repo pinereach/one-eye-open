@@ -239,7 +239,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
 
   // Get all positions for the user, joined with outcomes and markets.
   // Total Birdies: outcomes may have market_id 'market_total_birdies' while markets row is 'market-total-birdies'; join both so all positions show.
-  const positionsDb = await dbQuery<Position & { outcome_name: string; outcome_ticker: string; market_id: string; market_name: string; outcome_id: string; market_type: string | null }>(
+  const positionsDb = await dbQuery<Position & { outcome_name: string; outcome_ticker: string; market_id: string; market_name: string; outcome_id: string; market_type: string | null; outcome_settled_price: number | null }>(
     db,
     `SELECT 
       p.*,
@@ -247,6 +247,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       o.ticker as outcome_ticker,
       o.outcome_id,
       o.market_id,
+      o.settled_price as outcome_settled_price,
       m.short_name as market_name,
       m.market_type
      FROM positions p
@@ -265,7 +266,12 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
 
   // Batched best bid/ask: 2 queries for all outcomes (no N+1)
   const clampBasis = (p: typeof positionsDb[0]) => p.net_position !== 0 && p.price_basis > 0 ? clampPriceBasis(p.price_basis) : p.price_basis;
-  let positionsWithOrderbook: any[] = positionsDb.map(p => ({ ...p, market_id: normalizeMarketId(p), price_basis: clampBasis(p), current_price: null as number | null }));
+  let positionsWithOrderbook: any[] = positionsDb.map(p => {
+    const outcomeSettled = p.outcome_settled_price != null;
+    const current_price = outcomeSettled ? p.outcome_settled_price : null;
+    const { outcome_settled_price, ...rest } = p;
+    return { ...rest, market_id: normalizeMarketId(p), price_basis: clampBasis(p), current_price, settled_price: outcome_settled_price ?? null, best_bid: null, best_ask: null };
+  });
 
   if (positionsDb.length > 0) {
     const posOutcomeIds = [...new Set(positionsDb.map(p => p.outcome))];
@@ -285,10 +291,15 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     const bestAskByOutcome: Record<string, number> = {};
     asksRows.forEach(r => { if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price; });
     positionsWithOrderbook = positionsDb.map(p => {
+      const outcomeSettled = p.outcome_settled_price != null;
       const bidPrice = bestBidByOutcome[p.outcome] ?? null;
       const askPrice = bestAskByOutcome[p.outcome] ?? null;
-      const current_price = (bidPrice !== null && askPrice !== null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
-      return { ...p, market_id: normalizeMarketId(p), price_basis: clampBasis(p), current_price, best_bid: bidPrice, best_ask: askPrice };
+      const midPrice = (bidPrice !== null && askPrice !== null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
+      const current_price = outcomeSettled ? p.outcome_settled_price : midPrice;
+      const best_bid = outcomeSettled ? null : bidPrice;
+      const best_ask = outcomeSettled ? null : askPrice;
+      const { outcome_settled_price, ...rest } = p;
+      return { ...rest, market_id: normalizeMarketId(p), price_basis: clampBasis(p), current_price, settled_price: outcome_settled_price ?? null, best_bid, best_ask };
     });
   }
 

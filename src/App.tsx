@@ -45,7 +45,6 @@ function getPageTitle(pathname: string): string {
 
 const linkActive = 'text-primary-600 dark:text-primary-400 font-medium';
 const linkDesktop = 'text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center';
-const linkMobile = 'block px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md';
 
 function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -75,7 +74,7 @@ function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-      <nav className="hidden md:block border-b border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 sticky top-0 z-50">
+      <nav className="border-b border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between items-center h-14 sm:h-16">
             <div className="flex items-center gap-2 sm:gap-4">
@@ -104,48 +103,39 @@ function Layout({ children }: { children: React.ReactNode }) {
               )}
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
-              <DarkModeToggle />
               {(user || isDevelopment) && <TradeNotificationBell />}
               {(user || isDevelopment) ? (
                 <>
-                  <div className="hidden md:flex items-center gap-3 lg:gap-4">
-                    <Link to="/settings" className={`${linkDesktop} ${isNavPathActive('/settings', location.pathname) ? linkActive : ''}`}>{user?.username || 'User'}</Link>
-                    {!isDevelopment && (
-                      <button onClick={handleLogout} className="text-sm hover:text-primary-600 dark:hover:text-primary-400 leading-none flex items-center">Logout</button>
+                  <div className="relative">
+                    <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Toggle menu" aria-expanded={mobileMenuOpen}>
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {mobileMenuOpen ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />}
+                      </svg>
+                    </button>
+                    {mobileMenuOpen && (
+                      <>
+                        <div className="md:hidden fixed inset-0 z-40" aria-hidden="true" onClick={() => setMobileMenuOpen(false)} />
+                        <div className={`z-50 ${'md:absolute md:right-0 md:top-full md:mt-1 md:min-w-[180px] md:py-2 md:rounded-lg md:shadow-lg md:border md:border-gray-200 dark:md:border-gray-600 md:bg-white dark:md:bg-gray-800'} ${'md:hidden border-t border-gray-300 dark:border-gray-700 py-3 px-3'} space-y-1`}>
+                          <Link to="/settings" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 ${isNavPathActive('/settings', location.pathname) ? linkActive : 'text-gray-700 dark:text-gray-300'}`}>
+                            Settings
+                          </Link>
+                          <div className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
+                            <span>Dark mode</span>
+                            <DarkModeToggle />
+                          </div>
+                          {!isDevelopment && (
+                            <button onClick={handleLogout} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-600 dark:text-gray-400">Logout</button>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
-                  <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Toggle menu">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      {mobileMenuOpen ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />}
-                    </svg>
-                  </button>
                 </>
               ) : (
                 <Link to="/" className="text-sm hover:text-primary-600 dark:hover:text-primary-400">Login</Link>
               )}
             </div>
           </div>
-          {(user || isDevelopment) && mobileMenuOpen && (
-            <div className="md:hidden border-t border-gray-300 dark:border-gray-700 py-3 space-y-2">
-              {visibleNavItems.map((item) => {
-                const active = isNavPathActive(item.path, location.pathname);
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`${linkMobile} ${active ? linkActive : ''}`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-              <Link to="/settings" onClick={() => setMobileMenuOpen(false)} className={`${linkMobile} ${isNavPathActive('/settings', location.pathname) ? linkActive : ''}`}>{user?.username || 'User'}</Link>
-              {!isDevelopment && (
-                <button onClick={handleLogout} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-600 dark:text-gray-400">Logout</button>
-              )}
-            </div>
-          )}
         </div>
       </nav>
       <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-3 sm:py-6 lg:py-8 pb-20 md:pb-4 sm:pb-6 lg:pb-8">{children}</main>
