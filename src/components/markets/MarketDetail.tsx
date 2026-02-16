@@ -1080,10 +1080,10 @@ export function MarketDetail() {
                           Sum
                         </td>
                         <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-purple-600 dark:text-purple-400">
-                          {adminOrderbookSums.sumNoSell}
+                          {adminOrderbookSums.sumNoSell}%
                         </td>
                         <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-blue-600 dark:text-blue-400">
-                          {adminOrderbookSums.sumYesBuy}
+                          {adminOrderbookSums.sumYesBuy}%
                         </td>
                       </tr>
                     </tfoot>
@@ -1533,10 +1533,10 @@ export function MarketDetail() {
                           Sum
                         </td>
                         <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-purple-600 dark:text-purple-400">
-                          {adminOrderbookSums.sumNoSell}
+                          {adminOrderbookSums.sumNoSell}%
                         </td>
                         <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-blue-600 dark:text-blue-400">
-                          {adminOrderbookSums.sumYesBuy}
+                          {adminOrderbookSums.sumYesBuy}%
                         </td>
                       </tr>
                     </tfoot>
