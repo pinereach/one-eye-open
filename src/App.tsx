@@ -106,25 +106,40 @@ function Layout({ children }: { children: React.ReactNode }) {
               {(user || isDevelopment) && <TradeNotificationBell />}
               {(user || isDevelopment) ? (
                 <>
-                  <div className="relative">
-                    <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Toggle menu" aria-expanded={mobileMenuOpen}>
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="relative flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setMobileMenuOpen((open) => !open)}
+                      className="p-2 min-w-[44px] min-h-[44px] rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 touch-manipulation flex items-center justify-center -m-1"
+                      aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                      aria-expanded={mobileMenuOpen}
+                      aria-haspopup="true"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         {mobileMenuOpen ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />}
                       </svg>
                     </button>
+                    {/* Desktop: dropdown attached to nav */}
                     {mobileMenuOpen && (
                       <>
-                        <div className="md:hidden fixed inset-0 z-40" aria-hidden="true" onClick={() => setMobileMenuOpen(false)} />
-                        <div className={`z-50 ${'md:absolute md:right-0 md:top-full md:mt-1 md:min-w-[180px] md:py-2 md:rounded-lg md:shadow-lg md:border md:border-gray-200 dark:md:border-gray-600 md:bg-white dark:md:bg-gray-800'} ${'md:hidden border-t border-gray-300 dark:border-gray-700 py-3 px-3'} space-y-1`}>
-                          <Link to="/settings" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 ${isNavPathActive('/settings', location.pathname) ? linkActive : 'text-gray-700 dark:text-gray-300'}`}>
+                        <div className="fixed inset-0 z-40 md:bg-transparent bg-black/30" aria-hidden="true" onClick={() => setMobileMenuOpen(false)} />
+                        <div
+                          role="menu"
+                          className={[
+                            'z-50 space-y-1',
+                            'md:absolute md:right-0 md:top-full md:mt-1 md:min-w-[180px] md:py-2 md:rounded-lg md:shadow-lg md:border md:border-gray-200 dark:md:border-gray-600 md:bg-white dark:md:bg-gray-800',
+                            'max-md:fixed max-md:left-0 max-md:right-0 max-md:top-14 max-md:border-t max-md:border-gray-300 max-md:dark:border-gray-700 max-md:py-3 max-md:px-3 max-md:bg-white max-md:dark:bg-gray-800 max-md:shadow-lg',
+                          ].join(' ')}
+                        >
+                          <Link to="/settings" onClick={() => setMobileMenuOpen(false)} className={`block px-3 py-2 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 ${isNavPathActive('/settings', location.pathname) ? linkActive : 'text-gray-700 dark:text-gray-300'}`} role="menuitem">
                             Settings
                           </Link>
-                          <div className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
+                          <div className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 dark:text-gray-300" role="none">
                             <span>Dark mode</span>
                             <DarkModeToggle />
                           </div>
                           {!isDevelopment && (
-                            <button onClick={handleLogout} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-600 dark:text-gray-400">Logout</button>
+                            <button type="button" onClick={handleLogout} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-600 dark:text-gray-400" role="menuitem">Logout</button>
                           )}
                         </div>
                       </>
