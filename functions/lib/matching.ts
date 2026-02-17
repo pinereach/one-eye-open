@@ -751,6 +751,61 @@ export async function addSystemClosedProfitOffset(
   }
 }
 
+type TradeRowReplay = {
+  id: number;
+  outcome: string;
+  price: number;
+  contracts: number;
+  taker_user_id: number | null;
+  maker_user_id: number | null;
+  taker_side: number | null;
+};
+
+/**
+ * Replay all trades for one outcome in order to recompute net_position, price_basis, closed_profit.
+ * Zeros those fields for every position in the outcome, then reapplies each trade.
+ * Use after deleting a trade (e.g. backout) so positions reflect the correct prior state.
+ * Does not change settled_profit or is_settled.
+ */
+export async function replayOutcomePositions(db: D1Database, outcomeId: string): Promise<void> {
+  const trades = await dbQuery<TradeRowReplay>(
+    db,
+    `SELECT id, outcome, price, contracts, taker_user_id, maker_user_id, taker_side
+     FROM trades WHERE outcome = ? AND taker_user_id IS NOT NULL AND taker_side IS NOT NULL
+     ORDER BY id ASC`,
+    [outcomeId]
+  );
+
+  await dbRun(
+    db,
+    'UPDATE positions SET net_position = 0, price_basis = 0, closed_profit = 0 WHERE outcome = ?',
+    [outcomeId]
+  );
+
+  for (const t of trades) {
+    const takerUserId = t.taker_user_id!;
+    const makerUserId = t.maker_user_id ?? null;
+    const takerSide = t.taker_side === 1 ? 'ask' : 'bid';
+    const price = Number(t.price) || 0;
+    const contracts = Number(t.contracts) || 0;
+    if (contracts < 1) continue;
+
+    const sameUser = makerUserId != null && makerUserId === takerUserId;
+
+    if (makerUserId != null && !sameUser) {
+      await updatePositionsForFill(db, outcomeId, takerUserId, makerUserId, takerSide, price, contracts);
+    } else if (sameUser) {
+      await updatePosition(db, outcomeId, takerUserId, takerSide, price, contracts);
+      const makerSide = takerSide === 'bid' ? 'ask' : 'bid';
+      await updatePosition(db, outcomeId, takerUserId, makerSide, price, contracts);
+    } else {
+      const { closedProfitDelta } = await updatePosition(db, outcomeId, takerUserId, takerSide, price, contracts);
+      const netPositionDelta = takerSide === 'bid' ? contracts : -contracts;
+      await addSystemClosedProfitOffset(db, outcomeId, -closedProfitDelta, netPositionDelta, price);
+    }
+  }
+}
+
 export async function calculateExposure(
   db: D1Database,
   userId: string,

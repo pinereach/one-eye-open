@@ -1,11 +1,7 @@
 import type { OnRequest } from '@cloudflare/pages';
 import { getDb, dbFirst, dbRun, type Env } from '../../../lib/db';
 import { requireAdmin, jsonResponse, errorResponse } from '../../../middleware';
-import {
-  updatePositionsForFill,
-  updatePosition,
-  addSystemClosedProfitOffset,
-} from '../../../lib/matching';
+import { replayOutcomePositions } from '../../../lib/matching';
 
 /**
  * PATCH /api/admin/trades/:tradeId — update risk_off fields (admin only).
@@ -163,23 +159,8 @@ export const onRequestDelete: OnRequest<Env> = async (context) => {
     return errorResponse('Trade cannot be backed out: missing taker user or taker side', 400);
   }
 
-  const reverseSide = takerSide === 0 ? 'ask' : 'bid';
-  const reverseMakerSide = takerSide === 0 ? 'bid' : 'ask';
-
   try {
-    // 1) Reverse positions
-    if (makerUserId != null && makerUserId !== takerUserId) {
-      await updatePositionsForFill(db, outcomeId, takerUserId, makerUserId, reverseSide, priceCents, contracts);
-    } else if (makerUserId != null && makerUserId === takerUserId) {
-      await updatePosition(db, outcomeId, takerUserId, reverseSide, priceCents, contracts);
-      await updatePosition(db, outcomeId, takerUserId, reverseMakerSide, priceCents, contracts);
-    } else {
-      await updatePosition(db, outcomeId, takerUserId, reverseSide, priceCents, contracts);
-      const netPositionDelta = takerSide === 0 ? contracts : -contracts;
-      await addSystemClosedProfitOffset(db, outcomeId, 0, -netPositionDelta, priceCents);
-    }
-
-    // 2) Reinstate maker order when present
+    // 1) Reinstate maker order when present (before deleting the trade so we have maker_order_id)
     let makerOrderReinstated = false;
     if (makerOrderId != null && makerOrderId > 0) {
       const orderRow = await dbFirst<{
@@ -203,8 +184,11 @@ export const onRequestDelete: OnRequest<Env> = async (context) => {
       }
     }
 
-    // 3) Delete the trade
+    // 2) Delete the trade
     await dbRun(db, 'DELETE FROM trades WHERE id = ?', [tradeId]);
+
+    // 3) Replay all remaining trades for this outcome so positions and closed_profit are correct
+    await replayOutcomePositions(db, outcomeId);
 
     return jsonResponse({
       deleted: true,
