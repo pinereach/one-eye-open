@@ -197,11 +197,14 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       const newMarketId = `market-round-${round}-ou`;
       marketShortName = `Round ${round} Over/Under`;
       marketSymbol = `R${round}OU`;
-      let market = await dbFirst<{ market_id: string }>(
-        db,
-        `SELECT market_id FROM markets WHERE market_type = 'round_ou' AND short_name LIKE ?`,
-        [`Round ${round} Over/Under%`]
-      );
+      let market = await dbFirst<{ market_id: string }>(db, 'SELECT market_id FROM markets WHERE market_id = ?', [newMarketId]);
+      if (!market) {
+        market = await dbFirst<{ market_id: string }>(
+          db,
+          `SELECT market_id FROM markets WHERE market_type = 'round_ou' AND short_name LIKE ?`,
+          [`Round ${round} Over/Under%`]
+        );
+      }
       if (!market) {
         await dbRun(
           db,
