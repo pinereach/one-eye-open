@@ -119,8 +119,9 @@ export function MarketDetail() {
     return <>{playerA}{indexA != null && small(indexA)} Over {playerB}{indexB != null && small(indexB)}</>;
   }
 
+  // Always request fresh data when opening the market (or navigating back) so we don't show stale prices from HTTP cache
   useEffect(() => {
-    if (id) loadMarket();
+    if (id) loadMarket(true);
   }, [id]);
 
   // Reset market maker selection if user loses view_market_maker
@@ -874,7 +875,7 @@ export function MarketDetail() {
     : [];
 
   return (
-    <PullToRefresh onRefresh={loadMarket}>
+    <PullToRefresh onRefresh={() => loadMarket(true)}>
     <div className="space-y-4 sm:space-y-6">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 

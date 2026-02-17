@@ -6,6 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
     <meta name="theme-color" content="#16a34a" />
     <title>One Eye Open</title>
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('darkMode');
+          if (stored === 'true') document.documentElement.classList.add('dark');
+          else if (stored === 'false') document.documentElement.classList.remove('dark');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

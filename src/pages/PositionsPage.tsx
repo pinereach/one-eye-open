@@ -8,10 +8,15 @@ import { Card, CardContent } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton, SkeletonCard, SkeletonTable } from '../components/ui/Skeleton';
 
+function isPositionSettled(p: { settled_price?: number | null; is_settled?: number }) {
+  return p.settled_price != null || p.is_settled;
+}
+
 export function PositionsPage() {
   const navigate = useNavigate();
   const [positions, setPositions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [settledFilter, setSettledFilter] = useState<'all' | 'settled' | 'unsettled'>('all');
 
   const showablePositions = useMemo(
     () =>
@@ -22,6 +27,12 @@ export function PositionsPage() {
   );
 
   const { selectedMarketType, setSelectedMarketType, filteredItems: positionsToShow, filterOptions: marketTypeFilterOptions } = useMarketTypeFilter(showablePositions, (p) => p.market_type ?? 'other');
+
+  const positionsDisplayed = useMemo(() => {
+    if (settledFilter === 'all') return positionsToShow;
+    if (settledFilter === 'settled') return positionsToShow.filter(isPositionSettled);
+    return positionsToShow.filter((p) => !isPositionSettled(p));
+  }, [positionsToShow, settledFilter]);
 
   useEffect(() => {
     loadPositions();
@@ -40,7 +51,7 @@ export function PositionsPage() {
   }
 
   // Unrealized P&L only; exclude settled positions (they don't count toward unrealized gain).
-  const totalPositionValueCents = positionsToShow.reduce((sum, position) => {
+  const totalPositionValueCents = positionsDisplayed.reduce((sum, position) => {
     if (position.net_position === 0) return sum;
     if (position.settled_price != null || position.is_settled) return sum;
     const currentPrice = position.current_price !== null && position.current_price !== undefined ? position.current_price : null;
@@ -53,19 +64,19 @@ export function PositionsPage() {
     return sum + contribution;
   }, 0);
 
-  const totalClosedProfitCents = positionsToShow.reduce((sum, p) => sum + (p.closed_profit ?? 0), 0);
-  const totalSettledProfitCents = positionsToShow.reduce((sum, p) => sum + (p.settled_profit ?? 0), 0);
+  const totalClosedProfitCents = positionsDisplayed.reduce((sum, p) => sum + (p.closed_profit ?? 0), 0);
+  const totalSettledProfitCents = positionsDisplayed.reduce((sum, p) => sum + (p.settled_profit ?? 0), 0);
 
   const positionsByMarket = useMemo(() => {
-    const map: Record<string, { marketLabel: string; positions: typeof positionsToShow }> = {};
-    for (const p of positionsToShow) {
+    const map: Record<string, { marketLabel: string; positions: typeof positionsDisplayed }> = {};
+    for (const p of positionsDisplayed) {
       const key = p.market_id ?? p.market_name ?? 'other';
       const label = p.market_name ?? p.market_id ?? 'Other';
       if (!map[key]) map[key] = { marketLabel: label, positions: [] };
       map[key].positions.push(p);
     }
     return Object.entries(map);
-  }, [positionsToShow]);
+  }, [positionsDisplayed]);
 
   const getPositionValueCents = (position: any, currentPrice: number | null) => {
     if (currentPrice === null) return null;
@@ -183,7 +194,7 @@ export function PositionsPage() {
     <PullToRefresh onRefresh={loadPositions}>
     <div className="space-y-4 sm:space-y-6">
       <h1 className="text-xl sm:text-2xl font-bold">Positions</h1>
-      {positionsToShow.length > 0 && (
+      {positionsDisplayed.length > 0 && (
         <div className="flex flex-wrap items-stretch gap-x-6 gap-y-3">
           <div className="flex flex-1 min-w-[120px] flex-col gap-0.5">
             <span className="text-sm text-gray-600 dark:text-gray-400">Unrealized Gain</span>
@@ -206,6 +217,27 @@ export function PositionsPage() {
         </div>
       )}
       {showablePositions.length > 0 && (
+        <>
+        <div className="space-y-2" role="group" aria-label="Filter by status">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 block">Show</span>
+          <div className="flex flex-wrap gap-2">
+            {(['all', 'settled', 'unsettled'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setSettledFilter(value)}
+                aria-pressed={settledFilter === value}
+                className={`min-h-[32px] px-2.5 py-1 rounded-full text-xs font-medium touch-manipulation transition-colors ${
+                  settledFilter === value
+                    ? 'bg-primary-600 text-white dark:bg-primary-500'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500'
+                }`}
+              >
+                {value === 'all' ? 'Show all' : value === 'settled' ? 'Show settled' : 'Show unsettled'}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="space-y-2" role="group" aria-label="Filter by market type">
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300 block">Market type</span>
           <div className="flex flex-wrap gap-2">
@@ -226,9 +258,10 @@ export function PositionsPage() {
             ))}
           </div>
         </div>
+        </>
       )}
       <div className="md:hidden space-y-6">
-        {positionsToShow.length === 0 ? (
+        {positionsDisplayed.length === 0 ? (
           <EmptyState
             icon={<svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
             title="No Positions"
@@ -249,7 +282,7 @@ export function PositionsPage() {
         )}
       </div>
       <div className="hidden md:block space-y-6">
-        {positionsToShow.length === 0 ? (
+        {positionsDisplayed.length === 0 ? (
           <EmptyState
             icon={<svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
             title="No Positions"
