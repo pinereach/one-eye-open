@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../lib/api';
+import { MARKET_TYPE_ORDER, getMarketTypeLabel } from '../lib/marketTypes';
 import { Card, CardContent } from '../components/ui/Card';
 import { ToastContainer, useToast } from '../components/ui/Toast';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -46,6 +47,7 @@ export function AdminPage() {
   const [auctionParticipantId, setAuctionParticipantId] = useState<string>('');
   const [auctionParsMarketId, setAuctionParsMarketId] = useState<string>('');
   const [auctionParsOutcomeId, setAuctionParsOutcomeId] = useState<string>('');
+  const [auctionOutcomeMarketTypeFilter, setAuctionOutcomeMarketTypeFilter] = useState<string>('all');
   const [auctionOutcomeMarketId, setAuctionOutcomeMarketId] = useState<string>('');
   const [auctionOutcomeId, setAuctionOutcomeId] = useState<string>('');
   const [auctionBids, setAuctionBids] = useState<Array<{ user_id: number; guess: string }>>([
@@ -53,6 +55,7 @@ export function AdminPage() {
     { user_id: 0, guess: '' },
   ]);
   const [auctionBusy, setAuctionBusy] = useState(false);
+  const [refreshMarketsBusy, setRefreshMarketsBusy] = useState(false);
 
   // Load once per visit when user is admin. Throttle + ref prevent duplicate runs (e.g. Strict Mode).
   useEffect(() => {
@@ -65,7 +68,7 @@ export function AdminPage() {
 
     let cancelled = false;
     setLoadingMarkets(true);
-    Promise.all([api.adminGetUsers(), api.getMarkets(), api.getParticipants()])
+    Promise.all([api.adminGetUsers(), api.getMarkets({ cacheBust: true }), api.getParticipants()])
       .then(([usersRes, marketsRes, participantsRes]) => {
         if (cancelled) return;
         setUsers(usersRes.users ?? []);
@@ -93,6 +96,45 @@ export function AdminPage() {
 
   const selectedMarket = markets.find((m) => m.market_id === manualMarketId);
   const outcomes = selectedMarket?.outcomes ?? [];
+
+  // Auction "Any outcome": all market types present in markets, then filter markets by selected type
+  const auctionOutcomeMarketTypeOptions = useMemo(() => {
+    const types = new Set(markets.map((m) => m.market_type ?? 'other'));
+    const sorted = [...types].sort((a, b) => {
+      const i = MARKET_TYPE_ORDER.indexOf(a);
+      const j = MARKET_TYPE_ORDER.indexOf(b);
+      return (i === -1 ? MARKET_TYPE_ORDER.length : i) - (j === -1 ? MARKET_TYPE_ORDER.length : j);
+    });
+    return [{ value: 'all', label: 'All' }, ...sorted.map((t) => ({ value: t, label: getMarketTypeLabel(t) }))];
+  }, [markets]);
+
+  const auctionOutcomeMarketsByType = useMemo(() => {
+    if (auctionOutcomeMarketTypeFilter === 'all') return markets;
+    return markets.filter((m) => (m.market_type ?? 'other') === auctionOutcomeMarketTypeFilter);
+  }, [markets, auctionOutcomeMarketTypeFilter]);
+
+  // When market type filter changes, clear market/outcome if current market no longer in list
+  useEffect(() => {
+    if (auctionType !== 'outcome') return;
+    const stillValid = auctionOutcomeMarketsByType.some((m) => m.market_id === auctionOutcomeMarketId);
+    if (!stillValid && auctionOutcomeMarketId) {
+      setAuctionOutcomeMarketId('');
+      setAuctionOutcomeId('');
+    }
+  }, [auctionType, auctionOutcomeMarketTypeFilter, auctionOutcomeMarketsByType, auctionOutcomeMarketId]);
+
+  async function refreshMarkets() {
+    setRefreshMarketsBusy(true);
+    try {
+      const res = await api.getMarkets({ cacheBust: true });
+      setMarkets(res.markets ?? []);
+      showToast(`Markets refreshed (${(res.markets ?? []).length} total)`, 'success');
+    } catch {
+      showToast('Failed to refresh markets', 'error');
+    } finally {
+      setRefreshMarketsBusy(false);
+    }
+  }
 
   async function handleCancelAllOrders() {
     setCancelAllBusy(true);
@@ -541,7 +583,17 @@ export function AdminPage() {
 
       <Card>
         <CardContent>
-          <h2 className="text-base sm:text-lg font-bold mb-3">Auction</h2>
+          <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+            <h2 className="text-base sm:text-lg font-bold">Auction</h2>
+            <button
+              type="button"
+              onClick={refreshMarkets}
+              disabled={refreshMarketsBusy || loadingMarkets}
+              className="text-sm px-2 py-1 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+            >
+              {refreshMarketsBusy ? 'Refreshing…' : 'Refresh markets'}
+            </button>
+          </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
             {auctionType === 'round_ou'
               ? 'Round O/U: round (1–6), participant (golfer), and N bids (user + guess). Strike = average of guesses. Lowest half short, rest long; paired at 50¢.'
@@ -551,13 +603,16 @@ export function AdminPage() {
           </p>
           <form onSubmit={handleRunAuction} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium mb-1">Market type</label>
+              <label className="block text-sm font-medium mb-1">Auction type</label>
               <select
                 value={auctionType}
                 onChange={(e) => {
                   const v = e.target.value as 'round_ou' | 'pars' | 'outcome';
                   setAuctionType(v);
-                  if (v !== 'outcome') setAuctionOutcomeId('');
+                  if (v !== 'outcome') {
+                    setAuctionOutcomeMarketId('');
+                    setAuctionOutcomeId('');
+                  }
                 }}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
               >
@@ -603,6 +658,29 @@ export function AdminPage() {
             {auctionType === 'outcome' && (
               <>
                 <div>
+                  <label className="block text-sm font-medium mb-1">Market type</label>
+                  <select
+                    value={auctionOutcomeMarketTypeFilter}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setAuctionOutcomeMarketTypeFilter(v);
+                      const nextMarkets = v === 'all' ? markets : markets.filter((m) => (m.market_type ?? 'other') === v);
+                      const stillValid = nextMarkets.some((m) => m.market_id === auctionOutcomeMarketId);
+                      if (!stillValid) {
+                        setAuctionOutcomeMarketId('');
+                        setAuctionOutcomeId('');
+                      }
+                    }}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
+                  >
+                    {auctionOutcomeMarketTypeOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium mb-1">Market</label>
                   <select
                     value={auctionOutcomeMarketId}
@@ -613,7 +691,7 @@ export function AdminPage() {
                     className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
                   >
                     <option value="">Select market</option>
-                    {markets.map((m) => (
+                    {auctionOutcomeMarketsByType.map((m) => (
                       <option key={m.market_id} value={m.market_id}>
                         {m.short_name ?? m.market_id}
                       </option>
