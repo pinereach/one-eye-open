@@ -41,8 +41,9 @@ export function AdminPage() {
   const [manualPrice, setManualPrice] = useState<string>('');
   const [manualContracts, setManualContracts] = useState<string>('');
 
-  // Auction (Round O/U, Pars, or any outcome)
-  const [auctionType, setAuctionType] = useState<'round_ou' | 'pars' | 'outcome'>('round_ou');
+  // Auction: two types — (1) strike from average, 50¢ shares (Round O/U or Pars) or (2) outcome at average price
+  const [auctionCategory, setAuctionCategory] = useState<'strike' | 'outcome'>('strike');
+  const [auctionStrikeMode, setAuctionStrikeMode] = useState<'round_ou' | 'pars'>('round_ou');
   const [auctionRound, setAuctionRound] = useState<number>(1);
   const [auctionParticipantId, setAuctionParticipantId] = useState<string>('');
   const [auctionParsMarketId, setAuctionParsMarketId] = useState<string>('');
@@ -97,6 +98,9 @@ export function AdminPage() {
   const selectedMarket = markets.find((m) => m.market_id === manualMarketId);
   const outcomes = selectedMarket?.outcomes ?? [];
 
+  // Backend expects round_ou | pars | outcome; we have two UI categories: strike (→ round_ou or pars) and outcome
+  const effectiveAuctionType = auctionCategory === 'strike' ? auctionStrikeMode : 'outcome';
+
   // Auction "Any outcome": all market types present in markets, then filter markets by selected type
   const auctionOutcomeMarketTypeOptions = useMemo(() => {
     const types = new Set(markets.map((m) => m.market_type ?? 'other'));
@@ -115,13 +119,13 @@ export function AdminPage() {
 
   // When market type filter changes, clear market/outcome if current market no longer in list
   useEffect(() => {
-    if (auctionType !== 'outcome') return;
+    if (auctionCategory !== 'outcome') return;
     const stillValid = auctionOutcomeMarketsByType.some((m) => m.market_id === auctionOutcomeMarketId);
     if (!stillValid && auctionOutcomeMarketId) {
       setAuctionOutcomeMarketId('');
       setAuctionOutcomeId('');
     }
-  }, [auctionType, auctionOutcomeMarketTypeFilter, auctionOutcomeMarketsByType, auctionOutcomeMarketId]);
+  }, [auctionCategory, auctionOutcomeMarketTypeFilter, auctionOutcomeMarketsByType, auctionOutcomeMarketId]);
 
   async function refreshMarkets() {
     setRefreshMarketsBusy(true);
@@ -249,16 +253,16 @@ export function AdminPage() {
       }
       bids.push({ user_id: uid, guess: g });
     }
-    if (auctionType === 'round_ou' && !auctionParticipantId) {
+    if (effectiveAuctionType === 'round_ou' && !auctionParticipantId) {
       showToast('Select a participant', 'error');
       return;
     }
-    if (auctionType === 'outcome' && !auctionOutcomeId) {
+    if (effectiveAuctionType === 'outcome' && !auctionOutcomeId) {
       showToast('Select an outcome', 'error');
       return;
     }
     let parsMarketId = '';
-    if (auctionType === 'pars') {
+    if (effectiveAuctionType === 'pars') {
       if (auctionParsOutcomeId && auctionParsOutcomeId !== '__new__') {
         const parsMarkets = markets.filter((m) => m.market_type === 'pars' || (m.short_name && m.short_name.toLowerCase().includes('pars')));
         for (const m of parsMarkets) {
@@ -282,12 +286,12 @@ export function AdminPage() {
     setAuctionBusy(true);
     try {
       const res = await api.adminRunRoundOuAuction({
-        auction_type: auctionType,
-        ...(auctionType === 'round_ou' && { round: auctionRound }),
-        ...(auctionType === 'round_ou' && { participant_id: auctionParticipantId }),
-        ...(auctionType === 'pars' && parsMarketId && { market_id: parsMarketId }),
-        ...(auctionType === 'pars' && auctionParsOutcomeId && auctionParsOutcomeId !== '__new__' && { outcome_id: auctionParsOutcomeId }),
-        ...(auctionType === 'outcome' && { outcome_id: auctionOutcomeId }),
+        auction_type: effectiveAuctionType,
+        ...(effectiveAuctionType === 'round_ou' && { round: auctionRound }),
+        ...(effectiveAuctionType === 'round_ou' && { participant_id: auctionParticipantId }),
+        ...(effectiveAuctionType === 'pars' && parsMarketId && { market_id: parsMarketId }),
+        ...(effectiveAuctionType === 'pars' && auctionParsOutcomeId && auctionParsOutcomeId !== '__new__' && { outcome_id: auctionParsOutcomeId }),
+        ...(effectiveAuctionType === 'outcome' && { outcome_id: auctionOutcomeId }),
         bids,
       });
       showToast(`Auction done. Strike: ${res.strike}. ${res.trades_created} trade(s) created.`, 'success');
@@ -595,33 +599,43 @@ export function AdminPage() {
             </button>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-            {auctionType === 'round_ou'
-              ? 'Round O/U: round (1–6), participant (golfer), and N bids (user + guess). Strike = average of guesses. Lowest half short, rest long; paired at 50¢.'
-              : auctionType === 'pars'
-              ? 'Pars: select a line (e.g. O8.5), then enter each person’s bid price (%). Trade price = average of bids. Lowest half short, rest long.'
-              : 'Any outcome: select a market and outcome. Enter each bid as %. Trade price = average of bids; lowest half short, rest long.'}
+            {auctionCategory === 'strike'
+              ? 'Strike from average: enter bids (guess or %). Strike = average; lowest half get short, rest long, all at 50¢.'
+              : 'Outcome: select market and outcome. Enter each bid as %. Trade price = average of bids; lowest half short, rest long.'}
           </p>
           <form onSubmit={handleRunAuction} className="space-y-3">
             <div>
               <label className="block text-sm font-medium mb-1">Auction type</label>
               <select
-                value={auctionType}
+                value={auctionCategory}
                 onChange={(e) => {
-                  const v = e.target.value as 'round_ou' | 'pars' | 'outcome';
-                  setAuctionType(v);
-                  if (v !== 'outcome') {
+                  const v = e.target.value as 'strike' | 'outcome';
+                  setAuctionCategory(v);
+                  if (v === 'outcome') {
                     setAuctionOutcomeMarketId('');
                     setAuctionOutcomeId('');
                   }
                 }}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
               >
-                <option value="round_ou">Round O/U</option>
-                <option value="pars">Pars (e.g. Boose Pars)</option>
-                <option value="outcome">Any outcome</option>
+                <option value="strike">Strike from average (50¢)</option>
+                <option value="outcome">Outcome (average price)</option>
               </select>
             </div>
-            {auctionType === 'round_ou' && (
+            {auctionCategory === 'strike' && (
+              <div>
+                <label className="block text-sm font-medium mb-1">Strike type</label>
+                <select
+                  value={auctionStrikeMode}
+                  onChange={(e) => setAuctionStrikeMode(e.target.value as 'round_ou' | 'pars')}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
+                >
+                  <option value="round_ou">Round O/U</option>
+                  <option value="pars">Pars</option>
+                </select>
+              </div>
+            )}
+            {effectiveAuctionType === 'round_ou' && (
               <div>
                 <label className="block text-sm font-medium mb-1">Round</label>
                 <select
@@ -637,7 +651,7 @@ export function AdminPage() {
                 </select>
               </div>
             )}
-            {auctionType === 'round_ou' && (
+            {effectiveAuctionType === 'round_ou' && (
               <div>
                 <label className="block text-sm font-medium mb-1">Participant</label>
                 <select
@@ -655,7 +669,7 @@ export function AdminPage() {
                 </select>
               </div>
             )}
-            {auctionType === 'outcome' && (
+            {auctionCategory === 'outcome' && (
               <>
                 <div>
                   <label className="block text-sm font-medium mb-1">Market type</label>
@@ -715,7 +729,7 @@ export function AdminPage() {
                 </div>
               </>
             )}
-            {auctionType === 'pars' && (
+            {effectiveAuctionType === 'pars' && (
               <>
                 <div>
                   <label className="block text-sm font-medium mb-1">Line</label>
@@ -747,7 +761,7 @@ export function AdminPage() {
                     <option value="__new__">— New line (strike from bid average) —</option>
                   </select>
                 </div>
-                {auctionType === 'pars' && auctionParsOutcomeId === '__new__' && (
+                {effectiveAuctionType === 'pars' && auctionParsOutcomeId === '__new__' && (
                   <div>
                     <label className="block text-sm font-medium mb-1">Market (for new line)</label>
                     <select
@@ -799,11 +813,11 @@ export function AdminPage() {
                     <input
                       type="number"
                       step="any"
-                      min={auctionType === 'pars' || auctionType === 'outcome' ? 0 : undefined}
-                      max={auctionType === 'pars' || auctionType === 'outcome' ? 100 : undefined}
+                      min={effectiveAuctionType === 'pars' || effectiveAuctionType === 'outcome' ? 0 : undefined}
+                      max={effectiveAuctionType === 'pars' || effectiveAuctionType === 'outcome' ? 100 : undefined}
                       value={row.guess}
                       onChange={(e) => setAuctionBidAt(index, 'guess', e.target.value)}
-                      placeholder={auctionType === 'pars' || auctionType === 'outcome' ? 'Bid %' : 'Guess'}
+                      placeholder={effectiveAuctionType === 'pars' || effectiveAuctionType === 'outcome' ? 'Bid %' : 'Guess'}
                       className="w-20 border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
                     />
                     {auctionBids.length > 2 && (
