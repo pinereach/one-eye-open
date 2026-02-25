@@ -874,6 +874,9 @@ export function MarketDetail() {
         })
     : [];
 
+  // Check if market is settled (any outcome has settled_price)
+  const isMarketSettled = sortedOutcomes.some((o) => o.settled_price != null);
+
   return (
     <PullToRefresh onRefresh={() => loadMarket(true)}>
     <div className="space-y-4 sm:space-y-6">
@@ -953,7 +956,7 @@ export function MarketDetail() {
                       {showCurrentColumn && (
                         <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Current</th>
                       )}
-                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Chance</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">{isMarketSettled ? 'Settled' : 'Chance'}</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">No/Sell</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Yes/Buy</th>
                     </tr>
@@ -966,6 +969,7 @@ export function MarketDetail() {
                         const yesPrice = bestBid ? bestBid.price : null;
                         const avgPrice = bestBid && bestAsk ? (bestBid.price + bestAsk.price) / 2 : (yesPrice || 0);
                         const chance = avgPrice ? Math.round((avgPrice / 10000) * 100) : 0;
+                        const outcomeSettledPrice = outcome.settled_price;
                         const isSelected = selectedOutcomeId === outcome.outcome_id;
                         const currentScore = currentScores[outcome.name];
                         const currentDisplay = market?.market_id === 'market-individual-gross-champion'
@@ -1042,11 +1046,14 @@ export function MarketDetail() {
                             )}
                             <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                               <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100">
-                                {chance}%
+                                {outcomeSettledPrice != null ? formatPriceCents(outcomeSettledPrice) : `${chance}%`}
                               </span>
                             </td>
                             <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                               <div className="flex justify-center">
+                                {outcomeSettledPrice != null ? (
+                                  <span className="text-xs text-gray-400 dark:text-gray-500">-</span>
+                                ) : (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1059,10 +1066,14 @@ export function MarketDetail() {
                                     <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestBid.contract_size}</span>
                                   )}
                                 </button>
+                                )}
                               </div>
                             </td>
                             <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                               <div className="flex justify-center">
+                                {outcomeSettledPrice != null ? (
+                                  <span className="text-xs text-gray-400 dark:text-gray-500">-</span>
+                                ) : (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1075,6 +1086,7 @@ export function MarketDetail() {
                                     <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestAsk.contract_size}</span>
                                   )}
                                 </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -1363,7 +1375,7 @@ export function MarketDetail() {
                       {showCurrentColumn && (
                         <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Current</th>
                       )}
-                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Chance</th>
+                      <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">{isMarketSettled ? 'Settled' : 'Chance'}</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">No/Sell</th>
                       <th className="py-1.5 px-1 sm:py-2 sm:px-3 text-center text-xs font-bold text-gray-600 dark:text-gray-400">Yes/Buy</th>
                     </tr>
@@ -1376,6 +1388,7 @@ export function MarketDetail() {
                         const yesPrice = bestBid ? bestBid.price : null;
                         const avgPrice = bestBid && bestAsk ? (bestBid.price + bestAsk.price) / 2 : (yesPrice || 0);
                         const chance = avgPrice ? Math.round((avgPrice / 10000) * 100) : 0;
+                        const outcomeSettledPriceDesktop = outcome.settled_price;
                         const isSelected = selectedOutcomeId === outcome.outcome_id;
                         const currentScoreDesktop = currentScores[outcome.name];
                         const currentDisplayDesktop = market?.market_id === 'market-individual-gross-champion'
@@ -1454,11 +1467,14 @@ export function MarketDetail() {
                               )}
                               <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                                 <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100">
-                                  {chance}%
+                                  {outcomeSettledPriceDesktop != null ? formatPriceCents(outcomeSettledPriceDesktop) : `${chance}%`}
                                 </span>
                               </td>
                               <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                                 <div className="flex justify-center">
+                                  {outcomeSettledPriceDesktop != null ? (
+                                    <span className="text-xs text-gray-400 dark:text-gray-500">-</span>
+                                  ) : (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1471,10 +1487,14 @@ export function MarketDetail() {
                                       <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestBid.contract_size}</span>
                                     )}
                                   </button>
+                                  )}
                                 </div>
                               </td>
                               <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                                 <div className="flex justify-center">
+                                  {outcomeSettledPriceDesktop != null ? (
+                                    <span className="text-xs text-gray-400 dark:text-gray-500">-</span>
+                                  ) : (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1487,6 +1507,7 @@ export function MarketDetail() {
                                       <span className="text-[10px] sm:text-xs font-normal opacity-90 mt-0.5">x {bestAsk.contract_size}</span>
                                     )}
                                   </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
