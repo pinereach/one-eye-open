@@ -1046,7 +1046,7 @@ export function MarketDetail() {
                             )}
                             <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                               <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100">
-                                {outcomeSettledPrice != null ? formatPriceCents(outcomeSettledPrice) : `${chance}%`}
+                                {outcomeSettledPrice != null ? `${Math.round(outcomeSettledPrice / 100)}%` : `${chance}%`}
                               </span>
                             </td>
                             <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
@@ -1467,7 +1467,7 @@ export function MarketDetail() {
                               )}
                               <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
                                 <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-gray-100">
-                                  {outcomeSettledPriceDesktop != null ? formatPriceCents(outcomeSettledPriceDesktop) : `${chance}%`}
+                                  {outcomeSettledPriceDesktop != null ? `${Math.round(outcomeSettledPriceDesktop / 100)}%` : `${chance}%`}
                                 </span>
                               </td>
                               <td className="py-1.5 px-1 sm:py-2 sm:px-3 text-center">
