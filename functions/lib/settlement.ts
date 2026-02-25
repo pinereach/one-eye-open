@@ -221,6 +221,16 @@ export async function settleMarket(
     [settleValue, marketId]
   );
 
+  // Cancel all open/partial orders for outcomes in this market
+  await dbRun(
+    db,
+    `UPDATE orders 
+     SET status = 'cancelled'
+     WHERE outcome IN (SELECT outcome_id FROM outcomes WHERE market_id = ?)
+       AND status IN ('open', 'partial')`,
+    [marketId]
+  );
+
   return pnlResults;
 }
 

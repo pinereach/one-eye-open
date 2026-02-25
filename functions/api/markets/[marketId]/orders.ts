@@ -53,14 +53,18 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       ? ['market-total-birdies', 'market_total_birdies']
       : [marketId];
     const outcomePh = outcomeMarketIds.map(() => '?').join(',');
-    const outcome = await dbFirst(
+    const outcome = await dbFirst<{ outcome_id: string; settled_price: number | null }>(
       db,
-      `SELECT * FROM outcomes WHERE outcome_id = ? AND market_id IN (${outcomePh})`,
+      `SELECT outcome_id, settled_price FROM outcomes WHERE outcome_id = ? AND market_id IN (${outcomePh})`,
       [validated.outcome_id, ...outcomeMarketIds]
     );
 
     if (!outcome) {
       return errorResponse('Outcome not found', 404);
+    }
+
+    if (outcome.settled_price != null) {
+      return errorResponse('This outcome has already settled. No further trading is allowed.', 400);
     }
 
     // Check exposure limit
