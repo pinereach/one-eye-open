@@ -142,17 +142,8 @@ export function MarketList({ tripId }: { tripId?: string }) {
     setPreferFresh();
   }
 
-  // Hide settled markets from the list (outcomes have non-null settled_price). Positions/trades/orders for those markets remain viewable.
-  const unsettledMarkets = useMemo(() => {
-    return markets.filter((market) => {
-      const outcomes = market.outcomes ?? [];
-      const isSettled = outcomes.some((o: { settled_price?: number | null }) => o.settled_price != null);
-      return !isSettled;
-    });
-  }, [markets]);
-
   // Group markets by type (use market_id for Total Birdies/Pars when market_type is missing)
-  const marketsByType = unsettledMarkets.reduce((acc, market) => {
+  const marketsByType = markets.reduce((acc, market) => {
     let type = market.market_type || 'other';
     if (type === 'other' && (market.market_id === 'market-total-birdies' || market.market_id === 'market_total_birdies')) {
       type = 'market_total_birdies';
