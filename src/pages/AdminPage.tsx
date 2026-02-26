@@ -72,9 +72,14 @@ export function AdminPage() {
     Promise.all([api.adminGetUsers(), api.getMarkets({ cacheBust: true }), api.getParticipants()])
       .then(([usersRes, marketsRes, participantsRes]) => {
         if (cancelled) return;
-        setUsers(usersRes.users ?? []);
+        const loadedUsers = usersRes.users ?? [];
+        setUsers(loadedUsers);
         setMarkets(marketsRes.markets ?? []);
         setParticipants((participantsRes.participants ?? []).map((p: any) => ({ id: p.id ?? p.name, name: p.name })));
+        // Initialize auction bids with all users (each user gets an empty guess)
+        if (loadedUsers.length > 0) {
+          setAuctionBids(loadedUsers.map((u: { id: number }) => ({ user_id: u.id, guess: '' })));
+        }
       })
       .catch(() => {
         if (!cancelled) {
@@ -218,7 +223,14 @@ export function AdminPage() {
   }
 
   function addAuctionBid() {
-    setAuctionBids((prev) => [...prev, { user_id: 0, guess: '' }]);
+    // Find first user not already in the auction
+    const existingUserIds = new Set(auctionBids.map((b) => b.user_id));
+    const nextUser = users.find((u) => !existingUserIds.has(u.id));
+    if (nextUser) {
+      setAuctionBids((prev) => [...prev, { user_id: nextUser.id, guess: '' }]);
+    } else {
+      showToast('All users are already in the auction', 'info');
+    }
   }
 
   function removeAuctionBid(index: number) {
@@ -786,30 +798,23 @@ export function AdminPage() {
             )}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium">Bids (min 2)</label>
+                <label className="block text-sm font-medium">Participants (min 2, remove those not in)</label>
                 <button
                   type="button"
                   onClick={addAuctionBid}
                   className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
                 >
-                  Add bid
+                  Add
                 </button>
               </div>
               <div className="space-y-2">
-                {auctionBids.map((row, index) => (
+                {auctionBids.map((row, index) => {
+                  const bidUser = users.find((u) => u.id === row.user_id);
+                  return (
                   <div key={index} className="flex flex-wrap items-center gap-2">
-                    <select
-                      value={row.user_id || ''}
-                      onChange={(e) => setAuctionBidAt(index, 'user_id', Number(e.target.value) || 0)}
-                      className="flex-1 min-w-[120px] border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
-                    >
-                      <option value="">User</option>
-                      {users.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.username}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="flex-1 min-w-[120px] text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {bidUser?.username ?? `User ${row.user_id}`}
+                    </span>
                     <input
                       type="number"
                       step="any"
@@ -825,13 +830,14 @@ export function AdminPage() {
                         type="button"
                         onClick={() => removeAuctionBid(index)}
                         className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                        aria-label="Remove bid"
+                        aria-label="Remove participant"
                       >
                         ×
                       </button>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
             <button
