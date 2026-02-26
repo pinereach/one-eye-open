@@ -167,9 +167,10 @@ export async function settleMarket(
     outcome: string;
     net_position: number;
     price_basis: number;
+    closed_profit: number;
   }>(
     db,
-    `SELECT p.* 
+    `SELECT p.id, p.user_id, p.outcome, p.net_position, p.price_basis, COALESCE(p.closed_profit, 0) AS closed_profit
      FROM positions p
      JOIN outcomes o ON p.outcome = o.outcome_id
      WHERE o.market_id = ?`,
@@ -180,36 +181,36 @@ export async function settleMarket(
   const pnlResults: PnLResult[] = [];
 
   for (const position of positionsDb) {
-    let pnlCents = 0;
-    let settledProfit = 0;
+    let positionSettledProfit = 0;
 
     // Long positions: net_position > 0, profit if settleValue > price_basis
     if (position.net_position > 0 && position.price_basis > 0) {
       const profitPerContract = settleValue - position.price_basis;
-      settledProfit = position.net_position * profitPerContract;
-      pnlCents = settledProfit;
+      positionSettledProfit = position.net_position * profitPerContract;
     }
 
     // Short positions: net_position < 0, profit if settleValue < price_basis
     if (position.net_position < 0 && position.price_basis > 0) {
       const profitPerContract = position.price_basis - settleValue;
-      settledProfit = Math.abs(position.net_position) * profitPerContract;
-      pnlCents = settledProfit;
+      positionSettledProfit = Math.abs(position.net_position) * profitPerContract;
     }
 
-    // Update position with settled_profit and mark as settled
+    // Total settled profit = position P&L + any closed profit from partial exits
+    const totalSettledProfit = positionSettledProfit + position.closed_profit;
+
+    // Update position: move closed_profit to settled_profit, clear closed_profit, mark as settled
     await dbRun(
       db,
       `UPDATE positions 
-       SET settled_profit = ?, is_settled = 1
+       SET settled_profit = ?, closed_profit = 0, is_settled = 1
        WHERE id = ?`,
-      [settledProfit, position.id]
+      [totalSettledProfit, position.id]
     );
 
     pnlResults.push({
       userId: position.user_id?.toString() || '',
       marketId: marketId,
-      pnlCents,
+      pnlCents: totalSettledProfit,
     });
   }
 

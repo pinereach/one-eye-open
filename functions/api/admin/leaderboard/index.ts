@@ -220,20 +220,24 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       const unrealizedRaw = isSettled ? 0 : unrealizedPnlRaw(p, currentPrice);
       const unrealizedRounded = Math.round(unrealizedRaw);
       // Compute settled profit on-the-fly when outcome is settled (DB settled_profit may be 0 if outcome was settled manually)
-      const settledProfit = isSettled && p.outcome_settled_price != null
+      // For settled outcomes, include closed_profit in settled_profit (closed_profit from partial exits before settlement)
+      const positionSettledProfit = isSettled && p.outcome_settled_price != null
         ? computedSettledProfitCents(p.net_position, p.price_basis, p.outcome_settled_price)
         : p.settled_profit;
+      const settledProfit = isSettled ? positionSettledProfit + p.closed_profit : p.settled_profit;
+      // For settled outcomes, closed_profit is rolled into settled_profit for display; for unsettled, keep separate
+      const closedProfitForDisplay = isSettled ? 0 : p.closed_profit;
       systemTotalCentsRaw += unrealizedRaw;
-      systemTotalClosedProfitCents += p.closed_profit;
+      systemTotalClosedProfitCents += closedProfitForDisplay;
       systemTotalSettledProfitCents += settledProfit;
       pnlByOutcome[p.outcome] = (pnlByOutcome[p.outcome] ?? 0) + unrealizedRaw;
-      closedProfitByOutcome[p.outcome] = (closedProfitByOutcome[p.outcome] ?? 0) + p.closed_profit;
+      closedProfitByOutcome[p.outcome] = (closedProfitByOutcome[p.outcome] ?? 0) + closedProfitForDisplay;
       settledProfitByOutcome[p.outcome] = (settledProfitByOutcome[p.outcome] ?? 0) + settledProfit;
       if (unrealizedRounded !== 0) {
         positionContributions.push({ outcome: p.outcome, user_id: p.user_id, contribution_cents: unrealizedRounded });
       }
-      if (p.closed_profit !== 0) {
-        closedProfitContributions.push({ outcome: p.outcome, user_id: p.user_id, closed_profit_cents: p.closed_profit });
+      if (closedProfitForDisplay !== 0) {
+        closedProfitContributions.push({ outcome: p.outcome, user_id: p.user_id, closed_profit_cents: closedProfitForDisplay });
       }
       if (settledProfit !== 0) {
         settledProfitContributions.push({ outcome: p.outcome, user_id: p.user_id, settled_profit_cents: settledProfit });
@@ -241,16 +245,16 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       // Unattributed: no user_id, or user_id not in current users table (e.g. deleted user)
       if (p.user_id == null || !userIds.has(p.user_id)) {
         unattributedCentsRaw += unrealizedRaw;
-        unattributedClosedProfitCents += p.closed_profit;
+        unattributedClosedProfitCents += closedProfitForDisplay;
         unattributedSettledProfitCents += settledProfit;
       } else {
         portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + unrealizedRaw);
-        closedProfitByUser.set(p.user_id, (closedProfitByUser.get(p.user_id) ?? 0) + p.closed_profit);
+        closedProfitByUser.set(p.user_id, (closedProfitByUser.get(p.user_id) ?? 0) + closedProfitForDisplay);
         settledProfitByUser.set(p.user_id, (settledProfitByUser.get(p.user_id) ?? 0) + settledProfit);
         const mt = outcomeToMarketType[p.outcome] ?? 'other';
         const s = getOrCreate(p.user_id, mt);
         s.portfolio_value_cents += unrealizedRaw;
-        s.closed_profit_cents += p.closed_profit;
+        s.closed_profit_cents += closedProfitForDisplay;
         s.settled_profit_cents += settledProfit;
       }
     }
