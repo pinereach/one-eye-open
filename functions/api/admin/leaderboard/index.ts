@@ -259,16 +259,21 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     closedProfitContributions.sort((a, b) => Math.abs(b.closed_profit_cents) - Math.abs(a.closed_profit_cents));
     settledProfitContributions.sort((a, b) => Math.abs(b.settled_profit_cents) - Math.abs(a.settled_profit_cents));
 
-    const leaderboard: LeaderboardRow[] = users.map((u) => ({
-      user_id: u.id,
-      username: u.username,
-      trade_count: tradeCountByUser.get(u.id) ?? 0,
-      open_orders_count: openOrdersByUser.get(u.id) ?? 0,
-      shares_traded: sharesByUser.get(u.id) ?? 0,
-      portfolio_value_cents: Math.round(portfolioByUser.get(u.id) ?? 0),
-      closed_profit_cents: closedProfitByUser.get(u.id) ?? 0,
-      settled_profit_cents: settledProfitByUser.get(u.id) ?? 0,
-    }));
+    // For UI display: combine closed_profit into settled_profit (DB keeps them separate for debugging)
+    const leaderboard: LeaderboardRow[] = users.map((u) => {
+      const closedProfit = closedProfitByUser.get(u.id) ?? 0;
+      const settledProfit = settledProfitByUser.get(u.id) ?? 0;
+      return {
+        user_id: u.id,
+        username: u.username,
+        trade_count: tradeCountByUser.get(u.id) ?? 0,
+        open_orders_count: openOrdersByUser.get(u.id) ?? 0,
+        shares_traded: sharesByUser.get(u.id) ?? 0,
+        portfolio_value_cents: Math.round(portfolioByUser.get(u.id) ?? 0),
+        closed_profit_cents: 0, // Rolled into settled for display
+        settled_profit_cents: settledProfit + closedProfit,
+      };
+    });
 
     // Report system total as $0 when within ±10¢ (rounding drift from legacy position updates)
     const SYSTEM_TOTAL_TOLERANCE_CENTS = 10;
