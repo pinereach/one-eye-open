@@ -106,9 +106,21 @@ export function AdminPage() {
   // Backend expects round_ou | pars | outcome; we have two UI categories: strike (→ round_ou or pars) and outcome
   const effectiveAuctionType = auctionCategory === 'strike' ? auctionStrikeMode : 'outcome';
 
+  // Normalize market type (handle Total Birdies/Pars which may have market_type='other' but identifiable market_id)
+  function normalizeMarketType(m: { market_id: string; market_type?: string | null }): string {
+    let type = m.market_type || 'other';
+    if (type === 'other' && (m.market_id === 'market-total-birdies' || m.market_id === 'market_total_birdies')) {
+      type = 'market_total_birdies';
+    }
+    if (type === 'other' && (m.market_id === 'market-total-pars' || m.market_id === 'market_total_pars')) {
+      type = 'market_total_pars';
+    }
+    return type;
+  }
+
   // Auction "Any outcome": all market types present in markets, then filter markets by selected type
   const auctionOutcomeMarketTypeOptions = useMemo(() => {
-    const types = new Set(markets.map((m) => m.market_type ?? 'other'));
+    const types = new Set(markets.map((m) => normalizeMarketType(m)));
     const sorted = [...types].sort((a, b) => {
       const i = MARKET_TYPE_ORDER.indexOf(a);
       const j = MARKET_TYPE_ORDER.indexOf(b);
@@ -119,7 +131,7 @@ export function AdminPage() {
 
   const auctionOutcomeMarketsByType = useMemo(() => {
     if (auctionOutcomeMarketTypeFilter === 'all') return markets;
-    return markets.filter((m) => (m.market_type ?? 'other') === auctionOutcomeMarketTypeFilter);
+    return markets.filter((m) => normalizeMarketType(m) === auctionOutcomeMarketTypeFilter);
   }, [markets, auctionOutcomeMarketTypeFilter]);
 
   // When market type filter changes, clear market/outcome if current market no longer in list
