@@ -238,6 +238,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   const userIdNum = typeof userId === 'string' ? parseInt(userId, 10) : userId;
   const db = getDb(env);
 
+  try {
+
   const url = new URL(request.url);
   if (url.searchParams.get('summary') === '1') {
     const rows = await dbQuery<{ count: number }>(
@@ -323,4 +325,11 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   }
 
   return jsonResponse({ positions: positionsWithOrderbook });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    const errorStack = err instanceof Error ? err.stack : undefined;
+    console.error('Positions error:', errorMessage);
+    if (errorStack) console.error('Stack trace:', errorStack);
+    return jsonResponse({ error: 'Failed to load positions', debug: errorMessage }, 500);
+  }
 };

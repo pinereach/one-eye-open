@@ -292,7 +292,10 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       settled_profit_contributions: settledProfitContributions.slice(0, 30),
     });
   } catch (err) {
-    console.error('Admin leaderboard error:', err);
-    return jsonResponse({ error: 'Failed to load leaderboard' }, 500);
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    const errorStack = err instanceof Error ? err.stack : undefined;
+    console.error('Admin leaderboard error:', errorMessage);
+    if (errorStack) console.error('Stack trace:', errorStack);
+    return jsonResponse({ error: 'Failed to load leaderboard', debug: errorMessage }, 500);
   }
 };
