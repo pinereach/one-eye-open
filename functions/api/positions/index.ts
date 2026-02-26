@@ -283,7 +283,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   // Batched best bid/ask: 2 queries for all outcomes (no N+1)
   const clampBasis = (p: typeof positionsDb[0]) => p.net_position !== 0 && p.price_basis > 0 ? clampPriceBasis(p.price_basis) : p.price_basis;
   
-  // For UI display: combine closed_profit into settled_profit (DB keeps them separate for debugging)
+  // For UI display: when outcome is settled, roll closed_profit into settled_profit
   const mapPositionForDisplay = (p: typeof positionsDb[0], bidPrice: number | null, askPrice: number | null) => {
     const outcomeSettled = p.outcome_settled_price != null;
     const priceBasis = clampBasis(p);
@@ -291,7 +291,9 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       ? computedSettledProfitCents(p.net_position, priceBasis, p.outcome_settled_price)
       : (p.settled_profit ?? 0);
     const closedProfit = p.closed_profit ?? 0;
-    const combinedSettledProfit = baseSettledProfit + closedProfit;
+    // Only combine when settled
+    const displayClosedProfit = outcomeSettled ? 0 : closedProfit;
+    const displaySettledProfit = outcomeSettled ? (baseSettledProfit + closedProfit) : baseSettledProfit;
     const midPrice = (bidPrice !== null && askPrice !== null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
     const current_price = outcomeSettled ? p.outcome_settled_price : midPrice;
     const best_bid = outcomeSettled ? null : bidPrice;
@@ -301,8 +303,8 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       ...rest, 
       market_id: normalizeMarketId(p), 
       price_basis: priceBasis, 
-      closed_profit: 0, // Rolled into settled for display
-      settled_profit: combinedSettledProfit, 
+      closed_profit: displayClosedProfit,
+      settled_profit: displaySettledProfit, 
       current_price, 
       settled_price: outcome_settled_price ?? null, 
       best_bid, 

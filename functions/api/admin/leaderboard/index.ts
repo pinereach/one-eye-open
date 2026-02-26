@@ -217,35 +217,40 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       const currentPrice = isSettled ? null : (currentPriceByOutcome[p.outcome] ?? null);
       const unrealizedRaw = isSettled ? 0 : unrealizedPnlRaw(p, currentPrice);
       const unrealizedRounded = Math.round(unrealizedRaw);
+      
+      // For display: when outcome is settled, roll closed_profit into settled_profit
+      const displayClosedProfit = isSettled ? 0 : p.closed_profit;
+      const displaySettledProfit = isSettled ? (p.settled_profit + p.closed_profit) : p.settled_profit;
+      
       systemTotalCentsRaw += unrealizedRaw;
-      systemTotalClosedProfitCents += p.closed_profit;
-      systemTotalSettledProfitCents += p.settled_profit;
+      systemTotalClosedProfitCents += displayClosedProfit;
+      systemTotalSettledProfitCents += displaySettledProfit;
       pnlByOutcome[p.outcome] = (pnlByOutcome[p.outcome] ?? 0) + unrealizedRaw;
-      closedProfitByOutcome[p.outcome] = (closedProfitByOutcome[p.outcome] ?? 0) + p.closed_profit;
-      settledProfitByOutcome[p.outcome] = (settledProfitByOutcome[p.outcome] ?? 0) + p.settled_profit;
+      closedProfitByOutcome[p.outcome] = (closedProfitByOutcome[p.outcome] ?? 0) + displayClosedProfit;
+      settledProfitByOutcome[p.outcome] = (settledProfitByOutcome[p.outcome] ?? 0) + displaySettledProfit;
       if (unrealizedRounded !== 0) {
         positionContributions.push({ outcome: p.outcome, user_id: p.user_id, contribution_cents: unrealizedRounded });
       }
-      if (p.closed_profit !== 0) {
-        closedProfitContributions.push({ outcome: p.outcome, user_id: p.user_id, closed_profit_cents: p.closed_profit });
+      if (displayClosedProfit !== 0) {
+        closedProfitContributions.push({ outcome: p.outcome, user_id: p.user_id, closed_profit_cents: displayClosedProfit });
       }
-      if (p.settled_profit !== 0) {
-        settledProfitContributions.push({ outcome: p.outcome, user_id: p.user_id, settled_profit_cents: p.settled_profit });
+      if (displaySettledProfit !== 0) {
+        settledProfitContributions.push({ outcome: p.outcome, user_id: p.user_id, settled_profit_cents: displaySettledProfit });
       }
       // Unattributed: no user_id, or user_id not in current users table (e.g. deleted user)
       if (p.user_id == null || !userIds.has(p.user_id)) {
         unattributedCentsRaw += unrealizedRaw;
-        unattributedClosedProfitCents += p.closed_profit;
-        unattributedSettledProfitCents += p.settled_profit;
+        unattributedClosedProfitCents += displayClosedProfit;
+        unattributedSettledProfitCents += displaySettledProfit;
       } else {
         portfolioByUser.set(p.user_id, (portfolioByUser.get(p.user_id) ?? 0) + unrealizedRaw);
-        closedProfitByUser.set(p.user_id, (closedProfitByUser.get(p.user_id) ?? 0) + p.closed_profit);
-        settledProfitByUser.set(p.user_id, (settledProfitByUser.get(p.user_id) ?? 0) + p.settled_profit);
+        closedProfitByUser.set(p.user_id, (closedProfitByUser.get(p.user_id) ?? 0) + displayClosedProfit);
+        settledProfitByUser.set(p.user_id, (settledProfitByUser.get(p.user_id) ?? 0) + displaySettledProfit);
         const mt = outcomeToMarketType[p.outcome] ?? 'other';
         const s = getOrCreate(p.user_id, mt);
         s.portfolio_value_cents += unrealizedRaw;
-        s.closed_profit_cents += p.closed_profit;
-        s.settled_profit_cents += p.settled_profit;
+        s.closed_profit_cents += displayClosedProfit;
+        s.settled_profit_cents += displaySettledProfit;
       }
     }
     // Round portfolio_value_cents per (user, market_type) after accumulation
@@ -259,21 +264,16 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     closedProfitContributions.sort((a, b) => Math.abs(b.closed_profit_cents) - Math.abs(a.closed_profit_cents));
     settledProfitContributions.sort((a, b) => Math.abs(b.settled_profit_cents) - Math.abs(a.settled_profit_cents));
 
-    // For UI display: combine closed_profit into settled_profit (DB keeps them separate for debugging)
-    const leaderboard: LeaderboardRow[] = users.map((u) => {
-      const closedProfit = closedProfitByUser.get(u.id) ?? 0;
-      const settledProfit = settledProfitByUser.get(u.id) ?? 0;
-      return {
-        user_id: u.id,
-        username: u.username,
-        trade_count: tradeCountByUser.get(u.id) ?? 0,
-        open_orders_count: openOrdersByUser.get(u.id) ?? 0,
-        shares_traded: sharesByUser.get(u.id) ?? 0,
-        portfolio_value_cents: Math.round(portfolioByUser.get(u.id) ?? 0),
-        closed_profit_cents: 0, // Rolled into settled for display
-        settled_profit_cents: settledProfit + closedProfit,
-      };
-    });
+    const leaderboard: LeaderboardRow[] = users.map((u) => ({
+      user_id: u.id,
+      username: u.username,
+      trade_count: tradeCountByUser.get(u.id) ?? 0,
+      open_orders_count: openOrdersByUser.get(u.id) ?? 0,
+      shares_traded: sharesByUser.get(u.id) ?? 0,
+      portfolio_value_cents: Math.round(portfolioByUser.get(u.id) ?? 0),
+      closed_profit_cents: closedProfitByUser.get(u.id) ?? 0,
+      settled_profit_cents: settledProfitByUser.get(u.id) ?? 0,
+    }));
 
     // Report system total as $0 when within ±10¢ (rounding drift from legacy position updates)
     const SYSTEM_TOTAL_TOLERANCE_CENTS = 10;
