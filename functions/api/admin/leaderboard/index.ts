@@ -2,6 +2,9 @@ import type { OnRequest } from '@cloudflare/pages';
 import { getDb, dbQuery, type Env } from '../../../lib/db';
 import { requireAdmin, jsonResponse } from '../../../middleware';
 
+/** SQLite variable limit - batch IN clauses to avoid "too many SQL variables" error */
+const SQL_BATCH_SIZE = 200;
+
 type LeaderboardRow = {
   user_id: number;
   username: string;
@@ -153,19 +156,25 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     const bestBidByOutcome: Record<string, number> = {};
     const bestAskByOutcome: Record<string, number> = {};
     if (outcomeIds.length > 0) {
-      const ph = outcomeIds.map(() => '?').join(',');
-      const bidsRows = await dbQuery<{ outcome: string; price: number }>(
-        db,
-        `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 0 AND status IN ('open','partial') ORDER BY outcome, price DESC, create_time ASC`,
-        outcomeIds
-      );
-      const asksRows = await dbQuery<{ outcome: string; price: number }>(
-        db,
-        `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 1 AND status IN ('open','partial') ORDER BY outcome, price ASC, create_time ASC`,
-        outcomeIds
-      );
-      bidsRows.forEach((r) => { if (bestBidByOutcome[r.outcome] == null) bestBidByOutcome[r.outcome] = r.price; });
-      asksRows.forEach((r) => { if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price; });
+      // Batch queries to avoid SQLite "too many SQL variables" error
+      for (let i = 0; i < outcomeIds.length; i += SQL_BATCH_SIZE) {
+        const batch = outcomeIds.slice(i, i + SQL_BATCH_SIZE);
+        const ph = batch.map(() => '?').join(',');
+        const [batchBids, batchAsks] = await Promise.all([
+          dbQuery<{ outcome: string; price: number }>(
+            db,
+            `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 0 AND status IN ('open','partial') ORDER BY outcome, price DESC, create_time ASC`,
+            batch
+          ),
+          dbQuery<{ outcome: string; price: number }>(
+            db,
+            `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 1 AND status IN ('open','partial') ORDER BY outcome, price ASC, create_time ASC`,
+            batch
+          ),
+        ]);
+        batchBids.forEach((r) => { if (bestBidByOutcome[r.outcome] == null) bestBidByOutcome[r.outcome] = r.price; });
+        batchAsks.forEach((r) => { if (bestAskByOutcome[r.outcome] == null) bestAskByOutcome[r.outcome] = r.price; });
+      }
     }
     // Use integer cents for current price so unrealized P&L is integer. Settled outcomes (outcome_settled_price != null) are excluded from unrealized.
     const settledOutcomeIds = new Set(positionsRows.filter((p) => p.outcome_settled_price != null).map((p) => p.outcome));

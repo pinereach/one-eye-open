@@ -7,6 +7,9 @@ import type { Position } from '../../lib/matching';
 /** Valid price_basis range in cents ($1–$99). Clamp so we never return invalid values. */
 const PRICE_BASIS_MIN_CENTS = 100;
 const PRICE_BASIS_MAX_CENTS = 9900;
+
+/** SQLite variable limit - batch IN clauses to avoid "too many SQL variables" error */
+const SQL_BATCH_SIZE = 200;
 function clampPriceBasis(cents: number): number {
   if (cents <= 0) return cents;
   return Math.max(PRICE_BASIS_MIN_CENTS, Math.min(PRICE_BASIS_MAX_CENTS, cents));
@@ -292,17 +295,28 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
 
   if (positionsDb.length > 0) {
     const posOutcomeIds = [...new Set(positionsDb.map(p => p.outcome))];
-    const ph = posOutcomeIds.map(() => '?').join(',');
-    const bidsRows = await dbQuery<{ outcome: string; price: number }>(
-      db,
-      `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 0 AND status IN ('open','partial') ORDER BY outcome, price DESC, create_time ASC`,
-      posOutcomeIds
-    );
-    const asksRows = await dbQuery<{ outcome: string; price: number }>(
-      db,
-      `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 1 AND status IN ('open','partial') ORDER BY outcome, price ASC, create_time ASC`,
-      posOutcomeIds
-    );
+    
+    // Batch queries to avoid SQLite "too many SQL variables" error
+    const bidsRows: Array<{ outcome: string; price: number }> = [];
+    const asksRows: Array<{ outcome: string; price: number }> = [];
+    for (let i = 0; i < posOutcomeIds.length; i += SQL_BATCH_SIZE) {
+      const batch = posOutcomeIds.slice(i, i + SQL_BATCH_SIZE);
+      const ph = batch.map(() => '?').join(',');
+      const [batchBids, batchAsks] = await Promise.all([
+        dbQuery<{ outcome: string; price: number }>(
+          db,
+          `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 0 AND status IN ('open','partial') ORDER BY outcome, price DESC, create_time ASC`,
+          batch
+        ),
+        dbQuery<{ outcome: string; price: number }>(
+          db,
+          `SELECT outcome, price FROM orders WHERE outcome IN (${ph}) AND side = 1 AND status IN ('open','partial') ORDER BY outcome, price ASC, create_time ASC`,
+          batch
+        ),
+      ]);
+      bidsRows.push(...batchBids);
+      asksRows.push(...batchAsks);
+    }
     const bestBidByOutcome: Record<string, number> = {};
     bidsRows.forEach(r => { if (bestBidByOutcome[r.outcome] == null) bestBidByOutcome[r.outcome] = r.price; });
     const bestAskByOutcome: Record<string, number> = {};
