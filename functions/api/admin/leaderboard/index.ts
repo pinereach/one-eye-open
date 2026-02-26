@@ -220,15 +220,15 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       const unrealizedRaw = isSettled ? 0 : unrealizedPnlRaw(p, currentPrice);
       const unrealizedRounded = Math.round(unrealizedRaw);
       // Compute settled profit on-the-fly when outcome is settled (DB settled_profit may be 0 if outcome was settled manually)
-      // For settled outcomes, include closed_profit in settled_profit (closed_profit from partial exits before settlement)
-      const closedProfitValue = p.closed_profit ?? 0;
-      const settledProfitValue = p.settled_profit ?? 0;
+      // For settled outcomes, include closed_profit in settled_profit for display (closed_profit from partial exits before settlement)
+      const rawClosedProfit = p.closed_profit;
+      const rawSettledProfit = p.settled_profit;
       const positionSettledProfit = isSettled && p.outcome_settled_price != null
         ? computedSettledProfitCents(p.net_position, p.price_basis, p.outcome_settled_price)
-        : settledProfitValue;
-      const settledProfit = isSettled ? positionSettledProfit + closedProfitValue : settledProfitValue;
-      // For settled outcomes, closed_profit is rolled into settled_profit for display; for unsettled, keep separate
-      const closedProfitForDisplay = isSettled ? 0 : closedProfitValue;
+        : rawSettledProfit;
+      // For settled outcomes: combine closed + settled profit; for unsettled: keep separate
+      const settledProfit = isSettled ? positionSettledProfit + rawClosedProfit : rawSettledProfit;
+      const closedProfitForDisplay = isSettled ? 0 : rawClosedProfit;
       systemTotalCentsRaw += unrealizedRaw;
       systemTotalClosedProfitCents += closedProfitForDisplay;
       systemTotalSettledProfitCents += settledProfit;
