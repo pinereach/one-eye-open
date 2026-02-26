@@ -62,18 +62,15 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   let positionsWithPrice = positionsDb.map(p => {
     const outcomeSettled = p.outcome_settled_price != null;
     const priceBasis = clampPriceBasis(p.price_basis, p.net_position);
-    // For settled outcomes, include closed_profit in settled_profit (closed_profit from partial exits before settlement)
-    const positionSettledProfit = outcomeSettled && p.outcome_settled_price != null
+    const settledProfit = outcomeSettled && p.outcome_settled_price != null
       ? computedSettledProfitCents(p.net_position, priceBasis, p.outcome_settled_price)
       : p.settled_profit;
-    const settledProfit = outcomeSettled ? positionSettledProfit + (p.closed_profit ?? 0) : p.settled_profit;
-    const closedProfit = outcomeSettled ? 0 : (p.closed_profit ?? 0);
     return {
       id: p.id,
       user_id: p.user_id,
       outcome: p.outcome,
       create_time: p.create_time,
-      closed_profit: closedProfit,
+      closed_profit: p.closed_profit,
       settled_profit: settledProfit,
       net_position: p.net_position,
       price_basis: priceBasis,
@@ -108,12 +105,9 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     positionsWithPrice = positionsDb.map(p => {
       const outcomeSettled = p.outcome_settled_price != null;
       const priceBasis = clampPriceBasis(p.price_basis, p.net_position);
-      // For settled outcomes, include closed_profit in settled_profit (closed_profit from partial exits before settlement)
-      const positionSettledProfit = outcomeSettled && p.outcome_settled_price != null
+      const settledProfit = outcomeSettled && p.outcome_settled_price != null
         ? computedSettledProfitCents(p.net_position, priceBasis, p.outcome_settled_price)
         : p.settled_profit;
-      const settledProfit = outcomeSettled ? positionSettledProfit + (p.closed_profit ?? 0) : p.settled_profit;
-      const closedProfit = outcomeSettled ? 0 : (p.closed_profit ?? 0);
       const bidPrice = bestBidByOutcome[p.outcome] ?? null;
       const askPrice = bestAskByOutcome[p.outcome] ?? null;
       const midPrice = (bidPrice !== null && askPrice !== null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
@@ -123,7 +117,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
         user_id: p.user_id,
         outcome: p.outcome,
         create_time: p.create_time,
-        closed_profit: closedProfit,
+        closed_profit: p.closed_profit,
         settled_profit: settledProfit,
         net_position: p.net_position,
         price_basis: priceBasis,

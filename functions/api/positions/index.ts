@@ -280,15 +280,12 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
   let positionsWithOrderbook: any[] = positionsDb.map(p => {
     const outcomeSettled = p.outcome_settled_price != null;
     const priceBasis = clampBasis(p);
-    // For settled outcomes, include closed_profit in settled_profit (closed_profit from partial exits before settlement)
-    const positionSettledProfit = outcomeSettled && p.outcome_settled_price != null
+    const settledProfit = outcomeSettled && p.outcome_settled_price != null
       ? computedSettledProfitCents(p.net_position, priceBasis, p.outcome_settled_price)
       : p.settled_profit;
-    const settledProfit = outcomeSettled ? positionSettledProfit + (p.closed_profit ?? 0) : p.settled_profit;
-    const closedProfit = outcomeSettled ? 0 : (p.closed_profit ?? 0);
     const current_price = outcomeSettled ? p.outcome_settled_price : null;
     const { outcome_settled_price, ...rest } = p;
-    return { ...rest, market_id: normalizeMarketId(p), price_basis: priceBasis, closed_profit: closedProfit, settled_profit: settledProfit, current_price, settled_price: outcome_settled_price ?? null, best_bid: null, best_ask: null };
+    return { ...rest, market_id: normalizeMarketId(p), price_basis: priceBasis, settled_profit: settledProfit, current_price, settled_price: outcome_settled_price ?? null, best_bid: null, best_ask: null };
   });
 
   if (positionsDb.length > 0) {
@@ -311,12 +308,9 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
     positionsWithOrderbook = positionsDb.map(p => {
       const outcomeSettled = p.outcome_settled_price != null;
       const priceBasis = clampBasis(p);
-      // For settled outcomes, include closed_profit in settled_profit (closed_profit from partial exits before settlement)
-      const positionSettledProfit = outcomeSettled && p.outcome_settled_price != null
+      const settledProfit = outcomeSettled && p.outcome_settled_price != null
         ? computedSettledProfitCents(p.net_position, priceBasis, p.outcome_settled_price)
         : p.settled_profit;
-      const settledProfit = outcomeSettled ? positionSettledProfit + (p.closed_profit ?? 0) : p.settled_profit;
-      const closedProfit = outcomeSettled ? 0 : (p.closed_profit ?? 0);
       const bidPrice = bestBidByOutcome[p.outcome] ?? null;
       const askPrice = bestAskByOutcome[p.outcome] ?? null;
       const midPrice = (bidPrice !== null && askPrice !== null) ? (bidPrice + askPrice) / 2 : bidPrice ?? askPrice ?? null;
@@ -324,7 +318,7 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       const best_bid = outcomeSettled ? null : bidPrice;
       const best_ask = outcomeSettled ? null : askPrice;
       const { outcome_settled_price, ...rest } = p;
-      return { ...rest, market_id: normalizeMarketId(p), price_basis: priceBasis, closed_profit: closedProfit, settled_profit: settledProfit, current_price, settled_price: outcome_settled_price ?? null, best_bid, best_ask };
+      return { ...rest, market_id: normalizeMarketId(p), price_basis: priceBasis, settled_profit: settledProfit, current_price, settled_price: outcome_settled_price ?? null, best_bid, best_ask };
     });
   }
 
