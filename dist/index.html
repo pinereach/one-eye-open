@@ -6,8 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
     <meta name="theme-color" content="#16a34a" />
     <title>One Eye Open</title>
-    <script type="module" crossorigin src="/assets/index-B3XxyNti.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BSD4G-Qk.css">
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('darkMode');
+          if (stored === 'true') document.documentElement.classList.add('dark');
+          else if (stored === 'false') document.documentElement.classList.remove('dark');
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-CUbVcJsU.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CpUuYqdH.css">
   </head>
   <body>
     <div id="root"></div>
