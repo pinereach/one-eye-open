@@ -8,8 +8,8 @@ import type { Position } from '../../lib/matching';
 const PRICE_BASIS_MIN_CENTS = 100;
 const PRICE_BASIS_MAX_CENTS = 9900;
 
-/** SQLite variable limit - batch IN clauses to avoid "too many SQL variables" error */
-const SQL_BATCH_SIZE = 200;
+/** D1/SQLite variable limit - batch IN clauses to avoid "too many SQL variables" error */
+const SQL_BATCH_SIZE = 50;
 function clampPriceBasis(cents: number): number {
   if (cents <= 0) return cents;
   return Math.max(PRICE_BASIS_MIN_CENTS, Math.min(PRICE_BASIS_MAX_CENTS, cents));

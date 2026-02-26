@@ -2,8 +2,8 @@ import type { OnRequest } from '@cloudflare/pages';
 import { getDb, dbQuery, type Env } from '../../../lib/db';
 import { requireAdmin, jsonResponse } from '../../../middleware';
 
-/** SQLite variable limit - batch IN clauses to avoid "too many SQL variables" error */
-const SQL_BATCH_SIZE = 200;
+/** D1/SQLite variable limit - batch IN clauses to avoid "too many SQL variables" error */
+const SQL_BATCH_SIZE = 50;
 
 type LeaderboardRow = {
   user_id: number;
