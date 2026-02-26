@@ -76,11 +76,9 @@ export function AdminPage() {
         setUsers(loadedUsers);
         setMarkets(marketsRes.markets ?? []);
         setParticipants((participantsRes.participants ?? []).map((p: any) => ({ id: p.id ?? p.name, name: p.name })));
-        // Initialize auction bids with real participants (exclude system accounts like "AK (The Book)")
-        const EXCLUDED_USERNAMES = ['AK (The Book)'];
-        const auctionParticipants = loadedUsers.filter((u: { id: number; username: string }) => !EXCLUDED_USERNAMES.includes(u.username));
-        if (auctionParticipants.length > 0) {
-          setAuctionBids(auctionParticipants.map((u: { id: number }) => ({ user_id: u.id, guess: '' })));
+        // Initialize auction bids with all users (each user gets an empty guess)
+        if (loadedUsers.length > 0) {
+          setAuctionBids(loadedUsers.map((u: { id: number }) => ({ user_id: u.id, guess: '' })));
         }
       })
       .catch(() => {
