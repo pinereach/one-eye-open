@@ -77,9 +77,13 @@ export function AdminPage() {
         setUsers(loadedUsers);
         setMarkets(marketsRes.markets ?? []);
         setParticipants((participantsRes.participants ?? []).map((p: any) => ({ id: p.id ?? p.name, name: p.name })));
-        // Initialize auction bids with all users (each user gets an empty guess)
-        if (loadedUsers.length > 0) {
-          setAuctionBids(loadedUsers.map((u: { id: number }) => ({ user_id: u.id, guess: '' })));
+        // Initialize auction bids with users (excluding inactive/non-participating accounts)
+        const excludedUsernames = ['jr', 'jlarkin', 'chrisharris503@comcast.net', 'avayouchris@gmail.com', 'tkjawn'];
+        const auctionUsers = loadedUsers.filter((u: { id: number; username: string }) =>
+          !excludedUsernames.includes(u.username.toLowerCase())
+        );
+        if (auctionUsers.length > 0) {
+          setAuctionBids(auctionUsers.map((u: { id: number }) => ({ user_id: u.id, guess: '' })));
         }
       })
       .catch(() => {
