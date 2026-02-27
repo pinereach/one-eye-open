@@ -879,7 +879,9 @@ export function MarketDetail() {
 
   // Compute total settled P&L for this market (from positions with settled outcomes)
   const totalSettledPnlCents = useMemo(() => {
-    if (!isMarketSettled) return 0;
+    if (sortedOutcomes.length === 0 || positions.length === 0) return 0;
+    const hasSettled = sortedOutcomes.some((o) => o.settled_price != null);
+    if (!hasSettled) return 0;
     return positions.reduce((sum, p) => {
       // Only count positions where the outcome is settled
       const outcome = sortedOutcomes.find((o) => o.outcome_id === p.outcome);
@@ -899,7 +901,7 @@ export function MarketDetail() {
       const closedProfit = p.closed_profit ?? 0;
       return sum + settledProfit + closedProfit;
     }, 0);
-  }, [positions, sortedOutcomes, isMarketSettled]);
+  }, [positions, sortedOutcomes]);
 
   return (
     <PullToRefresh onRefresh={() => loadMarket(true)}>
