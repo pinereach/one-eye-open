@@ -197,10 +197,13 @@ export const api = {
     }),
 
   // Admin
-  adminCancelAllOrders: (userId?: number) =>
+  adminCancelAllOrders: (options?: { userId?: number; marketId?: string }) =>
     apiRequest<{ canceled: number }>('/admin/orders/cancel-all', {
       method: 'POST',
-      body: JSON.stringify(userId != null ? { user_id: userId } : {}),
+      body: JSON.stringify({
+        ...(options?.userId != null && { user_id: options.userId }),
+        ...(options?.marketId && { market_id: options.marketId }),
+      }),
     }),
 
   adminGetUsers: () =>

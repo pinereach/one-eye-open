@@ -43,6 +43,8 @@ export function MarketDetail() {
   const [confirmCancelAllOpen, setConfirmCancelAllOpen] = useState(false);
   const [confirmCancelAllForOutcome, setConfirmCancelAllForOutcome] = useState(false);
   const [cancelingAllForOutcome, setCancelingAllForOutcome] = useState(false);
+  const [confirmCancelAllForMarket, setConfirmCancelAllForMarket] = useState(false);
+  const [cancelingAllForMarket, setCancelingAllForMarket] = useState(false);
   const [handicaps, setHandicaps] = useState<Record<string, number>>({});
   const [currentScores, setCurrentScores] = useState<Record<string, { score_gross: number | null; score_net: number | null; number_birdies: number | null }>>({});
   const [lastTradePriceByOutcomeFromApi, setLastTradePriceByOutcomeFromApi] = useState<Record<string, number>>({});
@@ -844,6 +846,26 @@ export function MarketDetail() {
     setConfirmCancelAllForOutcome(true);
   }
 
+  async function doCancelAllOrdersForMarket() {
+    if (!market?.market_id) return;
+    setCancelingAllForMarket(true);
+    setConfirmCancelAllForMarket(false);
+    try {
+      const res = await api.adminCancelAllOrders({ marketId: market.market_id });
+      showToast(`Canceled ${res.canceled} order(s) for this market`, 'success');
+      await loadMarket(true);
+    } catch (err: any) {
+      console.error('Failed to cancel orders for market:', err);
+      showToast(err?.message || 'Failed to cancel orders', 'error');
+    } finally {
+      setCancelingAllForMarket(false);
+    }
+  }
+
+  function handleCancelAllOrdersForMarket() {
+    setConfirmCancelAllForMarket(true);
+  }
+
   // Compute total settled P&L for this market (must be before early returns to maintain hook order)
   const totalSettledPnlCents = useMemo(() => {
     if (!outcomes || outcomes.length === 0 || !positions || positions.length === 0) return 0;
@@ -933,6 +955,15 @@ export function MarketDetail() {
             className="px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:pointer-events-none"
           >
             Potential outcomes
+          </button>
+        )}
+        {user?.admin && (
+          <button
+            onClick={handleCancelAllOrdersForMarket}
+            disabled={cancelingAllForMarket}
+            className="px-3 sm:px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 border border-red-300 dark:border-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition touch-manipulation focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:pointer-events-none"
+          >
+            {cancelingAllForMarket ? 'Canceling...' : 'Cancel all orders'}
           </button>
         )}
       </div>
@@ -2483,6 +2514,16 @@ export function MarketDetail() {
         title="Cancel all orders for this outcome"
         message={`Cancel all ${myOrdersInSelectedOutcome.length} open order(s) for this outcome?`}
         confirmLabel="Cancel all"
+        cancelLabel="Keep"
+        variant="danger"
+      />
+      <ConfirmModal
+        isOpen={confirmCancelAllForMarket}
+        onClose={() => setConfirmCancelAllForMarket(false)}
+        onConfirm={doCancelAllOrdersForMarket}
+        title="Cancel all orders for this market"
+        message="Are you sure you want to cancel ALL open orders from ALL users in this market? This action cannot be undone."
+        confirmLabel="Cancel all orders"
         cancelLabel="Keep"
         variant="danger"
       />

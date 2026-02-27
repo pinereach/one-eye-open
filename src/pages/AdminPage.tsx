@@ -181,7 +181,7 @@ export function AdminPage() {
     if (cancelUserId == null) return;
     setCancelUserBusy(true);
     try {
-      const { canceled } = await api.adminCancelAllOrders(cancelUserId);
+      const { canceled } = await api.adminCancelAllOrders({ userId: cancelUserId });
       const u = users.find((x) => x.id === cancelUserId);
       showToast(`${canceled} order(s) canceled for ${u?.username ?? cancelUserId}`, 'success');
     } catch (err) {
