@@ -41,9 +41,10 @@ export function AdminPage() {
   const [manualPrice, setManualPrice] = useState<string>('');
   const [manualContracts, setManualContracts] = useState<string>('');
 
-  // Auction: two types — (1) strike from average, 50¢ shares (Round O/U or Pars) or (2) outcome at average price
+  // Auction: two types — (1) strike from average, 50¢ shares (Round O/U, Pars, or Birdies) or (2) outcome at average price
   const [auctionCategory, setAuctionCategory] = useState<'strike' | 'outcome'>('strike');
-  const [auctionStrikeMode, setAuctionStrikeMode] = useState<'round_ou' | 'pars'>('round_ou');
+  const [auctionStrikeMode, setAuctionStrikeMode] = useState<'round_ou' | 'pars' | 'birdies'>('round_ou');
+  const [auctionBirdiesMarketId, setAuctionBirdiesMarketId] = useState<string>('');
   const [auctionRound, setAuctionRound] = useState<number>(1);
   const [auctionParticipantId, setAuctionParticipantId] = useState<string>('');
   const [auctionParsMarketId, setAuctionParsMarketId] = useState<string>('');
@@ -287,6 +288,10 @@ export function AdminPage() {
       showToast('Select a participant', 'error');
       return;
     }
+    if (effectiveAuctionType === 'birdies' && !auctionBirdiesMarketId) {
+      showToast('Select a birdies market', 'error');
+      return;
+    }
     if (effectiveAuctionType === 'outcome' && !auctionOutcomeId) {
       showToast('Select an outcome', 'error');
       return;
@@ -321,6 +326,7 @@ export function AdminPage() {
         ...(effectiveAuctionType === 'round_ou' && { participant_id: auctionParticipantId }),
         ...(effectiveAuctionType === 'pars' && parsMarketId && { market_id: parsMarketId }),
         ...(effectiveAuctionType === 'pars' && auctionParsOutcomeId && auctionParsOutcomeId !== '__new__' && { outcome_id: auctionParsOutcomeId }),
+        ...(effectiveAuctionType === 'birdies' && { market_id: auctionBirdiesMarketId }),
         ...(effectiveAuctionType === 'outcome' && { outcome_id: auctionOutcomeId }),
         bids,
       });
@@ -657,11 +663,12 @@ export function AdminPage() {
                 <label className="block text-sm font-medium mb-1">Strike type</label>
                 <select
                   value={auctionStrikeMode}
-                  onChange={(e) => setAuctionStrikeMode(e.target.value as 'round_ou' | 'pars')}
+                  onChange={(e) => setAuctionStrikeMode(e.target.value as 'round_ou' | 'pars' | 'birdies')}
                   className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
                 >
                   <option value="round_ou">Round O/U</option>
                   <option value="pars">Pars</option>
+                  <option value="birdies">Birdies</option>
                 </select>
               </div>
             )}
@@ -699,6 +706,26 @@ export function AdminPage() {
                 </select>
               </div>
             )}
+            {effectiveAuctionType === 'birdies' && (
+              <div>
+                <label className="block text-sm font-medium mb-1">Birdies Market</label>
+                <select
+                  value={auctionBirdiesMarketId}
+                  onChange={(e) => setAuctionBirdiesMarketId(e.target.value)}
+                  required
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
+                >
+                  <option value="">Select market</option>
+                  {markets
+                    .filter((m) => normalizeMarketType(m) === 'market_total_birdies')
+                    .map((m) => (
+                      <option key={m.market_id} value={m.market_id}>
+                        {m.short_name ?? m.market_id}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
             {auctionCategory === 'outcome' && (
               <>
                 <div>
@@ -729,8 +756,6 @@ export function AdminPage() {
                   <select
                     value={auctionOutcomeMarketId}
                     onChange={(e) => {
-                      const selectedMarket = auctionOutcomeMarketsByType.find((m) => m.market_id === e.target.value);
-                      console.log('[Auction] Selected market:', e.target.value, 'outcomes:', selectedMarket?.outcomes);
                       setAuctionOutcomeMarketId(e.target.value);
                       setAuctionOutcomeId('');
                     }}

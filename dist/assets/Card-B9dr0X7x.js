@@ -1,4 +1,4 @@
-import{j as s}from"./index-Cc4LMtWK.js";function d({children:a,className:o="",onClick:r,hover:t=!1}){return s.jsx("div",{role:r?"button":void 0,tabIndex:r?0:void 0,className:`
+import{j as s}from"./index-BI7Apl7Y.js";function d({children:a,className:o="",onClick:r,hover:t=!1}){return s.jsx("div",{role:r?"button":void 0,tabIndex:r?0:void 0,className:`
         bg-white dark:bg-gray-800 
         border border-gray-300 dark:border-gray-600 
         rounded-lg 

@@ -33,6 +33,16 @@ function isParsMarket(market: { market_type: string | null; short_name?: string 
   return name.includes('pars');
 }
 
+/** Treat as Birdies market if market_type is market_total_birdies or market_id/short_name contains "birdies". */
+function isBirdiesMarket(market: { market_id: string; market_type: string | null; short_name?: string | null }): boolean {
+  const type = (market.market_type || '').toLowerCase();
+  if (type === 'market_total_birdies') return true;
+  const id = (market.market_id || '').toLowerCase();
+  if (id.includes('birdies') || id.includes('total-birdies') || id.includes('total_birdies')) return true;
+  const name = (market.short_name || '').toLowerCase();
+  return name.includes('birdies');
+}
+
 export const onRequestPost: OnRequest<Env> = async (context) => {
   const { request, env } = context;
 
@@ -54,9 +64,10 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
 
     const isRoundOu = auctionType === 'round_ou';
     const isPars = auctionType === 'pars';
+    const isBirdies = auctionType === 'birdies';
     const isOutcome = auctionType === 'outcome';
-    if (!isRoundOu && !isPars && !isOutcome) {
-      return errorResponse('auction_type must be "round_ou", "pars", or "outcome"', 400);
+    if (!isRoundOu && !isPars && !isBirdies && !isOutcome) {
+      return errorResponse('auction_type must be "round_ou", "pars", "birdies", or "outcome"', 400);
     }
     if (isOutcome && !existingOutcomeId) {
       return errorResponse('For outcome auction, outcome_id is required', 400);
@@ -67,7 +78,10 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     if (isPars && !existingOutcomeId && !participantId && !existingMarketId) {
       return errorResponse('For Pars, provide outcome_id (existing outcome), market_id (new line in existing market), or participant_id (new market)', 400);
     }
-    if (!isPars && !isOutcome && !participantId) {
+    if (isBirdies && !existingMarketId) {
+      return errorResponse('For Birdies, market_id is required', 400);
+    }
+    if (!isPars && !isBirdies && !isOutcome && !participantId) {
       return errorResponse('participant_id is required', 400);
     }
     if (bids.length < 2) {
@@ -152,6 +166,27 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       participantName = participantFromMarket;
       const participantSlug = slugForOutcomeId(participantFromMarket);
       outcomeId = `outcome-pars-${participantSlug}-${strikeSlug}`;
+    } else if (isBirdies && existingMarketId) {
+      // Birdies with existing market: create outcome under that market; strike from bids average
+      const marketRow = await dbFirst<{ market_id: string; short_name: string; market_type: string | null }>(
+        db,
+        'SELECT market_id, short_name, market_type FROM markets WHERE market_id = ?',
+        [existingMarketId]
+      );
+      if (!marketRow || !isBirdiesMarket(marketRow)) {
+        return errorResponse('Market not found or not a Birdies market', 400);
+      }
+      resolvedMarketId = marketRow.market_id;
+      const strikeNum = bids.reduce((s: number, b: any) => s + Number(b.guess), 0) / N;
+      strikeStr = strikeNum % 1 === 0 ? String(strikeNum) : strikeNum.toFixed(1);
+      const strikeSlug = slugForOutcomeId(strikeStr.replace('.', '_'));
+      // Extract market name for outcome naming (e.g. "Total Birdies Thursday (R2-R3)" -> "Thursday R2-R3")
+      const marketLabel = (marketRow.short_name || marketRow.market_id)
+        .replace(/^Total\s+Birdies\s*/i, '')
+        .replace(/[()]/g, '')
+        .trim() || 'Birdies';
+      participantName = marketLabel;
+      outcomeId = `outcome-birdies-${slugForOutcomeId(marketLabel)}-${strikeSlug}`;
     } else {
       // Round O/U or Pars with participant_id (create/find market and outcome)
       const participant = await dbFirst<{ id: string; name: string }>(
@@ -224,12 +259,18 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       [outcomeId, resolvedMarketId]
     );
     if (!outcome) {
-      const outcomeName = isPars
-        ? `${participantName} Over ${strikeStr}`
-        : `${participantName} Over ${strikeStr} - Round ${round}`;
-      const ticker = isPars
-        ? `${initials(participantName)}-OV-${strikeStr.replace('.', '_')}`
-        : `${initials(participantName)}-OV-R${round}-${strikeStr.replace('.', '_')}`;
+      let outcomeName: string;
+      let ticker: string;
+      if (isBirdies) {
+        outcomeName = `Over ${strikeStr} - ${participantName}`;
+        ticker = `OV-${strikeStr.replace('.', '_')}-${initials(participantName)}`;
+      } else if (isPars) {
+        outcomeName = `${participantName} Over ${strikeStr}`;
+        ticker = `${initials(participantName)}-OV-${strikeStr.replace('.', '_')}`;
+      } else {
+        outcomeName = `${participantName} Over ${strikeStr} - Round ${round}`;
+        ticker = `${initials(participantName)}-OV-R${round}-${strikeStr.replace('.', '_')}`;
+      }
       await dbRun(
         db,
         `INSERT INTO outcomes (outcome_id, name, ticker, market_id, strike, created_date)
@@ -248,9 +289,9 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
     const shortUserIds = sortedBids.slice(0, half).map((b: any) => Number(b.user_id));
     const longUserIds = sortedBids.slice(half).map((b: any) => Number(b.user_id));
 
-    // Round O/U only: 50¢. Pars and any outcome (e.g. matchups): trade price = average of bids (%).
+    // Round O/U and Birdies: 50¢. Pars and any outcome (e.g. matchups): trade price = average of bids (%).
     const avgBid = bids.reduce((s: number, b: any) => s + Number(b.guess), 0) / N;
-    const auctionPriceCents = isRoundOu
+    const auctionPriceCents = (isRoundOu || isBirdies)
       ? AUCTION_PRICE_CENTS
       : Math.max(100, Math.min(9900, Math.round(avgBid * 100)));
 

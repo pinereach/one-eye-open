@@ -301,7 +301,7 @@ export const api = {
     }),
 
   adminRunRoundOuAuction: (data: {
-    auction_type?: 'round_ou' | 'pars' | 'outcome';
+    auction_type?: 'round_ou' | 'pars' | 'birdies' | 'outcome';
     round?: number;
     participant_id?: string;
     outcome_id?: string;
