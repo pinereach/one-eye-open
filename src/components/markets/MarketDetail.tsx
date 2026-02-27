@@ -199,49 +199,13 @@ export function MarketDetail() {
       // Load current scores (to par gross/net) for gross and net champion markets
       const needsCurrentScores = data?.market?.market_id === 'market-individual-gross-champion' || data?.market?.market_id === 'market-individual-net-champion';
       if (needsCurrentScores) {
-        // Hardcoded net scores for Individual Net Champion (2026 trip final standings)
-        const hardcodedNetScores: Record<string, number> = {
-          'TK': 2,
-          'Krass': 3,
-          'Doc': 5,
-          'Boose': 5,
-          'Will': 6,
-          'CTH': 6,
-          'AK': 6,
-          'Loop': 10,
-          'Huff': 13,
-          'Bonner': 13,
-          'Avayou': 14,
-          'Jon': 14,
-        };
         api.getCurrentScores().then((res: { scores?: Array<{ name: string; score_gross: number | null; score_net: number | null; number_birdies: number | null }> }) => {
           const map: Record<string, { score_gross: number | null; score_net: number | null; number_birdies: number | null }> = {};
           for (const s of res.scores ?? []) {
             map[s.name] = { score_gross: s.score_gross, score_net: s.score_net, number_birdies: s.number_birdies };
           }
-          // Apply hardcoded net scores as fallback/override for Individual Net Champion
-          if (data?.market?.market_id === 'market-individual-net-champion') {
-            for (const [name, netScore] of Object.entries(hardcodedNetScores)) {
-              if (!map[name]) {
-                map[name] = { score_gross: null, score_net: netScore, number_birdies: null };
-              } else if (map[name].score_net == null) {
-                map[name].score_net = netScore;
-              }
-            }
-          }
           setCurrentScores(map);
-        }).catch(() => {
-          // On API failure, use hardcoded values for net champion
-          if (data?.market?.market_id === 'market-individual-net-champion') {
-            const map: Record<string, { score_gross: number | null; score_net: number | null; number_birdies: number | null }> = {};
-            for (const [name, netScore] of Object.entries(hardcodedNetScores)) {
-              map[name] = { score_gross: null, score_net: netScore, number_birdies: null };
-            }
-            setCurrentScores(map);
-          } else {
-            setCurrentScores({});
-          }
-        });
+        }).catch(() => setCurrentScores({}));
       } else {
         setCurrentScores({});
       }
