@@ -47,17 +47,25 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       []
     );
 
-    // outcome_id -> market_type for grouping by market type (handle market_total_birdies / market-total-birdies)
-    const outcomeMarketTypeRows = await dbQuery<{ outcome_id: string; market_type: string | null }>(
+    // outcome_id -> market_type for grouping by market type
+    // Use the same JOIN logic as positions endpoint to ensure consistency
+    const outcomeMarketTypeRows = await dbQuery<{ outcome_id: string; market_id: string; market_type: string | null }>(
       db,
-      `SELECT o.outcome_id, m.market_type FROM outcomes o
+      `SELECT o.outcome_id, o.market_id, m.market_type FROM outcomes o
        LEFT JOIN markets m ON (o.market_id = m.market_id OR (o.market_id = 'market_total_birdies' AND m.market_id = 'market-total-birdies'))`,
       []
     );
     const outcomeToMarketType: Record<string, string> = {};
+    const unmatchedOutcomes: string[] = [];
     outcomeMarketTypeRows.forEach((r) => {
+      if (r.market_type == null) {
+        unmatchedOutcomes.push(`${r.outcome_id} (market_id: ${r.market_id})`);
+      }
       outcomeToMarketType[r.outcome_id] = r.market_type ?? 'other';
     });
+    if (unmatchedOutcomes.length > 0) {
+      console.log('Outcomes with no market_type match (first 20):', unmatchedOutcomes.slice(0, 20));
+    }
 
     // Trade count per user (count each trade for both taker and maker)
     const tradeCountRows = await dbQuery<{ user_id: number; cnt: number }>(
