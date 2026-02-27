@@ -729,6 +729,8 @@ export function AdminPage() {
                   <select
                     value={auctionOutcomeMarketId}
                     onChange={(e) => {
+                      const selectedMarket = auctionOutcomeMarketsByType.find((m) => m.market_id === e.target.value);
+                      console.log('[Auction] Selected market:', e.target.value, 'outcomes:', selectedMarket?.outcomes);
                       setAuctionOutcomeMarketId(e.target.value);
                       setAuctionOutcomeId('');
                     }}
@@ -750,7 +752,7 @@ export function AdminPage() {
                     className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 text-sm"
                   >
                     <option value="">Select outcome</option>
-                    {(markets.find((m) => m.market_id === auctionOutcomeMarketId)?.outcomes ?? []).map((o: { outcome_id: string; name?: string }) => (
+                    {(auctionOutcomeMarketsByType.find((m) => m.market_id === auctionOutcomeMarketId)?.outcomes ?? []).map((o: { outcome_id: string; name?: string }) => (
                       <option key={o.outcome_id} value={o.outcome_id}>
                         {o.name ?? o.outcome_id}
                       </option>
