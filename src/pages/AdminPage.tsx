@@ -109,11 +109,17 @@ export function AdminPage() {
   // Normalize market type (handle Total Birdies/Pars which may have market_type='other' but identifiable market_id)
   function normalizeMarketType(m: { market_id: string; market_type?: string | null }): string {
     let type = m.market_type || 'other';
-    if (type === 'other' && (m.market_id === 'market-total-birdies' || m.market_id === 'market_total_birdies')) {
-      type = 'market_total_birdies';
+    // Markets with market_type already set to market_total_birdies or market_total_pars
+    if (type === 'market_total_birdies' || type === 'market_total_pars') {
+      return type;
     }
-    if (type === 'other' && (m.market_id === 'market-total-pars' || m.market_id === 'market_total_pars')) {
-      type = 'market_total_pars';
+    // Fallback: detect by market_id pattern for markets with market_type='other'
+    if (type === 'other') {
+      if (m.market_id === 'market-total-birdies' || m.market_id === 'market_total_birdies' || m.market_id.includes('total-birdies') || m.market_id.includes('total_birdies')) {
+        type = 'market_total_birdies';
+      } else if (m.market_id === 'market-total-pars' || m.market_id === 'market_total_pars' || m.market_id.includes('total-pars') || m.market_id.includes('total_pars')) {
+        type = 'market_total_pars';
+      }
     }
     return type;
   }
