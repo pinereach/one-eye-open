@@ -5,6 +5,17 @@ import { requireAdmin, jsonResponse } from '../../../middleware';
 /** D1/SQLite variable limit - batch IN clauses to avoid "too many SQL variables" error */
 const SQL_BATCH_SIZE = 50;
 
+/** Compute settled profit from position data (matches settlement.ts logic) */
+function computeSettledProfitCents(netPosition: number, priceBasis: number, settledPrice: number): number {
+  if (netPosition > 0 && priceBasis > 0) {
+    return netPosition * (settledPrice - priceBasis);
+  }
+  if (netPosition < 0 && priceBasis > 0) {
+    return Math.abs(netPosition) * (priceBasis - settledPrice);
+  }
+  return 0;
+}
+
 type LeaderboardRow = {
   user_id: number;
   username: string;
@@ -226,9 +237,14 @@ export const onRequestGet: OnRequest<Env> = async (context) => {
       const unrealizedRaw = isSettled ? 0 : unrealizedPnlRaw(p, currentPrice);
       const unrealizedRounded = Math.round(unrealizedRaw);
       
+      // Compute settled profit dynamically when outcome is settled (DB may not have been updated)
+      const computedSettledProfit = isSettled && p.outcome_settled_price != null
+        ? computeSettledProfitCents(p.net_position, p.price_basis, p.outcome_settled_price)
+        : p.settled_profit;
+      
       // For display: when outcome is settled, roll closed_profit into settled_profit
       const displayClosedProfit = isSettled ? 0 : p.closed_profit;
-      const displaySettledProfit = isSettled ? (p.settled_profit + p.closed_profit) : p.settled_profit;
+      const displaySettledProfit = isSettled ? (computedSettledProfit + p.closed_profit) : p.settled_profit;
       
       systemTotalCentsRaw += unrealizedRaw;
       systemTotalClosedProfitCents += displayClosedProfit;
