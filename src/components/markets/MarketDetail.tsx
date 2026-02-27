@@ -844,6 +844,28 @@ export function MarketDetail() {
     setConfirmCancelAllForOutcome(true);
   }
 
+  // Compute total settled P&L for this market (must be before early returns to maintain hook order)
+  const totalSettledPnlCents = useMemo(() => {
+    if (!outcomes || outcomes.length === 0 || !positions || positions.length === 0) return 0;
+    const hasSettled = outcomes.some((o) => o.settled_price != null);
+    if (!hasSettled) return 0;
+    return positions.reduce((sum, p) => {
+      const outcome = outcomes.find((o) => o.outcome_id === p.outcome);
+      if (!outcome || outcome.settled_price == null) return sum;
+      const netPos = p.net_position ?? 0;
+      const basis = p.price_basis ?? 0;
+      const settledPrice = outcome.settled_price;
+      let settledProfit = 0;
+      if (netPos > 0 && basis > 0) {
+        settledProfit = netPos * (settledPrice - basis);
+      } else if (netPos < 0 && basis > 0) {
+        settledProfit = Math.abs(netPos) * (basis - settledPrice);
+      }
+      const closedProfit = p.closed_profit ?? 0;
+      return sum + settledProfit + closedProfit;
+    }, 0);
+  }, [positions, outcomes]);
+
   if (loading) {
     return (
       <div className="space-y-4 sm:space-y-6">
@@ -876,32 +898,6 @@ export function MarketDetail() {
 
   // Check if market is settled (any outcome has settled_price)
   const isMarketSettled = sortedOutcomes.some((o) => o.settled_price != null);
-
-  // Compute total settled P&L for this market (from positions with settled outcomes)
-  const totalSettledPnlCents = useMemo(() => {
-    if (sortedOutcomes.length === 0 || positions.length === 0) return 0;
-    const hasSettled = sortedOutcomes.some((o) => o.settled_price != null);
-    if (!hasSettled) return 0;
-    return positions.reduce((sum, p) => {
-      // Only count positions where the outcome is settled
-      const outcome = sortedOutcomes.find((o) => o.outcome_id === p.outcome);
-      if (!outcome || outcome.settled_price == null) return sum;
-      // Compute settled profit: (settledPrice - priceBasis) * netPosition for longs
-      // (priceBasis - settledPrice) * |netPosition| for shorts
-      const netPos = p.net_position ?? 0;
-      const basis = p.price_basis ?? 0;
-      const settledPrice = outcome.settled_price;
-      let settledProfit = 0;
-      if (netPos > 0 && basis > 0) {
-        settledProfit = netPos * (settledPrice - basis);
-      } else if (netPos < 0 && basis > 0) {
-        settledProfit = Math.abs(netPos) * (basis - settledPrice);
-      }
-      // Also add any closed_profit that was realized before settlement
-      const closedProfit = p.closed_profit ?? 0;
-      return sum + settledProfit + closedProfit;
-    }, 0);
-  }, [positions, sortedOutcomes]);
 
   return (
     <PullToRefresh onRefresh={() => loadMarket(true)}>
