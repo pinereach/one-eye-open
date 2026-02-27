@@ -317,6 +317,7 @@ export const api = {
       strike: string;
       short_user_ids: number[];
       long_user_ids: number[];
+      dropped_user_id: number | null;
       trades_created: number;
     }>('/admin/auction/round-ou', {
       method: 'POST',

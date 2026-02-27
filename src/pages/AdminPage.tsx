@@ -334,7 +334,10 @@ export function AdminPage() {
         ...(effectiveAuctionType === 'outcome' && { outcome_id: auctionOutcomeId }),
         bids,
       });
-      showToast(`Auction done. Strike: ${res.strike}. ${res.trades_created} trade(s) created.`, 'success');
+      const droppedMsg = res.dropped_user_id
+        ? ` (${users.find((u) => u.id === res.dropped_user_id)?.username ?? `User ${res.dropped_user_id}`} dropped - middle bid)`
+        : '';
+      showToast(`Auction done. Strike: ${res.strike}. ${res.trades_created} trade(s) created.${droppedMsg}`, 'success');
       navigate(`/markets/${res.market_id}`);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to run auction', 'error');

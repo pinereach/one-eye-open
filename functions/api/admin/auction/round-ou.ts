@@ -285,9 +285,14 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       if (ga !== gb) return ga - gb;
       return Number(a.user_id) - Number(b.user_id);
     });
+    // For odd number of bids, drop the middle bidder (they get no trade)
     const half = Math.floor(N / 2);
     const shortUserIds = sortedBids.slice(0, half).map((b: any) => Number(b.user_id));
-    const longUserIds = sortedBids.slice(half).map((b: any) => Number(b.user_id));
+    // If odd, skip the middle element; if even, take from half onwards
+    const isOdd = N % 2 === 1;
+    const longStartIndex = isOdd ? half + 1 : half;
+    const longUserIds = sortedBids.slice(longStartIndex).map((b: any) => Number(b.user_id));
+    const droppedUserId = isOdd ? Number(sortedBids[half].user_id) : null;
 
     // Round O/U and Birdies: 50¢. Pars and any outcome (e.g. matchups): trade price = average of bids (%).
     const avgBid = bids.reduce((s: number, b: any) => s + Number(b.guess), 0) / N;
@@ -339,6 +344,7 @@ export const onRequestPost: OnRequest<Env> = async (context) => {
       strike: strikeStr,
       short_user_ids: shortUserIds,
       long_user_ids: longUserIds,
+      dropped_user_id: droppedUserId,
       trades_created: tradesCreated,
     }, 201);
   } catch (err) {
