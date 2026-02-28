@@ -22,6 +22,7 @@ const PositionsPage = lazy(() => import('./pages/PositionsPage').then(m => ({ de
 const MarketSuggestionsPage = lazy(() => import('./pages/MarketSuggestionsPage').then(m => ({ default: m.MarketSuggestionsPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
+const AdminTradesReportPage = lazy(() => import('./pages/AdminTradesReportPage').then(m => ({ default: m.AdminTradesReportPage })));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage').then(m => ({ default: m.LeaderboardPage })));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
@@ -198,6 +199,7 @@ export default function App() {
                 <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
                 <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
                 <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+                <Route path="/admin/trades-report" element={<ProtectedRoute><AdminTradesReportPage /></ProtectedRoute>} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>

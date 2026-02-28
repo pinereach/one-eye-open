@@ -391,7 +391,15 @@ export function AdminPage() {
           <span className="hidden sm:inline">Back</span>
         </button>
       </div>
-      <h1 className="text-xl sm:text-2xl font-bold">Admin</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl sm:text-2xl font-bold">Admin</h1>
+        <button
+          onClick={() => navigate('/admin/trades-report')}
+          className="px-3 sm:px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition"
+        >
+          Trades Report
+        </button>
+      </div>
 
       <Card>
         <CardContent>

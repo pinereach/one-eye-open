@@ -303,6 +303,23 @@ export const api = {
       }),
     }),
 
+  adminGetTradesReport: () =>
+    apiRequest<{
+      trades: Array<{
+        trade_id: number;
+        time: number;
+        user_id: number;
+        username: string;
+        side: 'Buy' | 'Sell';
+        market: string;
+        outcome: string;
+        price: number;
+        contracts: number;
+        settled_price: number | null;
+        settled_pnl: number | null;
+      }>;
+    }>('/admin/trades/report'),
+
   adminRunRoundOuAuction: (data: {
     auction_type?: 'round_ou' | 'pars' | 'birdies' | 'outcome';
     round?: number;
